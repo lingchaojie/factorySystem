@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { validateProductionRecordInput } from "@/domain/factory";
+import { lockOrderForUpdate } from "@/server/services/order-locks";
 
 export type CreateProductionRecordInput = {
   machineId: string;
@@ -15,31 +16,39 @@ export async function createProductionRecord(
 ) {
   validateProductionRecordInput(input);
 
-  const machine = await prisma.machine.findFirstOrThrow({
-    where: { id: input.machineId, workspaceId },
-    include: { currentOrder: true },
-  });
-  if (!machine.currentOrderId) {
-    throw new Error("机器未关联订单，不能录入记录");
-  }
-  if (machine.currentOrder?.status !== "open") {
-    throw new Error("订单已结单，不能录入记录");
-  }
+  return prisma.$transaction(async (tx) => {
+    const machine = await tx.machine.findFirstOrThrow({
+      where: { id: input.machineId, workspaceId },
+      select: { id: true, currentOrderId: true },
+    });
+    if (!machine.currentOrderId) {
+      throw new Error("机器未关联订单，不能录入记录");
+    }
 
-  return prisma.productionRecord.create({
-    data: {
-      workspace: { connect: { id: workspaceId } },
-      machine: {
-        connect: { workspaceId_id: { workspaceId, id: machine.id } },
+    const order = await lockOrderForUpdate(
+      tx,
+      workspaceId,
+      machine.currentOrderId,
+    );
+    if (order?.status !== "open") {
+      throw new Error("订单已结单，不能录入记录");
+    }
+
+    return tx.productionRecord.create({
+      data: {
+        workspace: { connect: { id: workspaceId } },
+        machine: {
+          connect: { workspaceId_id: { workspaceId, id: machine.id } },
+        },
+        order: {
+          connect: { workspaceId_id: { workspaceId, id: machine.currentOrderId } },
+        },
+        recordedAt: input.recordedAt,
+        completedQuantity: input.completedQuantity,
+        shippedQuantity: input.shippedQuantity,
+        notes: input.notes.trim() || null,
       },
-      order: {
-        connect: { workspaceId_id: { workspaceId, id: machine.currentOrderId } },
-      },
-      recordedAt: input.recordedAt,
-      completedQuantity: input.completedQuantity,
-      shippedQuantity: input.shippedQuantity,
-      notes: input.notes.trim() || null,
-    },
+    });
   });
 }
 
@@ -47,13 +56,17 @@ export async function deleteProductionRecord(
   workspaceId: string,
   recordId: string,
 ) {
-  const record = await prisma.productionRecord.findFirstOrThrow({
-    where: { id: recordId, workspaceId },
-    select: { id: true },
-  });
+  return prisma.$transaction(async (tx) => {
+    const record = await tx.productionRecord.findFirstOrThrow({
+      where: { id: recordId, workspaceId },
+      select: { id: true, orderId: true },
+    });
 
-  return prisma.productionRecord.delete({
-    where: { id: record.id },
+    await lockOrderForUpdate(tx, workspaceId, record.orderId);
+
+    return tx.productionRecord.delete({
+      where: { id: record.id },
+    });
   });
 }
 

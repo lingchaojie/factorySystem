@@ -113,6 +113,10 @@ describe("factory services", () => {
     const closedOrder = await closeOrder(workspace.id, completeOrder.id);
     expect(closedOrder.status).toBe("closed");
     expect(closedOrder.closedAt).not.toBeNull();
+
+    await expect(closeOrder(workspace.id, completeOrder.id)).rejects.toThrow(
+      "订单已结单",
+    );
   });
 
   it("rejects records for a machine linked to a closed order", async () => {
