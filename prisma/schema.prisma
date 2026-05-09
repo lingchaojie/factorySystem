@@ -73,10 +73,11 @@ model Machine {
   updatedAt      DateTime      @updatedAt
 
   workspace         Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  currentOrder      Order?             @relation("CurrentMachineOrder", fields: [currentOrderId], references: [id], onDelete: SetNull)
+  currentOrder      Order?             @relation("CurrentMachineOrder", fields: [workspaceId, currentOrderId], references: [workspaceId, id], onDelete: NoAction)
   productionRecords ProductionRecord[]
 
   @@unique([workspaceId, code])
+  @@unique([workspaceId, id])
   @@index([workspaceId])
   @@index([workspaceId, status])
   @@index([currentOrderId])
@@ -100,6 +101,7 @@ model Order {
   currentMachines   Machine[]          @relation("CurrentMachineOrder")
   productionRecords ProductionRecord[]
 
+  @@unique([workspaceId, id])
   @@index([workspaceId])
   @@index([workspaceId, status])
   @@index([workspaceId, customerName])
@@ -119,8 +121,8 @@ model ProductionRecord {
   updatedAt         DateTime @updatedAt
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  machine   Machine   @relation(fields: [machineId], references: [id], onDelete: Restrict)
-  order     Order     @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  machine   Machine   @relation(fields: [workspaceId, machineId], references: [workspaceId, id], onDelete: Restrict)
+  order     Order     @relation(fields: [workspaceId, orderId], references: [workspaceId, id], onDelete: Restrict)
 
   @@index([workspaceId, recordedAt])
   @@index([workspaceId, machineId])

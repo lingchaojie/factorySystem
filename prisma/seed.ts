@@ -19,14 +19,10 @@ async function main() {
   const passwordHash = await hashPassword(password);
 
   await prisma.user.upsert({
-    where: {
-      workspaceId_username: {
-        workspaceId: workspace.id,
-        username,
-      },
-    },
-    update: { passwordHash },
+    where: { id: "bootstrap-user" },
+    update: { username, passwordHash },
     create: {
+      id: "bootstrap-user",
       workspaceId: workspace.id,
       username,
       passwordHash,

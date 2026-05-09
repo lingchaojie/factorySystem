@@ -116,6 +116,9 @@ CREATE INDEX "Machine_currentOrderId_idx" ON "Machine"("currentOrderId");
 CREATE UNIQUE INDEX "Machine_workspaceId_code_key" ON "Machine"("workspaceId", "code");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "Machine_workspaceId_id_key" ON "Machine"("workspaceId", "id");
+
+-- CreateIndex
 CREATE INDEX "Order_workspaceId_idx" ON "Order"("workspaceId");
 
 -- CreateIndex
@@ -126,6 +129,9 @@ CREATE INDEX "Order_workspaceId_customerName_idx" ON "Order"("workspaceId", "cus
 
 -- CreateIndex
 CREATE INDEX "Order_workspaceId_dueDate_idx" ON "Order"("workspaceId", "dueDate");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Order_workspaceId_id_key" ON "Order"("workspaceId", "id");
 
 -- CreateIndex
 CREATE INDEX "ProductionRecord_workspaceId_recordedAt_idx" ON "ProductionRecord"("workspaceId", "recordedAt");
@@ -146,7 +152,7 @@ ALTER TABLE "Session" ADD CONSTRAINT "Session_userId_fkey" FOREIGN KEY ("userId"
 ALTER TABLE "Machine" ADD CONSTRAINT "Machine_workspaceId_fkey" FOREIGN KEY ("workspaceId") REFERENCES "Workspace"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Machine" ADD CONSTRAINT "Machine_currentOrderId_fkey" FOREIGN KEY ("currentOrderId") REFERENCES "Order"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "Machine" ADD CONSTRAINT "Machine_workspaceId_currentOrderId_fkey" FOREIGN KEY ("workspaceId", "currentOrderId") REFERENCES "Order"("workspaceId", "id") ON DELETE NO ACTION ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Order" ADD CONSTRAINT "Order_workspaceId_fkey" FOREIGN KEY ("workspaceId") REFERENCES "Workspace"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -155,7 +161,7 @@ ALTER TABLE "Order" ADD CONSTRAINT "Order_workspaceId_fkey" FOREIGN KEY ("worksp
 ALTER TABLE "ProductionRecord" ADD CONSTRAINT "ProductionRecord_workspaceId_fkey" FOREIGN KEY ("workspaceId") REFERENCES "Workspace"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "ProductionRecord" ADD CONSTRAINT "ProductionRecord_machineId_fkey" FOREIGN KEY ("machineId") REFERENCES "Machine"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "ProductionRecord" ADD CONSTRAINT "ProductionRecord_workspaceId_machineId_fkey" FOREIGN KEY ("workspaceId", "machineId") REFERENCES "Machine"("workspaceId", "id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "ProductionRecord" ADD CONSTRAINT "ProductionRecord_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "Order"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "ProductionRecord" ADD CONSTRAINT "ProductionRecord_workspaceId_orderId_fkey" FOREIGN KEY ("workspaceId", "orderId") REFERENCES "Order"("workspaceId", "id") ON DELETE RESTRICT ON UPDATE CASCADE;
