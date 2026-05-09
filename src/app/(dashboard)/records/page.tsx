@@ -1,5 +1,6 @@
 import { OrderStatus } from "@prisma/client";
 import Link from "next/link";
+import React from "react";
 import {
   deleteRecordAction,
   updateRecordAction,
@@ -14,7 +15,6 @@ import {
 } from "@/components/forms";
 import { orderStatusLabels, StatusBadge } from "@/components/status-badge";
 import {
-  businessDateRange,
   formatBusinessDateTime,
   formatDateTimeLocalValue,
 } from "@/lib/business-time";
@@ -23,26 +23,13 @@ import { listMachines } from "@/server/services/machines";
 import { listOrders } from "@/server/services/orders";
 import { listProductionRecords } from "@/server/services/records";
 import { DeleteRecordButton } from "./delete-record-button";
+import { parseRecordFilters, type RecordSearchParams } from "./filters";
 
 const statusOptions: Array<{ value: OrderStatus | ""; label: string }> = [
   { value: "", label: "全部状态" },
   { value: "open", label: orderStatusLabels.open },
   { value: "closed", label: orderStatusLabels.closed },
 ];
-
-function parseOrderStatus(value: string | undefined): OrderStatus | undefined {
-  if (!value) return undefined;
-  return value in orderStatusLabels ? (value as OrderStatus) : undefined;
-}
-
-function parseDateRange(value: string | undefined, label: string) {
-  if (!value) return undefined;
-  const range = businessDateRange(value);
-  if (Number.isNaN(range.start.getTime())) {
-    throw new Error(`${label}无效`);
-  }
-  return range;
-}
 
 function formatOrder(order: { orderNo: string | null; partName: string }) {
   return order.orderNo ? `${order.orderNo} / ${order.partName}` : order.partName;
@@ -51,32 +38,20 @@ function formatOrder(order: { orderNo: string | null; partName: string }) {
 export default async function RecordsPage({
   searchParams,
 }: {
-  searchParams: Promise<{
-    from?: string;
-    to?: string;
-    machineId?: string;
-    orderId?: string;
-    customerName?: string;
-    status?: string;
-  }>;
+  searchParams: Promise<RecordSearchParams>;
 }) {
   const workspaceId = await requireWorkspaceId();
   const params = await searchParams;
-  const fromRange = parseDateRange(params.from, "开始日期");
-  const toRange = parseDateRange(params.to, "结束日期");
-  const machineId = params.machineId?.trim() || undefined;
-  const orderId = params.orderId?.trim() || undefined;
-  const customerName = params.customerName?.trim() ?? "";
-  const orderStatus = parseOrderStatus(params.status);
+  const filters = parseRecordFilters(params);
 
   const [records, machines, orders] = await Promise.all([
     listProductionRecords(workspaceId, {
-      machineId,
-      orderId,
-      customerName,
-      orderStatus,
-      from: fromRange?.start,
-      to: toRange?.end,
+      machineId: filters.machineId,
+      orderId: filters.orderId,
+      customerName: filters.customerName,
+      orderStatus: filters.orderStatus,
+      from: filters.from,
+      to: filters.to,
     }),
     listMachines(workspaceId, {}),
     listOrders(workspaceId, {}),
@@ -119,31 +94,35 @@ export default async function RecordsPage({
           <DateInput
             label="日期从"
             name="from"
-            defaultValue={params.from ?? ""}
+            defaultValue={filters.values.from ?? ""}
           />
-          <DateInput label="日期至" name="to" defaultValue={params.to ?? ""} />
+          <DateInput
+            label="日期至"
+            name="to"
+            defaultValue={filters.values.to ?? ""}
+          />
           <SelectInput
             label="机器"
             name="machineId"
-            defaultValue={machineId ?? ""}
+            defaultValue={filters.machineId ?? ""}
             options={machineOptions}
           />
           <SelectInput
             label="订单"
             name="orderId"
-            defaultValue={orderId ?? ""}
+            defaultValue={filters.orderId ?? ""}
             options={orderOptions}
           />
           <TextInput
             label="客户"
             name="customerName"
             placeholder="客户名称"
-            defaultValue={customerName}
+            defaultValue={filters.customerName}
           />
           <SelectInput
             label="订单状态"
             name="status"
-            defaultValue={orderStatus ?? ""}
+            defaultValue={filters.orderStatus ?? ""}
             options={statusOptions}
           />
           <div className="flex items-end">
@@ -235,6 +214,7 @@ export default async function RecordsPage({
                     >
                       <input type="hidden" name="recordId" value={record.id} />
                       <TextInput
+                        id={`${record.id}-recordedAt`}
                         label="记录时间"
                         name="recordedAt"
                         type="datetime-local"
@@ -242,6 +222,7 @@ export default async function RecordsPage({
                         disabled={isClosed}
                       />
                       <NumberInput
+                        id={`${record.id}-completedQuantity`}
                         label="加工数量"
                         name="completedQuantity"
                         min={0}
@@ -250,6 +231,7 @@ export default async function RecordsPage({
                         disabled={isClosed}
                       />
                       <NumberInput
+                        id={`${record.id}-shippedQuantity`}
                         label="出货数量"
                         name="shippedQuantity"
                         min={0}
@@ -258,6 +240,7 @@ export default async function RecordsPage({
                         disabled={isClosed}
                       />
                       <Textarea
+                        id={`${record.id}-notes`}
                         label="备注"
                         name="notes"
                         defaultValue={record.notes ?? ""}
