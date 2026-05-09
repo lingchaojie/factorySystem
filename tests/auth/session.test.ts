@@ -44,7 +44,6 @@ describe("session helpers", () => {
       id: "user-1",
       workspaceId: "workspace-1",
       username: "operator",
-      passwordHash: "hash",
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -60,11 +59,25 @@ describe("session helpers", () => {
 
     const { readSessionUser, sessionCookieName } = await import("@/lib/session");
 
-    await expect(readSessionUser()).resolves.toEqual(user);
+    const result = await readSessionUser();
+
+    expect(result).toEqual(user);
+    expect(result).not.toHaveProperty("passwordHash");
     expect(cookiesStore.get).toHaveBeenCalledWith(sessionCookieName);
     expect(prismaMock.session.findUnique).toHaveBeenCalledWith({
       where: { tokenHash: expect.any(String) },
-      include: { user: true },
+      select: {
+        user: {
+          select: expect.objectContaining({
+            id: true,
+            workspaceId: true,
+            username: true,
+            createdAt: true,
+            updatedAt: true,
+          }),
+        },
+        expiresAt: true,
+      },
     });
   });
 });

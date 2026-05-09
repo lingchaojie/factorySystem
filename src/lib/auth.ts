@@ -1,7 +1,10 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { bootstrapWorkspaceId } from "@/lib/bootstrap";
 import { prisma } from "@/lib/db";
 import {
+  type AuthenticatedUser,
+  authenticatedUserSelect,
   createSession,
   getSessionTtlDays,
   readSessionUser,
@@ -9,9 +12,21 @@ import {
 } from "@/lib/session";
 import { verifyPassword } from "@/lib/password";
 
-export async function loginWithPassword(username: string, password: string) {
-  const user = await prisma.user.findFirst({
-    where: { username },
+export async function loginWithPassword(
+  username: string,
+  password: string,
+): Promise<AuthenticatedUser | null> {
+  const user = await prisma.user.findUnique({
+    where: {
+      workspaceId_username: {
+        workspaceId: bootstrapWorkspaceId,
+        username,
+      },
+    },
+    select: {
+      ...authenticatedUserSelect,
+      passwordHash: true,
+    },
   });
 
   if (!user) return null;
@@ -29,7 +44,13 @@ export async function loginWithPassword(username: string, password: string) {
     maxAge: 60 * 60 * 24 * getSessionTtlDays(),
   });
 
-  return user;
+  return {
+    id: user.id,
+    workspaceId: user.workspaceId,
+    username: user.username,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+  };
 }
 
 export async function requireUser() {

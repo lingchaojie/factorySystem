@@ -1,9 +1,23 @@
 import crypto from "node:crypto";
+import type { Prisma, User } from "@prisma/client";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/db";
 
 export const sessionCookieName =
   process.env.SESSION_COOKIE_NAME ?? "factory_session";
+
+export type AuthenticatedUser = Pick<
+  User,
+  "id" | "workspaceId" | "username" | "createdAt" | "updatedAt"
+>;
+
+export const authenticatedUserSelect = {
+  id: true,
+  workspaceId: true,
+  username: true,
+  createdAt: true,
+  updatedAt: true,
+} satisfies Prisma.UserSelect;
 
 function sha256(value: string): string {
   return crypto.createHash("sha256").update(value).digest("hex");
@@ -31,14 +45,19 @@ export async function createSession(userId: string): Promise<string> {
   return token;
 }
 
-export async function readSessionUser() {
+export async function readSessionUser(): Promise<AuthenticatedUser | null> {
   const cookieStore = await cookies();
   const token = cookieStore.get(sessionCookieName)?.value;
   if (!token) return null;
 
   const session = await prisma.session.findUnique({
     where: { tokenHash: sha256(token) },
-    include: { user: true },
+    select: {
+      expiresAt: true,
+      user: {
+        select: authenticatedUserSelect,
+      },
+    },
   });
 
   if (!session || session.expiresAt <= new Date()) return null;

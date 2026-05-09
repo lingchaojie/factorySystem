@@ -1,4 +1,5 @@
 import { prisma } from "../src/lib/db";
+import { bootstrapWorkspaceId } from "../src/lib/bootstrap";
 import { hashPassword } from "../src/lib/password";
 
 async function main() {
@@ -11,9 +12,9 @@ async function main() {
   }
 
   const workspace = await prisma.workspace.upsert({
-    where: { id: "bootstrap-workspace" },
+    where: { id: bootstrapWorkspaceId },
     update: { name: workspaceName },
-    create: { id: "bootstrap-workspace", name: workspaceName },
+    create: { id: bootstrapWorkspaceId, name: workspaceName },
   });
 
   const passwordHash = await hashPassword(password);
