@@ -44,6 +44,32 @@ describe("auth route handlers", () => {
     expect(response.headers.get("location")).toBe("http://factory.test/machines");
   });
 
+  it("does not use cross-origin form headers for login redirects", async () => {
+    authMock.loginWithPassword.mockResolvedValue({
+      id: "user-1",
+      workspaceId: "workspace-1",
+      username: "operator",
+      passwordHash: "hash",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    const { POST } = await import("@/app/api/auth/login/route");
+    const form = new FormData();
+    form.set("username", "operator");
+    form.set("password", "correct-password");
+
+    const response = await POST(
+      new Request("http://factory.test/api/auth/login", {
+        method: "POST",
+        headers: { origin: "https://evil.test" },
+        body: form,
+      }),
+    );
+
+    expect(response.status).toBe(303);
+    expect(response.headers.get("location")).toBe("http://factory.test/machines");
+  });
+
   it("uses a GET redirect after logout form POST", async () => {
     const { POST } = await import("@/app/api/auth/logout/route");
 

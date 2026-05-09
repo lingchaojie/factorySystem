@@ -172,7 +172,7 @@ export default async function MachineDetailPage({
           </section>
         </div>
 
-        <aside className="grid content-start gap-6">
+        <aside className="grid content-start gap-6 pb-24 md:pb-0">
           <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
             <h2 className="text-base font-semibold text-slate-950">关联订单</h2>
             {openOrders.length === 0 ? (

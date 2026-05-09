@@ -31,15 +31,17 @@ export function TextInput({ label, id, name, className, ...props }: TextInputPro
   const resolvedId = fieldId(name, id);
 
   return (
-    <label className={labelClassName} htmlFor={resolvedId}>
-      {label}
+    <div>
+      <label className={labelClassName} htmlFor={resolvedId}>
+        {label}
+      </label>
       <input
         id={resolvedId}
         name={name}
         className={[controlClassName, className].filter(Boolean).join(" ")}
         {...props}
       />
-    </label>
+    </div>
   );
 }
 
@@ -61,8 +63,10 @@ export function Textarea({
   const resolvedId = fieldId(name, id);
 
   return (
-    <label className={labelClassName} htmlFor={resolvedId}>
-      {label}
+    <div>
+      <label className={labelClassName} htmlFor={resolvedId}>
+        {label}
+      </label>
       <textarea
         id={resolvedId}
         name={name}
@@ -71,7 +75,7 @@ export function Textarea({
           .join(" ")}
         {...props}
       />
-    </label>
+    </div>
   );
 }
 
@@ -86,8 +90,10 @@ export function SelectInput({
   const resolvedId = fieldId(name, id);
 
   return (
-    <label className={labelClassName} htmlFor={resolvedId}>
-      {label}
+    <div>
+      <label className={labelClassName} htmlFor={resolvedId}>
+        {label}
+      </label>
       <select
         id={resolvedId}
         name={name}
@@ -100,7 +106,7 @@ export function SelectInput({
           </option>
         ))}
       </select>
-    </label>
+    </div>
   );
 }
 
