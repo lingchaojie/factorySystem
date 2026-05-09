@@ -16,17 +16,13 @@ import {
 } from "@/lib/business-time";
 import { requireWorkspaceId } from "@/lib/workspace";
 import { listOrders } from "@/server/services/orders";
+import { parseOrderStatusFilter } from "./filters";
 
 const statusOptions: Array<{ value: OrderStatus | ""; label: string }> = [
   { value: "", label: "全部状态" },
   { value: "open", label: orderStatusLabels.open },
   { value: "closed", label: orderStatusLabels.closed },
 ];
-
-function parseStatus(value: string | undefined): OrderStatus | undefined {
-  if (!value) return undefined;
-  return value in orderStatusLabels ? (value as OrderStatus) : undefined;
-}
 
 function parseDateRange(value: string | undefined, label: string) {
   if (!value) return undefined;
@@ -56,7 +52,7 @@ export default async function OrdersPage({
   const params = await searchParams;
   const customerName = params.customerName?.trim() ?? "";
   const query = params.query?.trim() ?? "";
-  const status = parseStatus(params.status);
+  const status = parseOrderStatusFilter(params.status);
   const dueDateFrom = parseDateRange(params.dueDateFrom, "开始交期");
   const dueDateTo = parseDateRange(params.dueDateTo, "结束交期");
   const orders = await listOrders(workspaceId, {

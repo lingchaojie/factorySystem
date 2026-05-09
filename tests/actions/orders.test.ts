@@ -33,6 +33,7 @@ describe("order actions", () => {
 
   it("creates an order with a Shanghai business due date", async () => {
     const { createOrderAction } = await import("@/app/actions/orders");
+    ordersMock.createOrder.mockResolvedValue({ id: "order-new" });
     const form = new FormData();
     form.set("customerName", " 甲方工厂 ");
     form.set("orderNo", " MO-100 ");
@@ -52,6 +53,7 @@ describe("order actions", () => {
       notes: " 加急 ",
     });
     expect(cacheMock.revalidatePath).toHaveBeenCalledWith("/orders");
+    expect(cacheMock.revalidatePath).toHaveBeenCalledWith("/orders/order-new");
     expect(navigationMock.redirect).toHaveBeenCalledWith("/orders");
   });
 

@@ -34,7 +34,7 @@ function getOrderId(formData: FormData): string {
 export async function createOrderAction(formData: FormData) {
   const workspaceId = await requireWorkspaceId();
 
-  await createOrder(workspaceId, {
+  const created = await createOrder(workspaceId, {
     customerName: getString(formData, "customerName"),
     orderNo: getString(formData, "orderNo"),
     partName: getString(formData, "partName"),
@@ -47,6 +47,7 @@ export async function createOrderAction(formData: FormData) {
   });
 
   revalidatePath("/orders");
+  revalidatePath(`/orders/${created.id}`);
   redirect("/orders");
 }
 
