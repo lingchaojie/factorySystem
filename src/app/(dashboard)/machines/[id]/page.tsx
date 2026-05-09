@@ -1,4 +1,5 @@
 import Link from "next/link";
+import React from "react";
 import {
   createMachineRecordAction,
   linkMachineAction,
@@ -15,25 +16,16 @@ import {
   orderStatusLabels,
   StatusBadge,
 } from "@/components/status-badge";
+import {
+  formatBusinessDateTime,
+  formatDateTimeLocalValue,
+} from "@/lib/business-time";
 import { requireWorkspaceId } from "@/lib/workspace";
 import { getMachine } from "@/server/services/machines";
 import { listOrders } from "@/server/services/orders";
 
 function formatOrder(order: { orderNo: string | null; partName: string }) {
   return order.orderNo ? `${order.orderNo} / ${order.partName}` : order.partName;
-}
-
-function formatDateTime(date: Date) {
-  return new Intl.DateTimeFormat("zh-CN", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date);
-}
-
-function defaultDateTimeLocalValue() {
-  const now = new Date();
-  const offsetMs = now.getTimezoneOffset() * 60_000;
-  return new Date(now.getTime() - offsetMs).toISOString().slice(0, 16);
 }
 
 export default async function MachineDetailPage({
@@ -48,6 +40,7 @@ export default async function MachineDetailPage({
     listOrders(workspaceId, { status: "open" }),
   ]);
   const hasCurrentOrder = Boolean(machine.currentOrderId);
+  const hasOpenCurrentOrder = machine.currentOrder?.status === "open";
   const orderOptions = openOrders.map((order) => ({
     value: order.id,
     label: formatOrder(order),
@@ -156,7 +149,7 @@ export default async function MachineDetailPage({
                     {machine.productionRecords.map((record) => (
                       <tr key={record.id}>
                         <td className="whitespace-nowrap px-4 py-4 text-slate-950">
-                          {formatDateTime(record.recordedAt)}
+                          {formatBusinessDateTime(record.recordedAt)}
                         </td>
                         <td className="px-4 py-4 text-slate-950">
                           {formatOrder(record.order)}
@@ -208,14 +201,19 @@ export default async function MachineDetailPage({
                 这台机器未关联订单，不能录入生产记录。
               </p>
             ) : null}
+            {hasCurrentOrder && !hasOpenCurrentOrder ? (
+              <p className="mt-3 text-sm text-slate-500">
+                当前订单已关闭，请关联进行中的订单或重开订单后再录入。
+              </p>
+            ) : null}
             <form action={createMachineRecordAction} className="mt-4 grid gap-4">
               <input type="hidden" name="machineId" value={machine.id} />
               <TextInput
                 label="记录时间"
                 name="recordedAt"
                 type="datetime-local"
-                defaultValue={defaultDateTimeLocalValue()}
-                disabled={!hasCurrentOrder}
+                defaultValue={formatDateTimeLocalValue()}
+                disabled={!hasOpenCurrentOrder}
               />
               <NumberInput
                 label="加工数量"
@@ -223,7 +221,7 @@ export default async function MachineDetailPage({
                 min={0}
                 step={1}
                 defaultValue={0}
-                disabled={!hasCurrentOrder}
+                disabled={!hasOpenCurrentOrder}
               />
               <NumberInput
                 label="出货数量"
@@ -231,14 +229,14 @@ export default async function MachineDetailPage({
                 min={0}
                 step={1}
                 defaultValue={0}
-                disabled={!hasCurrentOrder}
+                disabled={!hasOpenCurrentOrder}
               />
               <Textarea
                 label="备注"
                 name="notes"
-                disabled={!hasCurrentOrder}
+                disabled={!hasOpenCurrentOrder}
               />
-              <SubmitButton disabled={!hasCurrentOrder}>保存记录</SubmitButton>
+              <SubmitButton disabled={!hasOpenCurrentOrder}>保存记录</SubmitButton>
             </form>
           </section>
         </aside>

@@ -4,6 +4,7 @@ import { MachineStatus } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { parseNonNegativeQuantity } from "@/domain/factory";
+import { parseBusinessDateTimeLocal } from "@/lib/business-time";
 import { requireWorkspaceId } from "@/lib/workspace";
 import {
   createMachine,
@@ -33,7 +34,7 @@ function parseMachineStatus(value: FormDataEntryValue | null): MachineStatus {
 
 function parseRecordedAt(value: FormDataEntryValue | null): Date {
   if (!value) return new Date();
-  const recordedAt = new Date(String(value));
+  const recordedAt = parseBusinessDateTimeLocal(String(value));
   if (Number.isNaN(recordedAt.getTime())) {
     throw new Error("记录时间无效");
   }

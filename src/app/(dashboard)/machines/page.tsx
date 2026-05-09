@@ -14,6 +14,7 @@ import {
   orderStatusLabels,
   StatusBadge,
 } from "@/components/status-badge";
+import { businessTodayBounds } from "@/lib/business-time";
 import { requireWorkspaceId } from "@/lib/workspace";
 import { listMachines } from "@/server/services/machines";
 
@@ -30,13 +31,6 @@ function parseStatus(value: string | undefined): MachineStatus | undefined {
   return value in machineStatusLabels ? (value as MachineStatus) : undefined;
 }
 
-function getLocalDayBounds(date = new Date()) {
-  const start = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  const end = new Date(start);
-  end.setDate(start.getDate() + 1);
-  return { start, end };
-}
-
 function formatOrder(order: { orderNo: string | null; partName: string }) {
   return order.orderNo ? `${order.orderNo} / ${order.partName}` : order.partName;
 }
@@ -51,7 +45,7 @@ export default async function MachinesPage({
   const query = params.query?.trim() ?? "";
   const status = parseStatus(params.status);
   const machines = await listMachines(workspaceId, { query, status });
-  const { start, end } = getLocalDayBounds();
+  const { start, end } = businessTodayBounds();
 
   const machinesWithToday = machines.map((machine) => {
     const todayRecords = machine.productionRecords.filter(

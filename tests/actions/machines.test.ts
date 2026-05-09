@@ -29,6 +29,7 @@ vi.mock("next/navigation", () => navigationMock);
 describe("machine actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.unstubAllEnvs();
     workspaceMock.requireWorkspaceId.mockResolvedValue("workspace-1");
   });
 
@@ -67,6 +68,7 @@ describe("machine actions", () => {
   });
 
   it("creates a record and revalidates dependent machine, order, and record pages", async () => {
+    vi.stubEnv("TZ", "UTC");
     const { createMachineRecordAction } = await import("@/app/actions/machines");
     const form = new FormData();
     form.set("machineId", "machine-1");
@@ -81,7 +83,7 @@ describe("machine actions", () => {
       "workspace-1",
       {
         machineId: "machine-1",
-        recordedAt: new Date("2026-05-10T08:30"),
+        recordedAt: new Date("2026-05-10T00:30:00.000Z"),
         completedQuantity: 12,
         shippedQuantity: 4,
         notes: "白班",
