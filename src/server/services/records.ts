@@ -17,9 +17,13 @@ export async function createProductionRecord(
 
   const machine = await prisma.machine.findFirstOrThrow({
     where: { id: input.machineId, workspaceId },
+    include: { currentOrder: true },
   });
   if (!machine.currentOrderId) {
     throw new Error("机器未关联订单，不能录入记录");
+  }
+  if (machine.currentOrder?.status !== "open") {
+    throw new Error("订单已结单，不能录入记录");
   }
 
   return prisma.productionRecord.create({

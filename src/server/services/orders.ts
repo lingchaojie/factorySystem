@@ -87,8 +87,19 @@ export async function listOrders(
 export async function closeOrder(workspaceId: string, orderId: string) {
   const order = await prisma.order.findFirstOrThrow({
     where: { id: orderId, workspaceId },
-    select: { id: true },
+    include: { productionRecords: true },
   });
+  const summary = summarizeOrder({
+    plannedQuantity: order.plannedQuantity,
+    closedAt: order.closedAt,
+    records: order.productionRecords.map((record) => ({
+      completedQuantity: record.completedQuantity,
+      shippedQuantity: record.shippedQuantity,
+    })),
+  });
+  if (!summary.canClose) {
+    throw new Error("订单出货数量未达到计划数量，不能结单");
+  }
 
   return prisma.order.update({
     where: { id: order.id },

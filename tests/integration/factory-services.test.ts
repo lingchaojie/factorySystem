@@ -1,20 +1,34 @@
 import { randomUUID } from "node:crypto";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db";
 import { createMachine, linkMachineToOrder } from "@/server/services/machines";
-import { createOrder, getOrderWithSummary } from "@/server/services/orders";
+import {
+  closeOrder,
+  createOrder,
+  getOrderWithSummary,
+} from "@/server/services/orders";
 import {
   createProductionRecord,
   deleteProductionRecord,
 } from "@/server/services/records";
 
 async function createWorkspace() {
-  return prisma.workspace.create({
+  const workspace = await prisma.workspace.create({
     data: { name: `Test Workspace ${randomUUID()}` },
   });
+  workspaceIds.push(workspace.id);
+  return workspace;
 }
 
+const workspaceIds: string[] = [];
+
 describe("factory services", () => {
+  afterEach(async () => {
+    await prisma.workspace.deleteMany({
+      where: { id: { in: workspaceIds.splice(0) } },
+    });
+  });
+
   it("creates records from a machine and recomputes order summary after deletion", async () => {
     const workspace = await createWorkspace();
     const machine = await createMachine(workspace.id, {
@@ -53,5 +67,91 @@ describe("factory services", () => {
     summary = await getOrderWithSummary(workspace.id, order.id);
     expect(summary.completedQuantity).toBe(0);
     expect(summary.shippedQuantity).toBe(0);
+  });
+
+  it("rejects closing incomplete orders and allows closing fully shipped orders", async () => {
+    const workspace = await createWorkspace();
+    const incompleteOrder = await createOrder(workspace.id, {
+      customerName: "甲方工厂",
+      orderNo: "A-002",
+      partName: "轴套",
+      plannedQuantity: 100,
+      dueDate: null,
+      notes: "",
+    });
+
+    await expect(closeOrder(workspace.id, incompleteOrder.id)).rejects.toThrow(
+      "订单出货数量未达到计划数量，不能结单",
+    );
+
+    const machine = await createMachine(workspace.id, {
+      code: "2",
+      name: "2号机",
+      model: "VMC",
+      location: "A区",
+      status: "active",
+      notes: "",
+    });
+    const completeOrder = await createOrder(workspace.id, {
+      customerName: "乙方工厂",
+      orderNo: "A-003",
+      partName: "齿轮",
+      plannedQuantity: 100,
+      dueDate: null,
+      notes: "",
+    });
+
+    await linkMachineToOrder(workspace.id, machine.id, completeOrder.id);
+    await createProductionRecord(workspace.id, {
+      machineId: machine.id,
+      recordedAt: new Date("2026-05-10T09:00:00.000Z"),
+      completedQuantity: 100,
+      shippedQuantity: 100,
+      notes: "完工",
+    });
+
+    const closedOrder = await closeOrder(workspace.id, completeOrder.id);
+    expect(closedOrder.status).toBe("closed");
+    expect(closedOrder.closedAt).not.toBeNull();
+  });
+
+  it("rejects records for a machine linked to a closed order", async () => {
+    const workspace = await createWorkspace();
+    const machine = await createMachine(workspace.id, {
+      code: "3",
+      name: "3号机",
+      model: "VMC",
+      location: "B区",
+      status: "active",
+      notes: "",
+    });
+    const order = await createOrder(workspace.id, {
+      customerName: "丙方工厂",
+      orderNo: "A-004",
+      partName: "端盖",
+      plannedQuantity: 100,
+      dueDate: null,
+      notes: "",
+    });
+
+    await linkMachineToOrder(workspace.id, machine.id, order.id);
+    await createProductionRecord(workspace.id, {
+      machineId: machine.id,
+      recordedAt: new Date("2026-05-10T10:00:00.000Z"),
+      completedQuantity: 100,
+      shippedQuantity: 100,
+      notes: "完工",
+    });
+    await closeOrder(workspace.id, order.id);
+
+    await expect(
+      createProductionRecord(workspace.id, {
+        machineId: machine.id,
+        recordedAt: new Date("2026-05-10T11:00:00.000Z"),
+        completedQuantity: 1,
+        shippedQuantity: 0,
+        notes: "返工",
+      }),
+    ).rejects.toThrow("订单已结单，不能录入记录");
   });
 });
