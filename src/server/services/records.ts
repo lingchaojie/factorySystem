@@ -17,6 +17,9 @@ export async function createProductionRecord(
   workspaceId: string,
   input: CreateProductionRecordInput,
 ) {
+  if (Number.isNaN(input.recordedAt.getTime())) {
+    throw new Error("记录时间无效");
+  }
   validateProductionRecordInput(input);
 
   return prisma.$transaction(async (tx) => {

@@ -1,4 +1,4 @@
-import { MachineStatus } from "@prisma/client";
+import { MachineStatus, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import {
   lockMachineForUpdate,
@@ -21,17 +21,27 @@ export async function createMachine(
   if (!input.code.trim()) throw new Error("机器编号必填");
   if (!input.name.trim()) throw new Error("机器名称必填");
 
-  return prisma.machine.create({
-    data: {
-      workspaceId,
-      code: input.code.trim(),
-      name: input.name.trim(),
-      model: input.model.trim() || null,
-      location: input.location.trim() || null,
-      status: input.status,
-      notes: input.notes.trim() || null,
-    },
-  });
+  try {
+    return await prisma.machine.create({
+      data: {
+        workspaceId,
+        code: input.code.trim(),
+        name: input.name.trim(),
+        model: input.model.trim() || null,
+        location: input.location.trim() || null,
+        status: input.status,
+        notes: input.notes.trim() || null,
+      },
+    });
+  } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      throw new Error("机器编号已存在");
+    }
+    throw error;
+  }
 }
 
 export async function linkMachineToOrder(
@@ -69,7 +79,7 @@ export async function listMachines(
   filters: {
     status?: MachineStatus;
     query?: string;
-  },
+  } = {},
 ) {
   return prisma.machine.findMany({
     where: {
