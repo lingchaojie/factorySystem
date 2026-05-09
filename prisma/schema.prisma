@@ -1,0 +1,128 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum MachineStatus {
+  active
+  idle
+  maintenance
+  disabled
+}
+
+enum OrderStatus {
+  open
+  closed
+}
+
+model Workspace {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users             User[]
+  machines          Machine[]
+  orders            Order[]
+  productionRecords ProductionRecord[]
+}
+
+model User {
+  id           String   @id @default(cuid())
+  workspaceId  String
+  username     String
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  sessions  Session[]
+
+  @@unique([workspaceId, username])
+  @@index([workspaceId])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Machine {
+  id             String        @id @default(cuid())
+  workspaceId    String
+  code           String
+  name           String
+  model          String?
+  location       String?
+  status         MachineStatus @default(active)
+  notes          String?
+  currentOrderId String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  workspace         Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  currentOrder      Order?             @relation("CurrentMachineOrder", fields: [currentOrderId], references: [id], onDelete: SetNull)
+  productionRecords ProductionRecord[]
+
+  @@unique([workspaceId, code])
+  @@index([workspaceId])
+  @@index([workspaceId, status])
+  @@index([currentOrderId])
+}
+
+model Order {
+  id              String      @id @default(cuid())
+  workspaceId     String
+  customerName    String
+  orderNo         String?
+  partName        String
+  plannedQuantity Int
+  dueDate         DateTime?
+  status          OrderStatus @default(open)
+  notes           String?
+  closedAt        DateTime?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  workspace         Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  currentMachines   Machine[]          @relation("CurrentMachineOrder")
+  productionRecords ProductionRecord[]
+
+  @@index([workspaceId])
+  @@index([workspaceId, status])
+  @@index([workspaceId, customerName])
+  @@index([workspaceId, dueDate])
+}
+
+model ProductionRecord {
+  id                String   @id @default(cuid())
+  workspaceId       String
+  machineId         String
+  orderId           String
+  recordedAt        DateTime
+  completedQuantity Int      @default(0)
+  shippedQuantity   Int      @default(0)
+  notes             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  machine   Machine   @relation(fields: [machineId], references: [id], onDelete: Restrict)
+  order     Order     @relation(fields: [orderId], references: [id], onDelete: Restrict)
+
+  @@index([workspaceId, recordedAt])
+  @@index([workspaceId, machineId])
+  @@index([workspaceId, orderId])
+}
