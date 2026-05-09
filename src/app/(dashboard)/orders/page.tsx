@@ -1,0 +1,238 @@
+import { OrderStatus } from "@prisma/client";
+import Link from "next/link";
+import { createOrderAction } from "@/app/actions/orders";
+import {
+  DateInput,
+  NumberInput,
+  SelectInput,
+  SubmitButton,
+  Textarea,
+  TextInput,
+} from "@/components/forms";
+import { orderStatusLabels, StatusBadge } from "@/components/status-badge";
+import {
+  businessDateRange,
+  formatBusinessDate,
+} from "@/lib/business-time";
+import { requireWorkspaceId } from "@/lib/workspace";
+import { listOrders } from "@/server/services/orders";
+
+const statusOptions: Array<{ value: OrderStatus | ""; label: string }> = [
+  { value: "", label: "全部状态" },
+  { value: "open", label: orderStatusLabels.open },
+  { value: "closed", label: orderStatusLabels.closed },
+];
+
+function parseStatus(value: string | undefined): OrderStatus | undefined {
+  if (!value) return undefined;
+  return value in orderStatusLabels ? (value as OrderStatus) : undefined;
+}
+
+function parseDateRange(value: string | undefined, label: string) {
+  if (!value) return undefined;
+  const range = businessDateRange(value);
+  if (Number.isNaN(range.start.getTime())) {
+    throw new Error(`${label}无效`);
+  }
+  return range;
+}
+
+function formatOrderTitle(order: { orderNo: string | null; partName: string }) {
+  return order.orderNo ? `${order.orderNo} / ${order.partName}` : order.partName;
+}
+
+export default async function OrdersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{
+    customerName?: string;
+    query?: string;
+    status?: string;
+    dueDateFrom?: string;
+    dueDateTo?: string;
+  }>;
+}) {
+  const workspaceId = await requireWorkspaceId();
+  const params = await searchParams;
+  const customerName = params.customerName?.trim() ?? "";
+  const query = params.query?.trim() ?? "";
+  const status = parseStatus(params.status);
+  const dueDateFrom = parseDateRange(params.dueDateFrom, "开始交期");
+  const dueDateTo = parseDateRange(params.dueDateTo, "结束交期");
+  const orders = await listOrders(workspaceId, {
+    customerName,
+    query,
+    status,
+    dueDateFrom: dueDateFrom?.start,
+    dueDateTo: dueDateTo?.end,
+  });
+
+  return (
+    <div className="mx-auto flex max-w-7xl flex-col gap-6">
+      <header className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-normal text-slate-950">
+            订单
+          </h1>
+          <p className="mt-1 text-sm text-slate-500">
+            跟踪计划数量、生产出货进度和结单状态。
+          </p>
+        </div>
+        <p className="text-sm text-slate-500">共 {orders.length} 单</p>
+      </header>
+
+      <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <form
+          className="grid gap-3 lg:grid-cols-[1fr_1fr_160px_150px_150px_auto]"
+          action="/orders"
+        >
+          <TextInput
+            label="客户"
+            name="customerName"
+            placeholder="客户名称"
+            defaultValue={customerName}
+          />
+          <TextInput
+            label="搜索"
+            name="query"
+            placeholder="订单号或工件"
+            defaultValue={query}
+          />
+          <SelectInput
+            label="状态"
+            name="status"
+            defaultValue={status ?? ""}
+            options={statusOptions}
+          />
+          <DateInput
+            label="交期从"
+            name="dueDateFrom"
+            defaultValue={params.dueDateFrom ?? ""}
+          />
+          <DateInput
+            label="交期至"
+            name="dueDateTo"
+            defaultValue={params.dueDateTo ?? ""}
+          />
+          <div className="flex items-end">
+            <SubmitButton className="w-full lg:w-auto">筛选</SubmitButton>
+          </div>
+        </form>
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+        <div className="min-w-0 rounded-lg border border-slate-200 bg-white shadow-sm">
+          {orders.length === 0 ? (
+            <div className="p-8 text-center">
+              <h2 className="text-base font-semibold text-slate-950">
+                暂无订单
+              </h2>
+              <p className="mt-2 text-sm text-slate-500">
+                创建订单后，这里会显示计划、出货和结单进度。
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-slate-200 text-sm">
+                <thead className="bg-slate-50 text-left text-xs font-medium uppercase text-slate-500">
+                  <tr>
+                    <th className="px-4 py-3">订单</th>
+                    <th className="px-4 py-3">状态</th>
+                    <th className="px-4 py-3 text-right">计划</th>
+                    <th className="px-4 py-3 text-right">加工</th>
+                    <th className="px-4 py-3 text-right">出货</th>
+                    <th className="px-4 py-3 text-right">剩余</th>
+                    <th className="px-4 py-3">提示</th>
+                    <th className="px-4 py-3 text-right">操作</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {orders.map((order) => (
+                    <tr key={order.id} className="align-top">
+                      <td className="px-4 py-4">
+                        <div className="font-medium text-slate-950">
+                          {formatOrderTitle(order)}
+                        </div>
+                        <div className="mt-1 text-slate-600">
+                          {order.customerName}
+                        </div>
+                        <div className="mt-1 text-xs text-slate-500">
+                          交期{" "}
+                          {order.dueDate
+                            ? formatBusinessDate(order.dueDate)
+                            : "未填写"}
+                        </div>
+                      </td>
+                      <td className="px-4 py-4">
+                        <StatusBadge
+                          status={order.status}
+                          labels={orderStatusLabels}
+                        />
+                      </td>
+                      <td className="px-4 py-4 text-right font-medium text-slate-950">
+                        {order.plannedQuantity}
+                      </td>
+                      <td className="px-4 py-4 text-right font-medium text-slate-950">
+                        {order.completedQuantity}
+                      </td>
+                      <td className="px-4 py-4 text-right font-medium text-slate-950">
+                        {order.shippedQuantity}
+                      </td>
+                      <td className="px-4 py-4 text-right font-medium text-slate-950">
+                        {order.remainingQuantity}
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className="flex flex-col gap-1">
+                          {order.isOverPlanned ? (
+                            <span className="text-xs font-medium text-amber-700">
+                              超出计划
+                            </span>
+                          ) : null}
+                          {order.canClose ? (
+                            <span className="text-xs font-medium text-emerald-700">
+                              已满足结单条件
+                            </span>
+                          ) : null}
+                          {!order.isOverPlanned && !order.canClose ? (
+                            <span className="text-slate-400">-</span>
+                          ) : null}
+                        </div>
+                      </td>
+                      <td className="px-4 py-4 text-right">
+                        <Link
+                          href={`/orders/${order.id}`}
+                          className="inline-flex rounded-md border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                        >
+                          详情
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        <aside className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+          <h2 className="text-base font-semibold text-slate-950">新增订单</h2>
+          <form action={createOrderAction} className="mt-4 grid gap-4">
+            <TextInput label="客户名称" name="customerName" required />
+            <TextInput label="订单号" name="orderNo" />
+            <TextInput label="工件名称" name="partName" required />
+            <NumberInput
+              label="计划数量"
+              name="plannedQuantity"
+              min={1}
+              step={1}
+              required
+            />
+            <DateInput label="交期" name="dueDate" />
+            <Textarea label="备注" name="notes" />
+            <SubmitButton>创建订单</SubmitButton>
+          </form>
+        </aside>
+      </section>
+    </div>
+  );
+}

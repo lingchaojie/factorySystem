@@ -33,7 +33,13 @@ export async function createOrder(workspaceId: string, input: CreateOrderInput) 
 export async function getOrderWithSummary(workspaceId: string, orderId: string) {
   const order = await prisma.order.findFirstOrThrow({
     where: { id: orderId, workspaceId },
-    include: { productionRecords: true, currentMachines: true },
+    include: {
+      currentMachines: true,
+      productionRecords: {
+        include: { machine: true },
+        orderBy: { recordedAt: "desc" },
+      },
+    },
   });
   const summary = summarizeOrder({
     plannedQuantity: order.plannedQuantity,
@@ -52,6 +58,8 @@ export async function listOrders(
     customerName?: string;
     status?: OrderStatus;
     query?: string;
+    dueDateFrom?: Date;
+    dueDateTo?: Date;
   },
 ) {
   const orders = await prisma.order.findMany({
@@ -67,6 +75,13 @@ export async function listOrders(
             { partName: { contains: filters.query, mode: "insensitive" } },
           ]
         : undefined,
+      dueDate:
+        filters.dueDateFrom || filters.dueDateTo
+          ? {
+              gte: filters.dueDateFrom,
+              lt: filters.dueDateTo,
+            }
+          : undefined,
     },
     include: { productionRecords: true },
     orderBy: { createdAt: "desc" },

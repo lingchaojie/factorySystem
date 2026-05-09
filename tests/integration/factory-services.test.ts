@@ -6,6 +6,7 @@ import {
   closeOrder,
   createOrder,
   getOrderWithSummary,
+  listOrders,
 } from "@/server/services/orders";
 import {
   createProductionRecord,
@@ -255,5 +256,52 @@ describe("factory services", () => {
     expect(summary.completedQuantity).toBe(100);
     expect(summary.shippedQuantity).toBe(100);
     expect(summary.canClose).toBe(false);
+  });
+
+  it("filters orders by due date range and includes machine info in order detail records", async () => {
+    const workspace = await createWorkspace();
+    const machine = await createMachine(workspace.id, {
+      code: "5",
+      name: "5号机",
+      model: "VMC",
+      location: "C区",
+      status: "active",
+      notes: "",
+    });
+    const dueOrder = await createOrder(workspace.id, {
+      customerName: "己方工厂",
+      orderNo: "A-007",
+      partName: "底座",
+      plannedQuantity: 10,
+      dueDate: new Date("2026-05-10T00:00:00.000Z"),
+      notes: "",
+    });
+    await createOrder(workspace.id, {
+      customerName: "己方工厂",
+      orderNo: "A-008",
+      partName: "垫片",
+      plannedQuantity: 10,
+      dueDate: new Date("2026-05-12T00:00:00.000Z"),
+      notes: "",
+    });
+
+    await linkMachineToOrder(workspace.id, machine.id, dueOrder.id);
+    await createProductionRecord(workspace.id, {
+      machineId: machine.id,
+      recordedAt: new Date("2026-05-10T12:00:00.000Z"),
+      completedQuantity: 6,
+      shippedQuantity: 2,
+      notes: "白班",
+    });
+
+    const filtered = await listOrders(workspace.id, {
+      dueDateFrom: new Date("2026-05-09T00:00:00.000Z"),
+      dueDateTo: new Date("2026-05-11T00:00:00.000Z"),
+    });
+    expect(filtered.map((order) => order.orderNo)).toEqual(["A-007"]);
+
+    const detail = await getOrderWithSummary(workspace.id, dueOrder.id);
+    expect(detail.productionRecords[0].machine.code).toBe("5");
+    expect(detail.currentMachines[0].code).toBe("5");
   });
 });

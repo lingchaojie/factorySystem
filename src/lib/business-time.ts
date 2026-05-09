@@ -74,6 +74,27 @@ export function parseBusinessDateTimeLocal(value: string) {
   return date;
 }
 
+export function parseBusinessDate(value: string) {
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) {
+    return new Date(Number.NaN);
+  }
+
+  return parseBusinessDateTimeLocal(`${value}T00:00`);
+}
+
+export function businessDateRange(value: string) {
+  const start = parseBusinessDate(value);
+  if (Number.isNaN(start.getTime())) {
+    return { start, end: new Date(Number.NaN) };
+  }
+
+  return {
+    start,
+    end: new Date(start.getTime() + 24 * 60 * 60 * 1000),
+  };
+}
+
 export function businessTodayBounds(date = new Date()) {
   const parts = getBusinessDateTimeParts(date);
   const start = parseBusinessDateTimeLocal(
@@ -82,6 +103,13 @@ export function businessTodayBounds(date = new Date()) {
   const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
 
   return { start, end };
+}
+
+export function formatBusinessDate(date: Date) {
+  return new Intl.DateTimeFormat("zh-CN", {
+    timeZone: BUSINESS_TIME_ZONE,
+    dateStyle: "medium",
+  }).format(date);
 }
 
 export function formatBusinessDateTime(date: Date) {
