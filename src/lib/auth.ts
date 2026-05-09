@@ -6,6 +6,7 @@ import {
   type AuthenticatedUser,
   authenticatedUserSelect,
   createSession,
+  getSessionCookieSecure,
   getSessionTtlDays,
   readSessionUser,
   sessionCookieName,
@@ -39,7 +40,7 @@ export async function loginWithPassword(
   cookieStore.set(sessionCookieName, token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: getSessionCookieSecure(),
     path: "/",
     maxAge: 60 * 60 * 24 * getSessionTtlDays(),
   });

@@ -2,15 +2,11 @@ import { NextResponse } from "next/server";
 import { loginWithPassword } from "@/lib/auth";
 
 function redirectUrl(request: Request, pathname: string) {
-  const url = new URL(request.url);
-  const forwardedHost = request.headers.get("x-forwarded-host");
-  const host = forwardedHost ?? request.headers.get("host");
-  const forwardedProto = request.headers.get("x-forwarded-proto");
+  if (process.env.APP_ORIGIN) {
+    return new URL(pathname, process.env.APP_ORIGIN);
+  }
 
-  if (host) url.host = host;
-  if (forwardedProto) url.protocol = `${forwardedProto}:`;
-
-  return new URL(pathname, url);
+  return new URL(pathname, request.url);
 }
 
 export async function POST(request: Request) {

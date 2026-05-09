@@ -29,6 +29,9 @@ vi.mock("@/lib/password", () => ({
 describe("loginWithPassword", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.resetModules();
+    delete process.env.NODE_ENV;
+    delete process.env.SESSION_COOKIE_SECURE;
     process.env.SESSION_TTL_DAYS = "14";
   });
 
@@ -107,6 +110,67 @@ describe("loginWithPassword", () => {
     );
     expect(prismaMock.session.create).not.toHaveBeenCalled();
     expect(cookiesStore.set).not.toHaveBeenCalled();
+  });
+
+  it("allows the session cookie secure flag to be configured for HTTP deployments", async () => {
+    process.env.NODE_ENV = "production";
+    process.env.SESSION_COOKIE_SECURE = "false";
+    const user = {
+      id: "user-1",
+      workspaceId: "bootstrap-workspace",
+      username: "operator",
+      passwordHash: "stored-hash",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    prismaMock.user.findUnique.mockResolvedValue(user);
+    prismaMock.session.create.mockResolvedValue({
+      id: "session-1",
+      userId: user.id,
+      tokenHash: "hashed",
+      expiresAt: new Date(),
+      createdAt: new Date(),
+    });
+
+    const { loginWithPassword } = await import("@/lib/auth");
+
+    await loginWithPassword("operator", "correct-password");
+
+    expect(cookiesStore.set).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(String),
+      expect.objectContaining({ secure: false }),
+    );
+  });
+
+  it("uses secure session cookies by default in production", async () => {
+    process.env.NODE_ENV = "production";
+    const user = {
+      id: "user-1",
+      workspaceId: "bootstrap-workspace",
+      username: "operator",
+      passwordHash: "stored-hash",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    prismaMock.user.findUnique.mockResolvedValue(user);
+    prismaMock.session.create.mockResolvedValue({
+      id: "session-1",
+      userId: user.id,
+      tokenHash: "hashed",
+      expiresAt: new Date(),
+      createdAt: new Date(),
+    });
+
+    const { loginWithPassword } = await import("@/lib/auth");
+
+    await loginWithPassword("operator", "correct-password");
+
+    expect(cookiesStore.set).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(String),
+      expect.objectContaining({ secure: true }),
+    );
   });
 
   it("does not log in a duplicate username from another workspace", async () => {

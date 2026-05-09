@@ -20,12 +20,14 @@ services:
       context: .
     environment:
       NODE_ENV: production
+      APP_ORIGIN: ${APP_ORIGIN:-http://localhost:3000}
       DATABASE_URL: postgresql://factory:factory_password@db:5432/factory?schema=public
       BOOTSTRAP_WORKSPACE_NAME: ${BOOTSTRAP_WORKSPACE_NAME:-CNC Factory}
       BOOTSTRAP_USERNAME: ${BOOTSTRAP_USERNAME:-admin}
       BOOTSTRAP_PASSWORD: ${BOOTSTRAP_PASSWORD:-change-me-before-use}
       SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-factory_session}
       SESSION_TTL_DAYS: ${SESSION_TTL_DAYS:-30}
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
     ports:
       - "3000:3000"
     depends_on:

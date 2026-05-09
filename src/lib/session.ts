@@ -28,6 +28,13 @@ export function getSessionTtlDays(): number {
   return Number.isFinite(value) && value > 0 ? value : 30;
 }
 
+export function getSessionCookieSecure(): boolean {
+  const configured = process.env.SESSION_COOKIE_SECURE?.toLowerCase();
+  if (configured === "true" || configured === "1") return true;
+  if (configured === "false" || configured === "0") return false;
+  return process.env.NODE_ENV === "production";
+}
+
 export async function createSession(userId: string): Promise<string> {
   const token = crypto.randomBytes(32).toString("base64url");
   const expiresAt = new Date(
