@@ -158,4 +158,44 @@ describe("factory services", () => {
       }),
     ).rejects.toThrow("订单已结单，不能录入记录");
   });
+
+  it("rejects deleting records from a closed order", async () => {
+    const workspace = await createWorkspace();
+    const machine = await createMachine(workspace.id, {
+      code: "4",
+      name: "4号机",
+      model: "VMC",
+      location: "B区",
+      status: "active",
+      notes: "",
+    });
+    const order = await createOrder(workspace.id, {
+      customerName: "丁方工厂",
+      orderNo: "A-005",
+      partName: "支架",
+      plannedQuantity: 100,
+      dueDate: null,
+      notes: "",
+    });
+
+    await linkMachineToOrder(workspace.id, machine.id, order.id);
+    const record = await createProductionRecord(workspace.id, {
+      machineId: machine.id,
+      recordedAt: new Date("2026-05-10T12:00:00.000Z"),
+      completedQuantity: 100,
+      shippedQuantity: 100,
+      notes: "完工",
+    });
+    await closeOrder(workspace.id, order.id);
+
+    await expect(deleteProductionRecord(workspace.id, record.id)).rejects.toThrow(
+      "订单已结单，不能删除记录",
+    );
+
+    const summary = await getOrderWithSummary(workspace.id, order.id);
+    expect(summary.status).toBe("closed");
+    expect(summary.completedQuantity).toBe(100);
+    expect(summary.shippedQuantity).toBe(100);
+    expect(summary.canClose).toBe(false);
+  });
 });

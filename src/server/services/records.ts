@@ -62,7 +62,10 @@ export async function deleteProductionRecord(
       select: { id: true, orderId: true },
     });
 
-    await lockOrderForUpdate(tx, workspaceId, record.orderId);
+    const order = await lockOrderForUpdate(tx, workspaceId, record.orderId);
+    if (order?.status !== "open") {
+      throw new Error("订单已结单，不能删除记录");
+    }
 
     return tx.productionRecord.delete({
       where: { id: record.id },
