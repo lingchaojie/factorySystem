@@ -11,6 +11,7 @@ import {
 import {
   createProductionRecord,
   deleteProductionRecord,
+  updateProductionRecord,
 } from "@/server/services/records";
 
 async function createWorkspace() {
@@ -68,6 +69,115 @@ describe("factory services", () => {
     summary = await getOrderWithSummary(workspace.id, order.id);
     expect(summary.completedQuantity).toBe(0);
     expect(summary.shippedQuantity).toBe(0);
+  });
+
+  it("updates a production record without moving it between orders", async () => {
+    const workspace = await createWorkspace();
+    const machine = await createMachine(workspace.id, {
+      code: "1U",
+      name: "1U号机",
+      model: "VMC",
+      location: "A区",
+      status: "active",
+      notes: "",
+    });
+    const order = await createOrder(workspace.id, {
+      customerName: "甲方工厂",
+      orderNo: "A-001-U",
+      partName: "法兰盘",
+      plannedQuantity: 100,
+      dueDate: null,
+      notes: "",
+    });
+    const otherOrder = await createOrder(workspace.id, {
+      customerName: "乙方工厂",
+      orderNo: "A-001-V",
+      partName: "轴套",
+      plannedQuantity: 50,
+      dueDate: null,
+      notes: "",
+    });
+
+    await linkMachineToOrder(workspace.id, machine.id, order.id);
+    const record = await createProductionRecord(workspace.id, {
+      machineId: machine.id,
+      recordedAt: new Date("2026-05-10T08:00:00.000Z"),
+      completedQuantity: 20,
+      shippedQuantity: 10,
+      notes: "白班",
+    });
+    await linkMachineToOrder(workspace.id, machine.id, otherOrder.id);
+
+    const updated = await updateProductionRecord(workspace.id, record.id, {
+      recordedAt: new Date("2026-05-10T09:30:00.000Z"),
+      completedQuantity: 60,
+      shippedQuantity: 40,
+      notes: "复核后调整",
+    });
+
+    expect(updated.orderId).toBe(order.id);
+    expect(updated.machineId).toBe(machine.id);
+    expect(updated.completedQuantity).toBe(60);
+    expect(updated.shippedQuantity).toBe(40);
+    expect(updated.notes).toBe("复核后调整");
+
+    const originalSummary = await getOrderWithSummary(workspace.id, order.id);
+    expect(originalSummary.completedQuantity).toBe(60);
+    expect(originalSummary.shippedQuantity).toBe(40);
+
+    const otherSummary = await getOrderWithSummary(workspace.id, otherOrder.id);
+    expect(otherSummary.completedQuantity).toBe(0);
+    expect(otherSummary.shippedQuantity).toBe(0);
+  });
+
+  it("recomputes over-plan and remaining quantities after deleting a later record", async () => {
+    const workspace = await createWorkspace();
+    const machine = await createMachine(workspace.id, {
+      code: "1D",
+      name: "1D号机",
+      model: "VMC",
+      location: "A区",
+      status: "active",
+      notes: "",
+    });
+    const order = await createOrder(workspace.id, {
+      customerName: "甲方工厂",
+      orderNo: "A-001-D",
+      partName: "法兰盘",
+      plannedQuantity: 100,
+      dueDate: null,
+      notes: "",
+    });
+
+    await linkMachineToOrder(workspace.id, machine.id, order.id);
+    await createProductionRecord(workspace.id, {
+      machineId: machine.id,
+      recordedAt: new Date("2026-05-10T08:00:00.000Z"),
+      completedQuantity: 60,
+      shippedQuantity: 20,
+      notes: "首件",
+    });
+    const second = await createProductionRecord(workspace.id, {
+      machineId: machine.id,
+      recordedAt: new Date("2026-05-10T09:00:00.000Z"),
+      completedQuantity: 50,
+      shippedQuantity: 90,
+      notes: "补出货",
+    });
+
+    let summary = await getOrderWithSummary(workspace.id, order.id);
+    expect(summary.completedQuantity).toBe(110);
+    expect(summary.shippedQuantity).toBe(110);
+    expect(summary.remainingQuantity).toBe(0);
+    expect(summary.isOverPlanned).toBe(true);
+
+    await deleteProductionRecord(workspace.id, second.id);
+
+    summary = await getOrderWithSummary(workspace.id, order.id);
+    expect(summary.completedQuantity).toBe(60);
+    expect(summary.shippedQuantity).toBe(20);
+    expect(summary.remainingQuantity).toBe(80);
+    expect(summary.isOverPlanned).toBe(false);
   });
 
   it("rejects closing incomplete orders and allows closing fully shipped orders", async () => {
@@ -256,6 +366,45 @@ describe("factory services", () => {
     expect(summary.completedQuantity).toBe(100);
     expect(summary.shippedQuantity).toBe(100);
     expect(summary.canClose).toBe(false);
+  });
+
+  it("rejects updating records from a closed order", async () => {
+    const workspace = await createWorkspace();
+    const machine = await createMachine(workspace.id, {
+      code: "4U",
+      name: "4U号机",
+      model: "VMC",
+      location: "B区",
+      status: "active",
+      notes: "",
+    });
+    const order = await createOrder(workspace.id, {
+      customerName: "丁方工厂",
+      orderNo: "A-005-U",
+      partName: "支架",
+      plannedQuantity: 100,
+      dueDate: null,
+      notes: "",
+    });
+
+    await linkMachineToOrder(workspace.id, machine.id, order.id);
+    const record = await createProductionRecord(workspace.id, {
+      machineId: machine.id,
+      recordedAt: new Date("2026-05-10T12:00:00.000Z"),
+      completedQuantity: 100,
+      shippedQuantity: 100,
+      notes: "完工",
+    });
+    await closeOrder(workspace.id, order.id);
+
+    await expect(
+      updateProductionRecord(workspace.id, record.id, {
+        recordedAt: new Date("2026-05-10T13:00:00.000Z"),
+        completedQuantity: 101,
+        shippedQuantity: 100,
+        notes: "返工",
+      }),
+    ).rejects.toThrow("订单已结单，不能修改记录");
   });
 
   it("filters orders by due date range and includes machine info in order detail records", async () => {

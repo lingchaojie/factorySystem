@@ -1,3 +1,4 @@
+import { OrderStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { validateProductionRecordInput } from "@/domain/factory";
 import {
@@ -13,14 +14,25 @@ export type CreateProductionRecordInput = {
   notes: string;
 };
 
-export async function createProductionRecord(
-  workspaceId: string,
-  input: CreateProductionRecordInput,
-) {
+export type UpdateProductionRecordInput = {
+  recordedAt: Date;
+  completedQuantity: number;
+  shippedQuantity: number;
+  notes: string;
+};
+
+function validateRecordMutationInput(input: UpdateProductionRecordInput) {
   if (Number.isNaN(input.recordedAt.getTime())) {
     throw new Error("记录时间无效");
   }
   validateProductionRecordInput(input);
+}
+
+export async function createProductionRecord(
+  workspaceId: string,
+  input: CreateProductionRecordInput,
+) {
+  validateRecordMutationInput(input);
 
   return prisma.$transaction(async (tx) => {
     const machine = await lockMachineForUpdate(tx, workspaceId, input.machineId);
@@ -61,6 +73,36 @@ export async function createProductionRecord(
   });
 }
 
+export async function updateProductionRecord(
+  workspaceId: string,
+  recordId: string,
+  input: UpdateProductionRecordInput,
+) {
+  validateRecordMutationInput(input);
+
+  return prisma.$transaction(async (tx) => {
+    const record = await tx.productionRecord.findFirstOrThrow({
+      where: { id: recordId, workspaceId },
+      select: { id: true, machineId: true, orderId: true },
+    });
+
+    const order = await lockOrderForUpdate(tx, workspaceId, record.orderId);
+    if (order?.status !== "open") {
+      throw new Error("订单已结单，不能修改记录");
+    }
+
+    return tx.productionRecord.update({
+      where: { id: record.id },
+      data: {
+        recordedAt: input.recordedAt,
+        completedQuantity: input.completedQuantity,
+        shippedQuantity: input.shippedQuantity,
+        notes: input.notes.trim() || null,
+      },
+    });
+  });
+}
+
 export async function deleteProductionRecord(
   workspaceId: string,
   recordId: string,
@@ -87,6 +129,8 @@ export async function listProductionRecords(
   filters: {
     machineId?: string;
     orderId?: string;
+    customerName?: string;
+    orderStatus?: OrderStatus;
     from?: Date;
     to?: Date;
   },
@@ -96,9 +140,18 @@ export async function listProductionRecords(
       workspaceId,
       machineId: filters.machineId,
       orderId: filters.orderId,
+      order:
+        filters.customerName || filters.orderStatus
+          ? {
+              customerName: filters.customerName
+                ? { contains: filters.customerName, mode: "insensitive" }
+                : undefined,
+              status: filters.orderStatus,
+            }
+          : undefined,
       recordedAt: {
         gte: filters.from,
-        lte: filters.to,
+        lt: filters.to,
       },
     },
     include: {
