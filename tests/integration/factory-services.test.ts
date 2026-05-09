@@ -201,6 +201,22 @@ describe("factory services", () => {
     ).rejects.toThrow("订单已结单，不能关联机器");
   });
 
+  it("rejects linking a missing machine to an order", async () => {
+    const workspace = await createWorkspace();
+    const order = await createOrder(workspace.id, {
+      customerName: "戊方工厂",
+      orderNo: "A-006",
+      partName: "压板",
+      plannedQuantity: 100,
+      dueDate: null,
+      notes: "",
+    });
+
+    await expect(
+      linkMachineToOrder(workspace.id, randomUUID(), order.id),
+    ).rejects.toThrow("机器不存在");
+  });
+
   it("rejects deleting records from a closed order", async () => {
     const workspace = await createWorkspace();
     const machine = await createMachine(workspace.id, {

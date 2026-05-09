@@ -1,6 +1,9 @@
 import { MachineStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { lockOrderForUpdate } from "@/server/services/order-locks";
+import {
+  lockMachineForUpdate,
+  lockOrderForUpdate,
+} from "@/server/services/order-locks";
 
 export type CreateMachineInput = {
   code: string;
@@ -37,22 +40,18 @@ export async function linkMachineToOrder(
   orderId: string,
 ) {
   return prisma.$transaction(async (tx) => {
+    const machine = await lockMachineForUpdate(tx, workspaceId, machineId);
+    if (!machine) {
+      throw new Error("机器不存在");
+    }
+
     const order = await lockOrderForUpdate(tx, workspaceId, orderId);
     if (!order) {
-      await tx.order.findFirstOrThrow({
-        where: { id: orderId, workspaceId },
-        select: { id: true },
-      });
       throw new Error("订单不存在");
     }
     if (order.status !== "open") {
       throw new Error("订单已结单，不能关联机器");
     }
-
-    const machine = await tx.machine.findFirstOrThrow({
-      where: { id: machineId, workspaceId },
-      select: { id: true },
-    });
 
     return tx.machine.update({
       where: { id: machine.id },

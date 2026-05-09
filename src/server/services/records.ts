@@ -1,6 +1,9 @@
 import { prisma } from "@/lib/db";
 import { validateProductionRecordInput } from "@/domain/factory";
-import { lockOrderForUpdate } from "@/server/services/order-locks";
+import {
+  lockMachineForUpdate,
+  lockOrderForUpdate,
+} from "@/server/services/order-locks";
 
 export type CreateProductionRecordInput = {
   machineId: string;
@@ -17,10 +20,10 @@ export async function createProductionRecord(
   validateProductionRecordInput(input);
 
   return prisma.$transaction(async (tx) => {
-    const machine = await tx.machine.findFirstOrThrow({
-      where: { id: input.machineId, workspaceId },
-      select: { id: true, currentOrderId: true },
-    });
+    const machine = await lockMachineForUpdate(tx, workspaceId, input.machineId);
+    if (!machine) {
+      throw new Error("机器不存在");
+    }
     if (!machine.currentOrderId) {
       throw new Error("机器未关联订单，不能录入记录");
     }
@@ -30,7 +33,10 @@ export async function createProductionRecord(
       workspaceId,
       machine.currentOrderId,
     );
-    if (order?.status !== "open") {
+    if (!order) {
+      throw new Error("订单不存在");
+    }
+    if (order.status !== "open") {
       throw new Error("订单已结单，不能录入记录");
     }
 
