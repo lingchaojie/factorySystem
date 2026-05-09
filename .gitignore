@@ -1,4 +1,5 @@
 .superpowers/
+.worktrees/
 node_modules/
 .next/
 dist/
@@ -8,4 +9,3 @@ coverage/
 .env.*.local
 *.log
 postgres-data/
-
