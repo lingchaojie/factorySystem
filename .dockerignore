@@ -6,5 +6,5 @@ test-results
 playwright-report
 .worktrees
 *.log
-.env
-.env*.local
+.env*
+!.env.example

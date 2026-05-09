@@ -1,5 +1,5 @@
 #!/bin/sh
-set -e
+set -eu
 
 npx prisma migrate deploy
 npm run db:seed
