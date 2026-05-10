@@ -10,27 +10,27 @@ import React, {
 } from "react";
 import { uploadOrderDrawingsAction } from "@/app/actions/orders";
 
-type FileSystemEntry = {
+type DroppedEntry = {
   name: string;
   isFile: boolean;
   isDirectory: boolean;
 };
 
-type FileSystemFileEntry = FileSystemEntry & {
+type DroppedFileEntry = DroppedEntry & {
   file: (success: (file: File) => void, error?: (error: Error) => void) => void;
 };
 
-type FileSystemDirectoryEntry = FileSystemEntry & {
+type DroppedDirectoryEntry = DroppedEntry & {
   createReader: () => {
     readEntries: (
-      success: (entries: FileSystemEntry[]) => void,
+      success: (entries: DroppedEntry[]) => void,
       error?: (error: Error) => void,
     ) => void;
   };
 };
 
-type DataTransferItemWithEntry = DataTransferItem & {
-  webkitGetAsEntry?: () => FileSystemEntry | null;
+type DataTransferItemWithEntry = {
+  webkitGetAsEntry?: () => DroppedEntry | null;
 };
 
 type UploadItem = {
@@ -44,7 +44,7 @@ function fileRelativePath(file: File) {
 }
 
 function readFileEntry(
-  entry: FileSystemFileEntry,
+  entry: DroppedFileEntry,
   parentPath: string,
 ): Promise<UploadItem> {
   return new Promise((resolve, reject) => {
@@ -56,10 +56,10 @@ function readFileEntry(
 }
 
 function readDirectoryEntries(
-  entry: FileSystemDirectoryEntry,
-): Promise<FileSystemEntry[]> {
+  entry: DroppedDirectoryEntry,
+): Promise<DroppedEntry[]> {
   const reader = entry.createReader();
-  const batches: FileSystemEntry[] = [];
+  const batches: DroppedEntry[] = [];
 
   return new Promise((resolve, reject) => {
     const readBatch = () => {
@@ -77,15 +77,15 @@ function readDirectoryEntries(
 }
 
 async function traverseEntry(
-  entry: FileSystemEntry,
+  entry: DroppedEntry,
   parentPath = "",
 ): Promise<UploadItem[]> {
   if (entry.isFile) {
-    return [await readFileEntry(entry as FileSystemFileEntry, parentPath)];
+    return [await readFileEntry(entry as DroppedFileEntry, parentPath)];
   }
   if (!entry.isDirectory) return [];
 
-  const directory = entry as FileSystemDirectoryEntry;
+  const directory = entry as DroppedDirectoryEntry;
   const children = await readDirectoryEntries(directory);
   const childPath = `${parentPath}${directory.name}/`;
   const nested = await Promise.all(
@@ -131,10 +131,11 @@ export function OrderDrawingUpload({ orderId }: { orderId: string }) {
     event.preventDefault();
     setIsDragging(false);
 
-    const items = Array.from(event.dataTransfer.items);
-    const entryItems = items
-      .map((item) => (item as DataTransferItemWithEntry).webkitGetAsEntry?.())
-      .filter((entry): entry is FileSystemEntry => Boolean(entry));
+    const entryItems: DroppedEntry[] = [];
+    for (const item of Array.from(event.dataTransfer.items)) {
+      const entry = (item as DataTransferItemWithEntry).webkitGetAsEntry?.();
+      if (entry) entryItems.push(entry);
+    }
 
     if (entryItems.length > 0) {
       const uploads = await Promise.all(
