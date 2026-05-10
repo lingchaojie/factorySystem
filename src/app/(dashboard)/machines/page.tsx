@@ -31,8 +31,8 @@ function parseStatus(value: string | undefined): MachineStatus | undefined {
   return value in machineStatusLabels ? (value as MachineStatus) : undefined;
 }
 
-function formatOrder(order: { orderNo: string | null; partName: string }) {
-  return order.orderNo ? `${order.orderNo} / ${order.partName}` : order.partName;
+function formatOrder(order: { orderNo: string; partName: string }) {
+  return `${order.orderNo} / ${order.partName}`;
 }
 
 export default async function MachinesPage({
@@ -145,9 +145,12 @@ export default async function MachinesPage({
                       <td className="px-4 py-4">
                         {machine.currentOrder ? (
                           <div className="space-y-1">
-                            <div className="text-slate-950">
+                            <Link
+                              href={`/orders/${machine.currentOrder.id}`}
+                              className="font-medium text-slate-950 underline-offset-4 hover:underline"
+                            >
                               {formatOrder(machine.currentOrder)}
-                            </div>
+                            </Link>
                             <StatusBadge
                               status={machine.currentOrder.status}
                               labels={orderStatusLabels}

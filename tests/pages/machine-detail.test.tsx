@@ -19,6 +19,58 @@ vi.mock("@/server/services/machines", () => machinesMock);
 vi.mock("@/server/services/orders", () => ordersMock);
 
 describe("machine detail page", () => {
+  it("links current and recorded orders to order detail pages", async () => {
+    workspaceMock.requireWorkspaceId.mockResolvedValue("workspace-1");
+    ordersMock.listOrders.mockResolvedValue([
+      {
+        id: "order-1",
+        orderNo: "MO-1",
+        partName: "法兰",
+      },
+    ]);
+    machinesMock.getMachine.mockResolvedValue({
+      id: "machine-1",
+      code: "CNC-1",
+      name: "一号机",
+      model: null,
+      location: null,
+      notes: null,
+      status: "active",
+      currentOrderId: "order-1",
+      currentOrder: {
+        id: "order-1",
+        orderNo: "MO-1",
+        partName: "法兰",
+        status: "open",
+      },
+      productionRecords: [
+        {
+          id: "record-1",
+          recordedAt: new Date("2026-05-10T08:00:00.000Z"),
+          completedQuantity: 10,
+          shippedQuantity: 4,
+          notes: null,
+          order: {
+            id: "order-1",
+            orderNo: "MO-1",
+            partName: "法兰",
+          },
+        },
+      ],
+    });
+
+    render(
+      await MachineDetailPage({
+        params: Promise.resolve({ id: "machine-1" }),
+      }),
+    );
+
+    const orderLinks = screen.getAllByRole("link", { name: /MO-1/ });
+    expect(orderLinks).toHaveLength(2);
+    expect(orderLinks[0]).toHaveAttribute("href", "/orders/order-1");
+    expect(orderLinks[1]).toHaveAttribute("href", "/orders/order-1");
+  });
+
   it("disables record entry when the current order is closed", async () => {
     workspaceMock.requireWorkspaceId.mockResolvedValue("workspace-1");
     ordersMock.listOrders.mockResolvedValue([]);

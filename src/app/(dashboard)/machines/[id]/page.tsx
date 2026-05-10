@@ -24,8 +24,8 @@ import { requireWorkspaceId } from "@/lib/workspace";
 import { getMachine } from "@/server/services/machines";
 import { listOrders } from "@/server/services/orders";
 
-function formatOrder(order: { orderNo: string | null; partName: string }) {
-  return order.orderNo ? `${order.orderNo} / ${order.partName}` : order.partName;
+function formatOrder(order: { orderNo: string; partName: string }) {
+  return `${order.orderNo} / ${order.partName}`;
 }
 
 export default async function MachineDetailPage({
@@ -107,9 +107,12 @@ export default async function MachineDetailPage({
                 <dd className="mt-1">
                   {machine.currentOrder ? (
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-medium text-slate-950">
+                      <Link
+                        href={`/orders/${machine.currentOrder.id}`}
+                        className="font-medium text-slate-950 underline-offset-4 hover:underline"
+                      >
                         {formatOrder(machine.currentOrder)}
-                      </span>
+                      </Link>
                       <StatusBadge
                         status={machine.currentOrder.status}
                         labels={orderStatusLabels}
@@ -152,7 +155,12 @@ export default async function MachineDetailPage({
                           {formatBusinessDateTime(record.recordedAt)}
                         </td>
                         <td className="px-4 py-4 text-slate-950">
-                          {formatOrder(record.order)}
+                          <Link
+                            href={`/orders/${record.order.id}`}
+                            className="font-medium text-slate-950 underline-offset-4 hover:underline"
+                          >
+                            {formatOrder(record.order)}
+                          </Link>
                         </td>
                         <td className="px-4 py-4 text-right font-medium text-slate-950">
                           {record.completedQuantity}

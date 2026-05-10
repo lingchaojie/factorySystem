@@ -1,7 +1,9 @@
 import Link from "next/link";
+import React from "react";
 import {
   closeOrderAction,
   reopenOrderAction,
+  uploadOrderDrawingsAction,
 } from "@/app/actions/orders";
 import { SubmitButton } from "@/components/forms";
 import {
@@ -9,6 +11,7 @@ import {
   orderStatusLabels,
   StatusBadge,
 } from "@/components/status-badge";
+import { formatCnyFromCents, getOrderAmountCents } from "@/domain/money";
 import {
   formatBusinessDate,
   formatBusinessDateTime,
@@ -16,8 +19,19 @@ import {
 import { requireWorkspaceId } from "@/lib/workspace";
 import { getOrderWithSummary } from "@/server/services/orders";
 
-function formatOrderTitle(order: { orderNo: string | null; partName: string }) {
-  return order.orderNo ? `${order.orderNo} / ${order.partName}` : order.partName;
+type FileInputProps = React.InputHTMLAttributes<HTMLInputElement> & {
+  webkitdirectory?: string;
+  directory?: string;
+};
+
+function formatOrderTitle(order: { orderNo: string; partName: string }) {
+  return `${order.orderNo} / ${order.partName}`;
+}
+
+function formatFileSize(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function Metric({
@@ -32,6 +46,20 @@ function Metric({
       <dt className="text-sm text-slate-500">{label}</dt>
       <dd className="mt-2 text-2xl font-semibold text-slate-950">{value}</dd>
     </div>
+  );
+}
+
+function FileInput({ className, ...props }: FileInputProps) {
+  return (
+    <input
+      className={[
+        "block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 shadow-sm file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-slate-700 hover:file:bg-slate-200",
+        className,
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      {...props}
+    />
   );
 }
 
@@ -94,7 +122,7 @@ export default async function OrderDetailPage({
               <div>
                 <dt className="text-slate-500">订单号</dt>
                 <dd className="mt-1 font-medium text-slate-950">
-                  {order.orderNo || "-"}
+                  {order.orderNo}
                 </dd>
               </div>
               <div>
@@ -113,6 +141,23 @@ export default async function OrderDetailPage({
                 <dt className="text-slate-500">创建时间</dt>
                 <dd className="mt-1 text-slate-950">
                   {formatBusinessDateTime(order.createdAt)}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-slate-500">单价</dt>
+                <dd className="mt-1 text-slate-950">
+                  {formatCnyFromCents(order.unitPriceCents)}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-slate-500">订单金额</dt>
+                <dd className="mt-1 text-slate-950">
+                  {formatCnyFromCents(
+                    getOrderAmountCents(
+                      order.unitPriceCents,
+                      order.plannedQuantity,
+                    ),
+                  )}
                 </dd>
               </div>
               <div>
@@ -138,6 +183,103 @@ export default async function OrderDetailPage({
                 </dd>
               </div>
             </dl>
+          </section>
+
+          <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h2 className="text-base font-semibold text-slate-950">
+                  图纸文件
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  重新上传会覆盖原有图纸
+                </p>
+              </div>
+              <span className="text-sm text-slate-500">
+                {order.drawings.length} 个文件
+              </span>
+            </div>
+
+            {order.drawings.length === 0 ? (
+              <p className="mt-4 text-sm text-slate-500">
+                当前订单还没有上传图纸。
+              </p>
+            ) : (
+              <div className="mt-4 overflow-x-auto">
+                <table className="min-w-full divide-y divide-slate-200 text-sm">
+                  <thead className="bg-slate-50 text-left text-xs font-medium uppercase text-slate-500">
+                    <tr>
+                      <th className="px-4 py-3">文件</th>
+                      <th className="px-4 py-3">路径</th>
+                      <th className="px-4 py-3 text-right">大小</th>
+                      <th className="px-4 py-3">上传时间</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 bg-white">
+                    {order.drawings.map((drawing) => (
+                      <tr key={drawing.id}>
+                        <td className="px-4 py-4 font-medium text-slate-950">
+                          <Link
+                            href={`/api/order-drawings/${drawing.id}`}
+                            className="text-slate-950 underline-offset-4 hover:underline"
+                          >
+                            {drawing.originalName}
+                          </Link>
+                        </td>
+                        <td className="px-4 py-4 text-slate-600">
+                          {drawing.relativePath}
+                        </td>
+                        <td className="px-4 py-4 text-right text-slate-600">
+                          {formatFileSize(drawing.sizeBytes)}
+                        </td>
+                        <td className="px-4 py-4 text-slate-600">
+                          {formatBusinessDateTime(drawing.createdAt)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <div className="mt-5 grid gap-4 lg:grid-cols-2">
+              <form action={uploadOrderDrawingsAction} className="grid gap-3">
+                <input type="hidden" name="orderId" value={order.id} />
+                <label
+                  className="text-sm font-medium text-slate-700"
+                  htmlFor="drawing-files"
+                >
+                  上传文件
+                </label>
+                <FileInput
+                  id="drawing-files"
+                  name="drawings"
+                  type="file"
+                  multiple
+                  required
+                />
+                <SubmitButton>上传文件</SubmitButton>
+              </form>
+              <form action={uploadOrderDrawingsAction} className="grid gap-3">
+                <input type="hidden" name="orderId" value={order.id} />
+                <label
+                  className="text-sm font-medium text-slate-700"
+                  htmlFor="drawing-folder"
+                >
+                  上传文件夹
+                </label>
+                <FileInput
+                  id="drawing-folder"
+                  name="drawings"
+                  type="file"
+                  multiple
+                  required
+                  directory=""
+                  webkitdirectory=""
+                />
+                <SubmitButton>上传文件夹</SubmitButton>
+              </form>
+            </div>
           </section>
 
           <section className="rounded-lg border border-slate-200 bg-white shadow-sm">

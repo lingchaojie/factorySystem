@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { workspaceMock, ordersMock, cacheMock, navigationMock } = vi.hoisted(
-  () => ({
+const { workspaceMock, ordersMock, drawingsMock, cacheMock, navigationMock } =
+  vi.hoisted(() => ({
     workspaceMock: {
       requireWorkspaceId: vi.fn(),
     },
@@ -10,17 +10,20 @@ const { workspaceMock, ordersMock, cacheMock, navigationMock } = vi.hoisted(
       closeOrder: vi.fn(),
       reopenOrder: vi.fn(),
     },
+    drawingsMock: {
+      replaceOrderDrawings: vi.fn(),
+    },
     cacheMock: {
       revalidatePath: vi.fn(),
     },
     navigationMock: {
       redirect: vi.fn(),
     },
-  }),
-);
+  }));
 
 vi.mock("@/lib/workspace", () => workspaceMock);
 vi.mock("@/server/services/orders", () => ordersMock);
+vi.mock("@/server/services/order-drawings", () => drawingsMock);
 vi.mock("next/cache", () => cacheMock);
 vi.mock("next/navigation", () => navigationMock);
 
@@ -100,6 +103,26 @@ describe("order actions", () => {
     expect(ordersMock.reopenOrder).toHaveBeenCalledWith(
       "workspace-1",
       "order-1",
+    );
+    expect(cacheMock.revalidatePath).toHaveBeenCalledWith("/orders");
+    expect(cacheMock.revalidatePath).toHaveBeenCalledWith("/orders/order-1");
+    expect(navigationMock.redirect).toHaveBeenCalledWith("/orders/order-1");
+  });
+
+  it("uploads drawings in overwrite mode and revalidates the order detail", async () => {
+    const { uploadOrderDrawingsAction } = await import("@/app/actions/orders");
+    drawingsMock.replaceOrderDrawings.mockResolvedValue([]);
+    const file = new File(["step"], "fixture.step", { type: "model/step" });
+    const form = new FormData();
+    form.set("orderId", "order-1");
+    form.append("drawings", file);
+
+    await uploadOrderDrawingsAction(form);
+
+    expect(drawingsMock.replaceOrderDrawings).toHaveBeenCalledWith(
+      "workspace-1",
+      "order-1",
+      [file],
     );
     expect(cacheMock.revalidatePath).toHaveBeenCalledWith("/orders");
     expect(cacheMock.revalidatePath).toHaveBeenCalledWith("/orders/order-1");

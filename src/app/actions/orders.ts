@@ -11,6 +11,7 @@ import {
   createOrder,
   reopenOrder,
 } from "@/server/services/orders";
+import { replaceOrderDrawings } from "@/server/services/order-drawings";
 
 function getString(formData: FormData, name: string): string {
   return String(formData.get(name) ?? "");
@@ -30,6 +31,15 @@ function getOrderId(formData: FormData): string {
   const orderId = getString(formData, "orderId");
   if (!orderId) throw new Error("订单必填");
   return orderId;
+}
+
+function isUploadedFile(value: FormDataEntryValue): value is File {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "name" in value &&
+    "size" in value
+  );
 }
 
 export async function createOrderAction(formData: FormData) {
@@ -68,6 +78,20 @@ export async function reopenOrderAction(formData: FormData) {
   const orderId = getOrderId(formData);
 
   await reopenOrder(workspaceId, orderId);
+
+  revalidatePath("/orders");
+  revalidatePath(`/orders/${orderId}`);
+  redirect(`/orders/${orderId}`);
+}
+
+export async function uploadOrderDrawingsAction(formData: FormData) {
+  const workspaceId = await requireWorkspaceId();
+  const orderId = getOrderId(formData);
+  const files = formData
+    .getAll("drawings")
+    .filter((value): value is File => isUploadedFile(value) && value.size > 0);
+
+  await replaceOrderDrawings(workspaceId, orderId, files);
 
   revalidatePath("/orders");
   revalidatePath(`/orders/${orderId}`);

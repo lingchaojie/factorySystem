@@ -1,5 +1,6 @@
 import { OrderStatus } from "@prisma/client";
 import Link from "next/link";
+import React from "react";
 import { createOrderAction } from "@/app/actions/orders";
 import {
   DateInput,
@@ -10,6 +11,7 @@ import {
   TextInput,
 } from "@/components/forms";
 import { orderStatusLabels, StatusBadge } from "@/components/status-badge";
+import { formatCnyFromCents, getOrderAmountCents } from "@/domain/money";
 import {
   businessDateRange,
   formatBusinessDate,
@@ -33,8 +35,8 @@ function parseDateRange(value: string | undefined, label: string) {
   return range;
 }
 
-function formatOrderTitle(order: { orderNo: string | null; partName: string }) {
-  return order.orderNo ? `${order.orderNo} / ${order.partName}` : order.partName;
+function formatOrderTitle(order: { orderNo: string; partName: string }) {
+  return `${order.orderNo} / ${order.partName}`;
 }
 
 export default async function OrdersPage({
@@ -134,6 +136,8 @@ export default async function OrdersPage({
                   <tr>
                     <th className="px-4 py-3">订单</th>
                     <th className="px-4 py-3">状态</th>
+                    <th className="px-4 py-3 text-right">单价</th>
+                    <th className="px-4 py-3 text-right">金额</th>
                     <th className="px-4 py-3 text-right">计划</th>
                     <th className="px-4 py-3 text-right">加工</th>
                     <th className="px-4 py-3 text-right">出货</th>
@@ -164,6 +168,17 @@ export default async function OrdersPage({
                           status={order.status}
                           labels={orderStatusLabels}
                         />
+                      </td>
+                      <td className="px-4 py-4 text-right font-medium text-slate-950">
+                        {formatCnyFromCents(order.unitPriceCents)}
+                      </td>
+                      <td className="px-4 py-4 text-right font-medium text-slate-950">
+                        {formatCnyFromCents(
+                          getOrderAmountCents(
+                            order.unitPriceCents,
+                            order.plannedQuantity,
+                          ),
+                        )}
                       </td>
                       <td className="px-4 py-4 text-right font-medium text-slate-950">
                         {order.plannedQuantity}
@@ -214,7 +229,6 @@ export default async function OrdersPage({
           <h2 className="text-base font-semibold text-slate-950">新增订单</h2>
           <form action={createOrderAction} className="mt-4 grid gap-4">
             <TextInput label="客户名称" name="customerName" required />
-            <TextInput label="订单号" name="orderNo" />
             <TextInput label="工件名称" name="partName" required />
             <NumberInput
               label="计划数量"
@@ -222,6 +236,12 @@ export default async function OrdersPage({
               min={1}
               step={1}
               required
+            />
+            <NumberInput
+              label="单价（元/件）"
+              name="unitPrice"
+              min={0}
+              step={0.01}
             />
             <DateInput label="交期" name="dueDate" />
             <Textarea label="备注" name="notes" />

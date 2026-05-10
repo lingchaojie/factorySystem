@@ -148,9 +148,9 @@ describe("factory services", () => {
     });
     const order = await createOrder(workspace.id, {
       customerName: "甲方工厂",
-      orderNo: "A-001",
       partName: "法兰盘",
       plannedQuantity: 100,
+      unitPriceCents: null,
       dueDate: null,
       notes: "",
     });
@@ -188,17 +188,17 @@ describe("factory services", () => {
     });
     const order = await createOrder(workspace.id, {
       customerName: "甲方工厂",
-      orderNo: "A-001-U",
       partName: "法兰盘",
       plannedQuantity: 100,
+      unitPriceCents: null,
       dueDate: null,
       notes: "",
     });
     const otherOrder = await createOrder(workspace.id, {
       customerName: "乙方工厂",
-      orderNo: "A-001-V",
       partName: "轴套",
       plannedQuantity: 50,
+      unitPriceCents: null,
       dueDate: null,
       notes: "",
     });
@@ -247,9 +247,9 @@ describe("factory services", () => {
     });
     const order = await createOrder(workspace.id, {
       customerName: "甲方工厂",
-      orderNo: "A-001-D",
       partName: "法兰盘",
       plannedQuantity: 100,
+      unitPriceCents: null,
       dueDate: null,
       notes: "",
     });
@@ -289,9 +289,9 @@ describe("factory services", () => {
     const workspace = await createWorkspace();
     const incompleteOrder = await createOrder(workspace.id, {
       customerName: "甲方工厂",
-      orderNo: "A-002",
       partName: "轴套",
       plannedQuantity: 100,
+      unitPriceCents: null,
       dueDate: null,
       notes: "",
     });
@@ -310,9 +310,9 @@ describe("factory services", () => {
     });
     const completeOrder = await createOrder(workspace.id, {
       customerName: "乙方工厂",
-      orderNo: "A-003",
       partName: "齿轮",
       plannedQuantity: 100,
+      unitPriceCents: null,
       dueDate: null,
       notes: "",
     });
@@ -347,9 +347,9 @@ describe("factory services", () => {
     });
     const order = await createOrder(workspace.id, {
       customerName: "丙方工厂",
-      orderNo: "A-004",
       partName: "端盖",
       plannedQuantity: 100,
+      unitPriceCents: null,
       dueDate: null,
       notes: "",
     });
@@ -395,9 +395,9 @@ describe("factory services", () => {
     });
     const order = await createOrder(workspace.id, {
       customerName: "丁方工厂",
-      orderNo: "A-005",
       partName: "支架",
       plannedQuantity: 100,
+      unitPriceCents: null,
       dueDate: null,
       notes: "",
     });
@@ -421,9 +421,9 @@ describe("factory services", () => {
     const workspace = await createWorkspace();
     const order = await createOrder(workspace.id, {
       customerName: "戊方工厂",
-      orderNo: "A-006",
       partName: "压板",
       plannedQuantity: 100,
+      unitPriceCents: null,
       dueDate: null,
       notes: "",
     });
@@ -445,9 +445,9 @@ describe("factory services", () => {
     });
     const order = await createOrder(workspace.id, {
       customerName: "丁方工厂",
-      orderNo: "A-005",
       partName: "支架",
       plannedQuantity: 100,
+      unitPriceCents: null,
       dueDate: null,
       notes: "",
     });
@@ -485,9 +485,9 @@ describe("factory services", () => {
     });
     const order = await createOrder(workspace.id, {
       customerName: "丁方工厂",
-      orderNo: "A-005-U",
       partName: "支架",
       plannedQuantity: 100,
+      unitPriceCents: null,
       dueDate: null,
       notes: "",
     });
@@ -524,17 +524,17 @@ describe("factory services", () => {
     });
     const dueOrder = await createOrder(workspace.id, {
       customerName: "己方工厂",
-      orderNo: "A-007",
       partName: "底座",
       plannedQuantity: 10,
+      unitPriceCents: null,
       dueDate: new Date("2026-05-10T00:00:00.000Z"),
       notes: "",
     });
     await createOrder(workspace.id, {
       customerName: "己方工厂",
-      orderNo: "A-008",
       partName: "垫片",
       plannedQuantity: 10,
+      unitPriceCents: null,
       dueDate: new Date("2026-05-12T00:00:00.000Z"),
       notes: "",
     });
