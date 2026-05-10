@@ -18,8 +18,8 @@ Usage:
 
 Options:
   --mode business      Clear business data only. Keeps Workspace/User. Default.
-  --mode all           Clear all app data, including users/workspaces.
-                       The web container will seed the bootstrap account again.
+  --mode all           Clear customer workspaces/users and business data.
+                       The web container will update the platform admin again.
   --skip-backup        Do not create a pg_dump before clearing.
   --keep-drawings      Keep uploaded drawing files in the Docker volume.
   --env-file PATH      Production env file. Default: deploy/production/.env.production
@@ -31,7 +31,7 @@ Examples:
   # Clear orders, machines, records, drawings metadata, sessions; keep accounts.
   scripts/clear-production-db.sh --confirm CLEAR_PRODUCTION_DB
 
-  # Full reset: clear all app tables and recreate bootstrap admin on restart.
+  # Full reset: clear customer app tables and update platform admin on restart.
   scripts/clear-production-db.sh --mode all --confirm CLEAR_PRODUCTION_DB
 
 Environment overrides:
