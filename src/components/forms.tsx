@@ -17,6 +17,13 @@ type SelectInputProps = FieldLabelProps &
   SelectHTMLAttributes<HTMLSelectElement> & {
     options: Array<{ value: string; label: string }>;
   };
+type MultiSelectInputProps = FieldLabelProps & {
+  name: string;
+  id?: string;
+  options: Array<{ value: string; label: string }>;
+  selectedValues?: string[];
+  className?: string;
+};
 
 const controlClassName =
   "mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 shadow-sm outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500";
@@ -107,6 +114,48 @@ export function SelectInput({
         ))}
       </select>
     </div>
+  );
+}
+
+export function MultiSelectInput({
+  label,
+  id,
+  name,
+  options,
+  selectedValues = [],
+  className,
+}: MultiSelectInputProps) {
+  const resolvedId = fieldId(name, id);
+  const selected = new Set(selectedValues);
+
+  return (
+    <fieldset className={className}>
+      <legend className={labelClassName}>{label}</legend>
+      <div className="mt-1 max-h-32 overflow-y-auto rounded-md border border-slate-300 bg-white p-2 shadow-sm">
+        <div className="flex flex-wrap gap-2">
+          {options.map((option) => {
+            const optionId = `${resolvedId}-${option.value}`;
+            return (
+              <label
+                key={option.value}
+                className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 px-2 py-1 text-sm text-slate-700"
+                htmlFor={optionId}
+              >
+                <input
+                  id={optionId}
+                  name={name}
+                  type="checkbox"
+                  value={option.value}
+                  defaultChecked={selected.has(option.value)}
+                  className="h-4 w-4 rounded border-slate-300 text-slate-950 focus:ring-slate-400"
+                />
+                <span>{option.label}</span>
+              </label>
+            );
+          })}
+        </div>
+      </div>
+    </fieldset>
   );
 }
 

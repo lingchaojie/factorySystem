@@ -15,10 +15,10 @@ export type RecordSearchParams = {
 type NormalizedRecordSearchParams = {
   from?: string;
   to?: string;
-  type?: string;
-  orderId?: string;
+  type: string[];
+  orderId: string[];
   customerName?: string;
-  status?: string;
+  status: string[];
 };
 
 const orderStatusFilters = new Set<OrderStatus>([
@@ -37,22 +37,18 @@ function firstValue(value: QueryParamValue) {
   return Array.isArray(value) ? value[0] : value;
 }
 
-function parseOrderStatus(value: string | undefined): OrderStatus | undefined {
-  if (!value) return undefined;
-  const trimmed = value.trim();
-  return orderStatusFilters.has(trimmed as OrderStatus)
-    ? (trimmed as OrderStatus)
-    : undefined;
+function queryValues(value: QueryParamValue) {
+  return (Array.isArray(value) ? value : [value])
+    .filter((item): item is string => typeof item === "string")
+    .map((item) => item.trim())
+    .filter(Boolean);
 }
 
-function parseRecordType(
-  value: string | undefined,
-): ProductionRecordType | undefined {
-  if (!value) return undefined;
-  const trimmed = value.trim();
-  return recordTypeFilters.has(trimmed as ProductionRecordType)
-    ? (trimmed as ProductionRecordType)
-    : undefined;
+function uniqueValues<T extends string>(values: string[], allowed: Set<T>) {
+  const selected = values.filter((item, index, items) => {
+    return allowed.has(item as T) && items.indexOf(item) === index;
+  }) as T[];
+  return selected.length > 0 ? selected : undefined;
 }
 
 function parseDateRange(value: string | undefined, label: string) {
@@ -70,10 +66,12 @@ export function normalizeRecordSearchParams(
   return {
     from: firstValue(params.from),
     to: firstValue(params.to),
-    type: firstValue(params.type),
-    orderId: firstValue(params.orderId),
+    type: queryValues(params.type),
+    orderId: queryValues(params.orderId).filter(
+      (item, index, items) => items.indexOf(item) === index,
+    ),
     customerName: firstValue(params.customerName),
-    status: firstValue(params.status),
+    status: queryValues(params.status),
   };
 }
 
@@ -81,13 +79,19 @@ export function parseRecordFilters(params: RecordSearchParams) {
   const values = normalizeRecordSearchParams(params);
   const fromRange = parseDateRange(values.from, "开始日期");
   const toRange = parseDateRange(values.to, "结束日期");
+  const recordTypes = uniqueValues(values.type, recordTypeFilters);
+  const orderStatuses = uniqueValues(values.status, orderStatusFilters);
+  const orderIds = values.orderId.length > 0 ? values.orderId : undefined;
 
   return {
     values,
-    recordType: parseRecordType(values.type),
-    orderId: values.orderId?.trim() || undefined,
+    recordType: recordTypes?.[0],
+    recordTypes,
+    orderId: orderIds?.[0],
+    orderIds,
     customerName: values.customerName?.trim() ?? "",
-    orderStatus: parseOrderStatus(values.status),
+    orderStatus: orderStatuses?.[0],
+    orderStatuses,
     from: fromRange?.start,
     to: toRange?.end,
   };

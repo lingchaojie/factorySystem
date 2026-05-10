@@ -1,9 +1,16 @@
 import Link from "next/link";
 import { Archive, FileText, Folder } from "lucide-react";
 import React from "react";
-import { updateOrderStatusAction } from "@/app/actions/orders";
+import { updateOrderDetailsAction } from "@/app/actions/orders";
 import { CreateEntityDialog } from "@/components/create-entity-dialog";
-import { SelectInput, SubmitButton } from "@/components/forms";
+import {
+  DateInput,
+  NumberInput,
+  SelectInput,
+  SubmitButton,
+  Textarea,
+  TextInput,
+} from "@/components/forms";
 import {
   machineStatusLabels,
   orderStatusLabels,
@@ -13,8 +20,9 @@ import { formatCnyFromCents, getOrderAmountCents } from "@/domain/money";
 import {
   formatBusinessDate,
   formatBusinessDateTime,
+  formatDateTimeLocalValue,
 } from "@/lib/business-time";
-import { requireWorkspaceId } from "@/lib/workspace";
+import { requireUser } from "@/lib/auth";
 import { getOrderWithSummary } from "@/server/services/orders";
 import { OrderDrawingUpload } from "./order-drawing-upload";
 
@@ -34,6 +42,10 @@ type DrawingFolder = {
 
 function formatOrderTitle(order: { orderNo: string; partName: string }) {
   return `${order.orderNo} / ${order.partName}`;
+}
+
+function formatUser(user: { displayName: string; username: string } | null) {
+  return user ? user.displayName || user.username : "-";
 }
 
 const orderStatusOptions = [
@@ -56,6 +68,14 @@ const recordTypeLabels = {
 
 function formatQuantity(value: number | string | null) {
   return value === null ? "-" : value;
+}
+
+function formatUnitPriceInput(value: number | null) {
+  return value === null ? "" : String(value / 100);
+}
+
+function formatDateInputValue(date: Date | null) {
+  return date ? formatDateTimeLocalValue(date).slice(0, 10) : "";
 }
 
 function formatFileSize(bytes: number) {
@@ -184,8 +204,9 @@ export default async function OrderDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const workspaceId = await requireWorkspaceId();
-  const order = await getOrderWithSummary(workspaceId, id);
+  const user = await requireUser();
+  const canManageOrders = user.role === "manager";
+  const order = await getOrderWithSummary(user.workspaceId, id);
   const drawingTree = buildDrawingTree(order.drawings);
 
   return (
@@ -206,25 +227,70 @@ export default async function OrderDetailPage({
           </div>
           <p className="mt-2 text-sm text-slate-500">{order.customerName}</p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <CreateEntityDialog
-            buttonLabel="修改状态"
-            title="修改订单状态"
-            buttonIcon="pencil"
-          >
-            <form action={updateOrderStatusAction} className="grid gap-4">
-              <input type="hidden" name="orderId" value={order.id} />
-              <SelectInput
-                label="订单状态"
-                name="status"
-                defaultValue={order.status}
-                options={orderStatusOptions}
-                required
-              />
-              <SubmitButton>保存状态</SubmitButton>
-            </form>
-          </CreateEntityDialog>
-        </div>
+        {canManageOrders ? (
+          <div className="flex flex-wrap gap-2">
+            <CreateEntityDialog
+              buttonLabel="编辑订单"
+              title="编辑订单"
+              buttonIcon="pencil"
+            >
+              <form action={updateOrderDetailsAction} className="grid gap-4">
+                <input type="hidden" name="orderId" value={order.id} />
+                <TextInput
+                  label="客户名称"
+                  id="editCustomerName"
+                  name="customerName"
+                  defaultValue={order.customerName}
+                  required
+                />
+                <TextInput
+                  label="工件名称"
+                  id="editPartName"
+                  name="partName"
+                  defaultValue={order.partName}
+                  required
+                />
+                <NumberInput
+                  label="计划数量"
+                  id="editPlannedQuantity"
+                  name="plannedQuantity"
+                  min={1}
+                  step={1}
+                  defaultValue={order.plannedQuantity ?? ""}
+                />
+                <NumberInput
+                  label="单价（元/件）"
+                  id="editUnitPrice"
+                  name="unitPrice"
+                  min={0}
+                  step={0.01}
+                  defaultValue={formatUnitPriceInput(order.unitPriceCents)}
+                />
+                <DateInput
+                  label="交期"
+                  id="editDueDate"
+                  name="dueDate"
+                  defaultValue={formatDateInputValue(order.dueDate)}
+                />
+                <SelectInput
+                  label="订单状态"
+                  id="editOrderStatus"
+                  name="status"
+                  defaultValue={order.status}
+                  options={orderStatusOptions}
+                  required
+                />
+                <Textarea
+                  label="备注"
+                  id="editOrderNotes"
+                  name="notes"
+                  defaultValue={order.notes ?? ""}
+                />
+                <SubmitButton>保存订单</SubmitButton>
+              </form>
+            </CreateEntityDialog>
+          </div>
+        ) : null}
       </header>
 
       <dl className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
@@ -264,23 +330,27 @@ export default async function OrderDetailPage({
                   {formatBusinessDateTime(order.createdAt)}
                 </dd>
               </div>
-              <div>
-                <dt className="text-slate-500">单价</dt>
-                <dd className="mt-1 text-slate-950">
-                  {formatCnyFromCents(order.unitPriceCents)}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-slate-500">订单金额</dt>
-                <dd className="mt-1 text-slate-950">
-                  {formatCnyFromCents(
-                    getOrderAmountCents(
-                      order.unitPriceCents,
-                      order.plannedQuantity,
-                    ),
-                  )}
-                </dd>
-              </div>
+              {canManageOrders ? (
+                <>
+                  <div>
+                    <dt className="text-slate-500">单价</dt>
+                    <dd className="mt-1 text-slate-950">
+                      {formatCnyFromCents(order.unitPriceCents)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-slate-500">订单金额</dt>
+                    <dd className="mt-1 text-slate-950">
+                      {formatCnyFromCents(
+                        getOrderAmountCents(
+                          order.unitPriceCents,
+                          order.plannedQuantity,
+                        ),
+                      )}
+                    </dd>
+                  </div>
+                </>
+              ) : null}
               <div>
                 <dt className="text-slate-500">完成时间</dt>
                 <dd className="mt-1 text-slate-950">
@@ -312,9 +382,11 @@ export default async function OrderDetailPage({
                 <h2 className="text-base font-semibold text-slate-950">
                   图纸文件
                 </h2>
-                <p className="mt-1 text-sm text-slate-500">
-                  重新上传会覆盖原有图纸
-                </p>
+                {canManageOrders ? (
+                  <p className="mt-1 text-sm text-slate-500">
+                    重新上传会覆盖原有图纸
+                  </p>
+                ) : null}
               </div>
               <span className="text-sm text-slate-500">
                 {order.drawings.length} 个文件
@@ -338,7 +410,7 @@ export default async function OrderDetailPage({
               </div>
             )}
 
-            <OrderDrawingUpload orderId={order.id} />
+            {canManageOrders ? <OrderDrawingUpload orderId={order.id} /> : null}
           </section>
 
           <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
@@ -362,6 +434,8 @@ export default async function OrderDetailPage({
                       <th className="whitespace-nowrap px-4 py-3 text-right">
                         数量
                       </th>
+                      <th className="whitespace-nowrap px-4 py-3">录入人</th>
+                      <th className="whitespace-nowrap px-4 py-3">修改人</th>
                       <th className="px-4 py-3">备注</th>
                     </tr>
                   </thead>
@@ -379,6 +453,12 @@ export default async function OrderDetailPage({
                         </td>
                         <td className="whitespace-nowrap px-4 py-4 text-right font-medium text-slate-950">
                           {record.quantity}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-4 text-slate-950">
+                          {formatUser(record.createdByUser)}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-4 text-slate-950">
+                          {formatUser(record.updatedByUser)}
                         </td>
                         <td className="px-4 py-4 text-slate-600">
                           {record.notes || "-"}

@@ -31,6 +31,10 @@ function formatOrder(order: { orderNo: string; partName: string }) {
   return `${order.orderNo} / ${order.partName}`;
 }
 
+function formatUser(user: { displayName: string; username: string } | null) {
+  return user ? user.displayName || user.username : "-";
+}
+
 const recordTypeLabels = {
   completed: "加工",
   shipped: "出货",
@@ -152,6 +156,8 @@ export default async function MachineDetailPage({
                       <th className="whitespace-nowrap px-4 py-3 text-right">
                         数量
                       </th>
+                      <th className="whitespace-nowrap px-4 py-3">录入人</th>
+                      <th className="whitespace-nowrap px-4 py-3">修改人</th>
                       <th className="px-4 py-3">备注</th>
                     </tr>
                   </thead>
@@ -174,6 +180,12 @@ export default async function MachineDetailPage({
                         </td>
                         <td className="whitespace-nowrap px-4 py-4 text-right font-medium text-slate-950">
                           {record.quantity}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-4 text-slate-950">
+                          {formatUser(record.createdByUser)}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-4 text-slate-950">
+                          {formatUser(record.updatedByUser)}
                         </td>
                         <td className="px-4 py-4 text-slate-600">
                           {record.notes || "-"}

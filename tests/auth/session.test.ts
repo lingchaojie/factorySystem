@@ -44,8 +44,11 @@ describe("session helpers", () => {
       id: "user-1",
       workspaceId: "workspace-1",
       username: "operator",
+      displayName: "张三",
+      role: "employee",
       createdAt: new Date(),
       updatedAt: new Date(),
+      workspace: { name: "精密加工一厂" },
     };
     cookiesStore.get.mockReturnValue({ value: "session-token" });
     prismaMock.session.findUnique.mockResolvedValue({
@@ -72,6 +75,9 @@ describe("session helpers", () => {
             id: true,
             workspaceId: true,
             username: true,
+            displayName: true,
+            role: true,
+            workspace: { select: { name: true } },
             createdAt: true,
             updatedAt: true,
           }),

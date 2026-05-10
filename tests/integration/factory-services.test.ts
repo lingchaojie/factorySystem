@@ -7,6 +7,7 @@ import { prisma } from "@/lib/db";
 import {
   createMachine,
   linkMachineToOrder,
+  listMachines,
   updateMachine,
 } from "@/server/services/machines";
 import {
@@ -22,6 +23,7 @@ import {
 import {
   createProductionRecord,
   deleteProductionRecord,
+  listProductionRecords,
   updateProductionRecord,
 } from "@/server/services/records";
 
@@ -115,6 +117,99 @@ describe("factory services", () => {
 
     expect(updated.status).toBe("maintenance");
     expect(updated.notes).toBe("等待换刀");
+  });
+
+  it("filters machines, orders, and records with multi-select values", async () => {
+    const workspace = await createWorkspace();
+    const activeMachine = await createMachine(workspace.id, {
+      code: "1",
+      name: "1号机",
+      model: "",
+      location: "",
+      status: "active",
+      notes: "",
+    });
+    const maintenanceMachine = await createMachine(workspace.id, {
+      code: "2",
+      name: "2号机",
+      model: "",
+      location: "",
+      status: "maintenance",
+      notes: "",
+    });
+    await createMachine(workspace.id, {
+      code: "3",
+      name: "3号机",
+      model: "",
+      location: "",
+      status: "disabled",
+      notes: "",
+    });
+
+    const inProgressOrder = await createOrder(workspace.id, {
+      customerName: "甲方",
+      partName: "法兰",
+      plannedQuantity: 100,
+      unitPriceCents: null,
+      dueDate: null,
+      notes: "",
+    });
+    const completedOrder = await createOrder(workspace.id, {
+      customerName: "乙方",
+      partName: "底座",
+      plannedQuantity: 80,
+      unitPriceCents: null,
+      dueDate: null,
+      notes: "",
+    });
+    const excludedOrder = await createOrder(workspace.id, {
+      customerName: "丙方",
+      partName: "垫片",
+      plannedQuantity: 60,
+      unitPriceCents: null,
+      dueDate: null,
+      notes: "",
+    });
+
+    await linkMachineToOrder(workspace.id, activeMachine.id, inProgressOrder.id);
+    await createProductionRecord(workspace.id, {
+      machineId: activeMachine.id,
+      recordedAt: new Date("2026-05-10T08:00:00.000Z"),
+      completedQuantity: 10,
+      shippedQuantity: 4,
+      notes: "",
+    });
+    await linkMachineToOrder(workspace.id, maintenanceMachine.id, completedOrder.id);
+    await createProductionRecord(workspace.id, {
+      machineId: maintenanceMachine.id,
+      recordedAt: new Date("2026-05-10T09:00:00.000Z"),
+      completedQuantity: 8,
+      shippedQuantity: 0,
+      notes: "",
+    });
+    await updateOrderStatus(workspace.id, completedOrder.id, "completed");
+
+    const machines = await listMachines(workspace.id, {
+      statuses: ["active", "maintenance"],
+    });
+    expect(machines.map((machine) => machine.code)).toEqual(["1", "2"]);
+
+    const orders = await listOrders(workspace.id, {
+      statuses: ["in_progress", "completed"],
+    });
+    expect(orders.map((order) => order.id).sort()).toEqual(
+      [inProgressOrder.id, completedOrder.id].sort(),
+    );
+    expect(orders.map((order) => order.id)).not.toContain(excludedOrder.id);
+
+    const records = await listProductionRecords(workspace.id, {
+      types: ["completed", "shipped"],
+      orderIds: [inProgressOrder.id, completedOrder.id],
+      orderStatuses: ["in_progress", "completed"],
+    });
+    expect(records.map((record) => record.orderId).sort()).toEqual(
+      [completedOrder.id, inProgressOrder.id, inProgressOrder.id].sort(),
+    );
   });
 
   it("replaces existing drawing records and files when uploading again", async () => {

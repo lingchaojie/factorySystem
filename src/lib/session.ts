@@ -8,13 +8,24 @@ export const sessionCookieName =
 
 export type AuthenticatedUser = Pick<
   User,
-  "id" | "workspaceId" | "username" | "createdAt" | "updatedAt"
->;
+  | "id"
+  | "workspaceId"
+  | "username"
+  | "displayName"
+  | "role"
+  | "createdAt"
+  | "updatedAt"
+> & {
+  workspace: { name: string };
+};
 
 export const authenticatedUserSelect = {
   id: true,
   workspaceId: true,
   username: true,
+  displayName: true,
+  role: true,
+  workspace: { select: { name: true } },
   createdAt: true,
   updatedAt: true,
 } satisfies Prisma.UserSelect;

@@ -15,6 +15,7 @@ export type CreateProductionRecordInput = {
   completedQuantity: number;
   shippedQuantity: number;
   notes: string;
+  actorUserId?: string;
 };
 
 export type UpdateProductionRecordInput = {
@@ -22,6 +23,7 @@ export type UpdateProductionRecordInput = {
   type: ProductionRecordType;
   quantity: number;
   notes: string;
+  actorUserId?: string;
 };
 
 function validateRecordMutationInput(input: UpdateProductionRecordInput) {
@@ -91,6 +93,12 @@ export async function createProductionRecord(
             type: row.type,
             quantity: row.quantity,
             notes: input.notes.trim() || null,
+            createdByUser: input.actorUserId
+              ? { connect: { id: input.actorUserId } }
+              : undefined,
+            updatedByUser: input.actorUserId
+              ? { connect: { id: input.actorUserId } }
+              : undefined,
           },
         }),
       );
@@ -125,6 +133,9 @@ export async function updateProductionRecord(
         type: input.type,
         quantity: input.quantity,
         notes: input.notes.trim() || null,
+        updatedByUser: input.actorUserId
+          ? { connect: { id: input.actorUserId } }
+          : undefined,
       },
     });
   });
@@ -155,25 +166,44 @@ export async function listProductionRecords(
   workspaceId: string,
   filters: {
     type?: ProductionRecordType;
+    types?: ProductionRecordType[];
     orderId?: string;
+    orderIds?: string[];
     customerName?: string;
     orderStatus?: OrderStatus;
+    orderStatuses?: OrderStatus[];
     from?: Date;
     to?: Date;
   },
 ) {
+  const types = filters.types?.length
+    ? filters.types
+    : filters.type
+      ? [filters.type]
+      : undefined;
+  const orderIds = filters.orderIds?.length
+    ? filters.orderIds
+    : filters.orderId
+      ? [filters.orderId]
+      : undefined;
+  const orderStatuses = filters.orderStatuses?.length
+    ? filters.orderStatuses
+    : filters.orderStatus
+      ? [filters.orderStatus]
+      : undefined;
+
   return prisma.productionRecord.findMany({
     where: {
       workspaceId,
-      type: filters.type,
-      orderId: filters.orderId,
+      type: types ? { in: types } : undefined,
+      orderId: orderIds ? { in: orderIds } : undefined,
       order:
-        filters.customerName || filters.orderStatus
+        filters.customerName || orderStatuses
           ? {
               customerName: filters.customerName
                 ? { contains: filters.customerName, mode: "insensitive" }
                 : undefined,
-              status: filters.orderStatus,
+              status: orderStatuses ? { in: orderStatuses } : undefined,
             }
           : undefined,
       recordedAt: {
@@ -184,6 +214,8 @@ export async function listProductionRecords(
     include: {
       machine: true,
       order: true,
+      createdByUser: true,
+      updatedByUser: true,
     },
     orderBy: { recordedAt: "desc" },
   });

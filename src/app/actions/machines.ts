@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { parseNonNegativeQuantity } from "@/domain/factory";
 import { parseBusinessDateTimeLocal } from "@/lib/business-time";
+import { requireUser } from "@/lib/auth";
 import { requireWorkspaceId } from "@/lib/workspace";
 import {
   createMachine,
@@ -91,12 +92,12 @@ export async function linkMachineAction(formData: FormData) {
 }
 
 export async function createMachineRecordAction(formData: FormData) {
-  const workspaceId = await requireWorkspaceId();
+  const user = await requireUser();
   const machineId = getString(formData, "machineId");
 
   if (!machineId) throw new Error("机器必填");
 
-  await createProductionRecord(workspaceId, {
+  await createProductionRecord(user.workspaceId, {
     machineId,
     recordedAt: parseRecordedAt(formData.get("recordedAt")),
     completedQuantity: parseNonNegativeQuantity(
@@ -108,6 +109,7 @@ export async function createMachineRecordAction(formData: FormData) {
       "出货数量",
     ),
     notes: getString(formData, "notes"),
+    actorUserId: user.id,
   });
 
   revalidatePath("/machines");

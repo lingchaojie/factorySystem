@@ -1,6 +1,5 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { bootstrapWorkspaceId } from "@/lib/bootstrap";
 import { prisma } from "@/lib/db";
 import {
   type AuthenticatedUser,
@@ -18,12 +17,7 @@ export async function loginWithPassword(
   password: string,
 ): Promise<AuthenticatedUser | null> {
   const user = await prisma.user.findUnique({
-    where: {
-      workspaceId_username: {
-        workspaceId: bootstrapWorkspaceId,
-        username,
-      },
-    },
+    where: { username },
     select: {
       ...authenticatedUserSelect,
       passwordHash: true,
@@ -49,6 +43,9 @@ export async function loginWithPassword(
     id: user.id,
     workspaceId: user.workspaceId,
     username: user.username,
+    displayName: user.displayName,
+    role: user.role,
+    workspace: user.workspace,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
   };
@@ -57,5 +54,13 @@ export async function loginWithPassword(
 export async function requireUser() {
   const user = await readSessionUser();
   if (!user) redirect("/login");
+  return user;
+}
+
+export async function requireManager() {
+  const user = await requireUser();
+  if (user.role !== "manager") {
+    throw new Error("需要经理权限");
+  }
   return user;
 }

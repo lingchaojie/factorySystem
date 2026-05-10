@@ -1,12 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { workspaceMock, ordersMock, drawingsMock, cacheMock, navigationMock } =
+const { authMock, ordersMock, drawingsMock, cacheMock, navigationMock } =
   vi.hoisted(() => ({
-    workspaceMock: {
-      requireWorkspaceId: vi.fn(),
+    authMock: {
+      requireManager: vi.fn(),
     },
     ordersMock: {
       createOrder: vi.fn(),
+      updateOrderDetails: vi.fn(),
       updateOrderStatus: vi.fn(),
     },
     drawingsMock: {
@@ -20,7 +21,7 @@ const { workspaceMock, ordersMock, drawingsMock, cacheMock, navigationMock } =
     },
   }));
 
-vi.mock("@/lib/workspace", () => workspaceMock);
+vi.mock("@/lib/auth", () => authMock);
 vi.mock("@/server/services/orders", () => ordersMock);
 vi.mock("@/server/services/order-drawings", () => drawingsMock);
 vi.mock("next/cache", () => cacheMock);
@@ -30,7 +31,14 @@ describe("order actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.resetModules();
-    workspaceMock.requireWorkspaceId.mockResolvedValue("workspace-1");
+    authMock.requireManager.mockResolvedValue({
+      id: "user-1",
+      workspaceId: "workspace-1",
+      username: "manager",
+      displayName: "王经理",
+      role: "manager",
+      workspace: { name: "精密加工一厂" },
+    });
   });
 
   it("creates an order with a Shanghai business due date", async () => {
@@ -92,6 +100,17 @@ describe("order actions", () => {
     expect(ordersMock.createOrder).not.toHaveBeenCalled();
   });
 
+  it("rejects employee attempts to create orders", async () => {
+    authMock.requireManager.mockRejectedValue(new Error("需要经理权限"));
+    const { createOrderAction } = await import("@/app/actions/orders");
+    const form = new FormData();
+    form.set("customerName", "甲方工厂");
+    form.set("partName", "法兰盘");
+
+    await expect(createOrderAction(form)).rejects.toThrow("需要经理权限");
+    expect(ordersMock.createOrder).not.toHaveBeenCalled();
+  });
+
   it("rejects unit prices with more than two decimals", async () => {
     const { createOrderAction } = await import("@/app/actions/orders");
     const form = new FormData();
@@ -124,6 +143,61 @@ describe("order actions", () => {
     expect(navigationMock.redirect).toHaveBeenCalledWith("/orders/order-1");
   });
 
+  it("updates editable order details and status together", async () => {
+    const { updateOrderDetailsAction } = await import("@/app/actions/orders");
+    const form = new FormData();
+    form.set("orderId", "order-1");
+    form.set("customerName", " 甲方新厂 ");
+    form.set("partName", " 新法兰 ");
+    form.set("plannedQuantity", "50");
+    form.set("unitPrice", "18.88");
+    form.set("dueDate", "2026-05-12");
+    form.set("status", "completed");
+    form.set("notes", " 改价 ");
+
+    await updateOrderDetailsAction(form);
+
+    expect(ordersMock.updateOrderDetails).toHaveBeenCalledWith(
+      "workspace-1",
+      "order-1",
+      {
+        customerName: " 甲方新厂 ",
+        partName: " 新法兰 ",
+        plannedQuantity: 50,
+        unitPriceCents: 1888,
+        dueDate: new Date("2026-05-11T16:00:00.000Z"),
+        status: "completed",
+        notes: " 改价 ",
+      },
+    );
+    expect(cacheMock.revalidatePath).toHaveBeenCalledWith("/orders");
+    expect(cacheMock.revalidatePath).toHaveBeenCalledWith("/orders/order-1");
+    expect(navigationMock.redirect).toHaveBeenCalledWith("/orders/order-1");
+  });
+
+  it("rejects employee attempts to update order details", async () => {
+    authMock.requireManager.mockRejectedValue(new Error("需要经理权限"));
+    const { updateOrderDetailsAction } = await import("@/app/actions/orders");
+    const form = new FormData();
+    form.set("orderId", "order-1");
+    form.set("customerName", "甲方工厂");
+    form.set("partName", "法兰盘");
+
+    await expect(updateOrderDetailsAction(form)).rejects.toThrow("需要经理权限");
+    expect(ordersMock.updateOrderDetails).not.toHaveBeenCalled();
+  });
+
+  it("rejects employee attempts to update order status", async () => {
+    authMock.requireManager.mockRejectedValue(new Error("需要经理权限"));
+    const { updateOrderStatusAction } = await import("@/app/actions/orders");
+    const form = new FormData();
+    form.set("orderId", "order-1");
+    form.set("status", "completed");
+
+    await expect(updateOrderStatusAction(form)).rejects.toThrow("需要经理权限");
+    expect(ordersMock.updateOrderStatus).not.toHaveBeenCalled();
+  });
+
   it("rejects invalid manual order statuses before updating", async () => {
     const { updateOrderStatusAction } = await import("@/app/actions/orders");
     const form = new FormData();
@@ -152,5 +226,16 @@ describe("order actions", () => {
     expect(cacheMock.revalidatePath).toHaveBeenCalledWith("/orders");
     expect(cacheMock.revalidatePath).toHaveBeenCalledWith("/orders/order-1");
     expect(navigationMock.redirect).toHaveBeenCalledWith("/orders/order-1");
+  });
+
+  it("rejects employee attempts to upload drawings", async () => {
+    authMock.requireManager.mockRejectedValue(new Error("需要经理权限"));
+    const { uploadOrderDrawingsAction } = await import("@/app/actions/orders");
+    const form = new FormData();
+    form.set("orderId", "order-1");
+    form.append("drawings", new File(["step"], "fixture.step"));
+
+    await expect(uploadOrderDrawingsAction(form)).rejects.toThrow("需要经理权限");
+    expect(drawingsMock.replaceOrderDrawings).not.toHaveBeenCalled();
   });
 });

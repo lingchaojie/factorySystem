@@ -4,6 +4,7 @@ import { ProductionRecordType } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { parsePositiveQuantity } from "@/domain/factory";
 import { parseBusinessDateTimeLocal } from "@/lib/business-time";
+import { requireUser } from "@/lib/auth";
 import { requireWorkspaceId } from "@/lib/workspace";
 import {
   deleteProductionRecord,
@@ -57,14 +58,15 @@ function revalidateRecordDependencies(result?: {
 }
 
 export async function updateRecordAction(formData: FormData) {
-  const workspaceId = await requireWorkspaceId();
+  const user = await requireUser();
   const recordId = getRecordId(formData);
 
-  const updated = await updateProductionRecord(workspaceId, recordId, {
+  const updated = await updateProductionRecord(user.workspaceId, recordId, {
     recordedAt: parseRecordedAt(formData.get("recordedAt")),
     type: parseRecordType(formData.get("type")),
     quantity: parsePositiveQuantity(getString(formData, "quantity"), "记录数量"),
     notes: getString(formData, "notes"),
+    actorUserId: user.id,
   });
 
   revalidateRecordDependencies(updated);

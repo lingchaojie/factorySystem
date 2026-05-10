@@ -35,14 +35,17 @@ describe("loginWithPassword", () => {
     process.env.SESSION_TTL_DAYS = "14";
   });
 
-  it("scopes login to the bootstrap workspace and returns a safe user shape", async () => {
+  it("logs in by globally unique username and returns role and workspace context", async () => {
     const user = {
       id: "user-1",
-      workspaceId: "bootstrap-workspace",
+      workspaceId: "workspace-1",
       username: "operator",
+      displayName: "张三",
+      role: "manager",
       passwordHash: "stored-hash",
       createdAt: new Date(),
       updatedAt: new Date(),
+      workspace: { name: "精密加工一厂" },
     };
     prismaMock.user.findUnique.mockResolvedValue(user);
     prismaMock.session.create.mockResolvedValue({
@@ -62,21 +65,22 @@ describe("loginWithPassword", () => {
       id: user.id,
       workspaceId: user.workspaceId,
       username: user.username,
+      displayName: user.displayName,
+      role: user.role,
+      workspace: user.workspace,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     });
     expect(result).not.toHaveProperty("passwordHash");
     expect(prismaMock.user.findUnique).toHaveBeenCalledWith({
-      where: {
-        workspaceId_username: {
-          workspaceId: "bootstrap-workspace",
-          username: "operator",
-        },
-      },
+      where: { username: "operator" },
       select: expect.objectContaining({
         id: true,
         workspaceId: true,
         username: true,
+        displayName: true,
+        role: true,
+        workspace: { select: { name: true } },
         passwordHash: true,
       }),
     });
@@ -96,11 +100,14 @@ describe("loginWithPassword", () => {
   it("does not create a session or set a cookie when credentials are invalid", async () => {
     prismaMock.user.findUnique.mockResolvedValue({
       id: "user-1",
-      workspaceId: "bootstrap-workspace",
+      workspaceId: "workspace-1",
       username: "operator",
+      displayName: "张三",
+      role: "manager",
       passwordHash: "stored-hash",
       createdAt: new Date(),
       updatedAt: new Date(),
+      workspace: { name: "精密加工一厂" },
     });
 
     const { loginWithPassword } = await import("@/lib/auth");
@@ -117,11 +124,14 @@ describe("loginWithPassword", () => {
     process.env.SESSION_COOKIE_SECURE = "false";
     const user = {
       id: "user-1",
-      workspaceId: "bootstrap-workspace",
+      workspaceId: "workspace-1",
       username: "operator",
+      displayName: "张三",
+      role: "manager",
       passwordHash: "stored-hash",
       createdAt: new Date(),
       updatedAt: new Date(),
+      workspace: { name: "精密加工一厂" },
     };
     prismaMock.user.findUnique.mockResolvedValue(user);
     prismaMock.session.create.mockResolvedValue({
@@ -147,11 +157,14 @@ describe("loginWithPassword", () => {
     process.env.NODE_ENV = "production";
     const user = {
       id: "user-1",
-      workspaceId: "bootstrap-workspace",
+      workspaceId: "workspace-1",
       username: "operator",
+      displayName: "张三",
+      role: "manager",
       passwordHash: "stored-hash",
       createdAt: new Date(),
       updatedAt: new Date(),
+      workspace: { name: "精密加工一厂" },
     };
     prismaMock.user.findUnique.mockResolvedValue(user);
     prismaMock.session.create.mockResolvedValue({
@@ -173,7 +186,7 @@ describe("loginWithPassword", () => {
     );
   });
 
-  it("does not log in a duplicate username from another workspace", async () => {
+  it("does not create a session when the global username is missing", async () => {
     prismaMock.user.findUnique.mockResolvedValue(null);
 
     const { loginWithPassword } = await import("@/lib/auth");
@@ -183,12 +196,7 @@ describe("loginWithPassword", () => {
     ).resolves.toBeNull();
     expect(prismaMock.user.findUnique).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: {
-          workspaceId_username: {
-            workspaceId: "bootstrap-workspace",
-            username: "operator",
-          },
-        },
+        where: { username: "operator" },
       }),
     );
     expect(prismaMock.session.create).not.toHaveBeenCalled();

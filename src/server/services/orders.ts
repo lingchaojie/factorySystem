@@ -12,6 +12,10 @@ export type CreateOrderInput = {
   notes: string;
 };
 
+export type UpdateOrderDetailsInput = CreateOrderInput & {
+  status: OrderStatus;
+};
+
 const orderStatuses = new Set<OrderStatus>([
   "development_pending",
   "processing_pending",
@@ -102,7 +106,11 @@ export async function getOrderWithSummary(workspaceId: string, orderId: string) 
       currentMachines: true,
       drawings: { orderBy: { createdAt: "desc" } },
       productionRecords: {
-        include: { machine: true },
+        include: {
+          machine: true,
+          createdByUser: true,
+          updatedByUser: true,
+        },
         orderBy: { recordedAt: "desc" },
       },
     },
@@ -123,15 +131,22 @@ export async function listOrders(
   filters: {
     customerName?: string;
     status?: OrderStatus;
+    statuses?: OrderStatus[];
     query?: string;
     dueDateFrom?: Date;
     dueDateTo?: Date;
   },
 ) {
+  const statuses = filters.statuses?.length
+    ? filters.statuses
+    : filters.status
+      ? [filters.status]
+      : undefined;
+
   const orders = await prisma.order.findMany({
     where: {
       workspaceId,
-      status: filters.status,
+      status: statuses ? { in: statuses } : undefined,
       customerName: filters.customerName
         ? { contains: filters.customerName, mode: "insensitive" }
         : undefined,
@@ -184,6 +199,41 @@ export async function updateOrderStatus(
     data: {
       status,
       closedAt: status === "completed" ? new Date() : null,
+    },
+  });
+}
+
+export async function updateOrderDetails(
+  workspaceId: string,
+  orderId: string,
+  input: UpdateOrderDetailsInput,
+) {
+  if (!input.customerName.trim()) throw new Error("客户名称必填");
+  if (!input.partName.trim()) throw new Error("工件名称必填");
+  if (input.plannedQuantity !== null) {
+    parsePositiveQuantity(String(input.plannedQuantity), "计划数量");
+  }
+  if (!orderStatuses.has(input.status)) {
+    throw new Error("订单状态无效");
+  }
+
+  const order = await prisma.order.findFirstOrThrow({
+    where: { id: orderId, workspaceId },
+    select: { id: true, closedAt: true },
+  });
+
+  return prisma.order.update({
+    where: { id: order.id },
+    data: {
+      customerName: input.customerName.trim(),
+      partName: input.partName.trim(),
+      plannedQuantity: input.plannedQuantity,
+      unitPriceCents: input.unitPriceCents,
+      dueDate: input.dueDate,
+      status: input.status,
+      notes: input.notes.trim() || null,
+      closedAt:
+        input.status === "completed" ? (order.closedAt ?? new Date()) : null,
     },
   });
 }

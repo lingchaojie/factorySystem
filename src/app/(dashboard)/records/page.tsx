@@ -8,6 +8,7 @@ import {
 import { CreateEntityDialog } from "@/components/create-entity-dialog";
 import {
   DateInput,
+  MultiSelectInput,
   NumberInput,
   SelectInput,
   SubmitButton,
@@ -25,8 +26,7 @@ import { listProductionRecords } from "@/server/services/records";
 import { DeleteRecordButton } from "./delete-record-button";
 import { parseRecordFilters, type RecordSearchParams } from "./filters";
 
-const statusOptions: Array<{ value: OrderStatus | ""; label: string }> = [
-  { value: "", label: "全部状态" },
+const statusOptions: Array<{ value: OrderStatus; label: string }> = [
   {
     value: "development_pending",
     label: orderStatusLabels.development_pending,
@@ -51,21 +51,17 @@ const recordTypeLabels = {
   shipped: "出货",
 } as const;
 
-const recordTypeOptions = [
+const recordTypeOptions: Array<{ value: ProductionRecordType; label: string }> = [
   { value: "completed", label: recordTypeLabels.completed },
   { value: "shipped", label: recordTypeLabels.shipped },
 ];
 
-const recordTypeFilterOptions: Array<{
-  value: ProductionRecordType | "";
-  label: string;
-}> = [
-  { value: "", label: "全部类型" },
-  ...recordTypeOptions,
-];
-
 function formatOrder(order: { orderNo: string | null; partName: string }) {
   return order.orderNo ? `${order.orderNo} / ${order.partName}` : order.partName;
+}
+
+function formatUser(user: { displayName: string; username: string } | null) {
+  return user ? user.displayName || user.username : "-";
 }
 
 function RecordTypeBadge({ type }: { type: keyof typeof recordTypeLabels }) {
@@ -98,22 +94,22 @@ export default async function RecordsPage({
   const [records, orders] = await Promise.all([
     listProductionRecords(workspaceId, {
       type: filters.recordType,
+      types: filters.recordTypes,
       orderId: filters.orderId,
+      orderIds: filters.orderIds,
       customerName: filters.customerName,
       orderStatus: filters.orderStatus,
+      orderStatuses: filters.orderStatuses,
       from: filters.from,
       to: filters.to,
     }),
     listOrders(workspaceId, {}),
   ]);
 
-  const orderOptions = [
-    { value: "", label: "全部订单" },
-    ...orders.map((order) => ({
+  const orderOptions = orders.map((order) => ({
       value: order.id,
       label: formatOrder(order),
-    })),
-  ];
+    }));
 
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-6">
@@ -131,7 +127,7 @@ export default async function RecordsPage({
 
       <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
         <form
-          className="grid gap-3 lg:grid-cols-[140px_140px_150px_220px_1fr_150px_auto]"
+          className="grid gap-3 lg:grid-cols-[140px_140px_180px_240px_1fr_180px_auto]"
           action="/records"
         >
           <DateInput
@@ -144,17 +140,17 @@ export default async function RecordsPage({
             name="to"
             defaultValue={filters.values.to ?? ""}
           />
-          <SelectInput
+          <MultiSelectInput
             label="记录类型"
             id="recordTypeFilter"
             name="type"
-            defaultValue={filters.recordType ?? ""}
-            options={recordTypeFilterOptions}
+            selectedValues={filters.recordTypes ?? []}
+            options={recordTypeOptions}
           />
-          <SelectInput
+          <MultiSelectInput
             label="订单"
             name="orderId"
-            defaultValue={filters.orderId ?? ""}
+            selectedValues={filters.orderIds ?? []}
             options={orderOptions}
           />
           <TextInput
@@ -163,10 +159,10 @@ export default async function RecordsPage({
             placeholder="客户名称"
             defaultValue={filters.customerName}
           />
-          <SelectInput
+          <MultiSelectInput
             label="订单状态"
             name="status"
-            defaultValue={filters.orderStatus ?? ""}
+            selectedValues={filters.orderStatuses ?? []}
             options={statusOptions}
           />
           <div className="flex items-end">
@@ -200,7 +196,7 @@ export default async function RecordsPage({
                       </h2>
                       <RecordTypeBadge type={record.type} />
                     </div>
-                    <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
+                    <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-6">
                       <div>
                         <dt className="text-slate-500">机器</dt>
                         <dd className="mt-1 font-medium text-slate-950">
@@ -237,6 +233,18 @@ export default async function RecordsPage({
                         <dt className="text-slate-500">数量</dt>
                         <dd className="mt-1 font-medium text-slate-950">
                           {record.quantity}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-slate-500">录入人</dt>
+                        <dd className="mt-1 font-medium text-slate-950">
+                          {formatUser(record.createdByUser)}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-slate-500">修改人</dt>
+                        <dd className="mt-1 font-medium text-slate-950">
+                          {formatUser(record.updatedByUser)}
                         </dd>
                       </div>
                     </dl>

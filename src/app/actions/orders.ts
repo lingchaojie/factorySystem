@@ -6,9 +6,10 @@ import { redirect } from "next/navigation";
 import { parseOptionalPositiveQuantity } from "@/domain/factory";
 import { parseOptionalYuanToCents } from "@/domain/money";
 import { parseBusinessDate } from "@/lib/business-time";
-import { requireWorkspaceId } from "@/lib/workspace";
+import { requireManager } from "@/lib/auth";
 import {
   createOrder,
+  updateOrderDetails,
   updateOrderStatus,
 } from "@/server/services/orders";
 import { replaceOrderDrawings } from "@/server/services/order-drawings";
@@ -58,9 +59,9 @@ function isUploadedFile(value: FormDataEntryValue): value is File {
 }
 
 export async function createOrderAction(formData: FormData) {
-  const workspaceId = await requireWorkspaceId();
+  const user = await requireManager();
 
-  const created = await createOrder(workspaceId, {
+  const created = await createOrder(user.workspaceId, {
     customerName: getString(formData, "customerName"),
     partName: getString(formData, "partName"),
     plannedQuantity: parseOptionalPositiveQuantity(
@@ -78,11 +79,33 @@ export async function createOrderAction(formData: FormData) {
 }
 
 export async function updateOrderStatusAction(formData: FormData) {
-  const workspaceId = await requireWorkspaceId();
+  const user = await requireManager();
   const orderId = getOrderId(formData);
   const status = parseOrderStatus(formData.get("status"));
 
-  await updateOrderStatus(workspaceId, orderId, status);
+  await updateOrderStatus(user.workspaceId, orderId, status);
+
+  revalidatePath("/orders");
+  revalidatePath(`/orders/${orderId}`);
+  redirect(`/orders/${orderId}`);
+}
+
+export async function updateOrderDetailsAction(formData: FormData) {
+  const user = await requireManager();
+  const orderId = getOrderId(formData);
+
+  await updateOrderDetails(user.workspaceId, orderId, {
+    customerName: getString(formData, "customerName"),
+    partName: getString(formData, "partName"),
+    plannedQuantity: parseOptionalPositiveQuantity(
+      getString(formData, "plannedQuantity"),
+      "计划数量",
+    ),
+    unitPriceCents: parseOptionalYuanToCents(getString(formData, "unitPrice")),
+    dueDate: parseOptionalDueDate(formData.get("dueDate")),
+    status: parseOrderStatus(formData.get("status")),
+    notes: getString(formData, "notes"),
+  });
 
   revalidatePath("/orders");
   revalidatePath(`/orders/${orderId}`);
@@ -90,13 +113,13 @@ export async function updateOrderStatusAction(formData: FormData) {
 }
 
 export async function uploadOrderDrawingsAction(formData: FormData) {
-  const workspaceId = await requireWorkspaceId();
+  const user = await requireManager();
   const orderId = getOrderId(formData);
   const files = formData
     .getAll("drawings")
     .filter((value): value is File => isUploadedFile(value) && value.size > 0);
 
-  await replaceOrderDrawings(workspaceId, orderId, files);
+  await replaceOrderDrawings(user.workspaceId, orderId, files);
 
   revalidatePath("/orders");
   revalidatePath(`/orders/${orderId}`);

@@ -55,6 +55,16 @@ describe("machine detail page", () => {
             orderNo: "MO-1",
             partName: "法兰",
           },
+          createdByUser: {
+            id: "user-1",
+            username: "operator1",
+            displayName: "张三",
+          },
+          updatedByUser: {
+            id: "user-2",
+            username: "operator2",
+            displayName: "李四",
+          },
         },
       ],
     });
@@ -77,6 +87,10 @@ describe("machine detail page", () => {
     expect(orderLinks).toHaveLength(2);
     expect(orderLinks[0]).toHaveAttribute("href", "/orders/order-1");
     expect(orderLinks[1]).toHaveAttribute("href", "/orders/order-1");
+    expect(screen.getByRole("columnheader", { name: "录入人" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "修改人" })).toBeInTheDocument();
+    expect(screen.getByText("张三")).toBeInTheDocument();
+    expect(screen.getByText("李四")).toBeInTheDocument();
   });
 
   it("disables record entry when the current order is completed", async () => {

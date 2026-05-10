@@ -1,9 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { workspaceMock, machinesMock, recordsMock, cacheMock, navigationMock } =
+const { workspaceMock, authMock, machinesMock, recordsMock, cacheMock, navigationMock } =
   vi.hoisted(() => ({
     workspaceMock: {
       requireWorkspaceId: vi.fn(),
+    },
+    authMock: {
+      requireUser: vi.fn(),
     },
     machinesMock: {
       createMachine: vi.fn(),
@@ -22,6 +25,7 @@ const { workspaceMock, machinesMock, recordsMock, cacheMock, navigationMock } =
   }));
 
 vi.mock("@/lib/workspace", () => workspaceMock);
+vi.mock("@/lib/auth", () => authMock);
 vi.mock("@/server/services/machines", () => machinesMock);
 vi.mock("@/server/services/records", () => recordsMock);
 vi.mock("next/cache", () => cacheMock);
@@ -32,6 +36,14 @@ describe("machine actions", () => {
     vi.clearAllMocks();
     vi.unstubAllEnvs();
     workspaceMock.requireWorkspaceId.mockResolvedValue("workspace-1");
+    authMock.requireUser.mockResolvedValue({
+      id: "user-1",
+      workspaceId: "workspace-1",
+      username: "operator",
+      displayName: "张三",
+      role: "employee",
+      workspace: { name: "精密加工一厂" },
+    });
   });
 
   it("creates a machine with a machine name and active default status", async () => {
@@ -135,6 +147,7 @@ describe("machine actions", () => {
         completedQuantity: 12,
         shippedQuantity: 4,
         notes: "白班",
+        actorUserId: "user-1",
       },
     );
     expect(cacheMock.revalidatePath).toHaveBeenCalledWith("/machines");

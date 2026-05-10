@@ -19,6 +19,29 @@ vi.mock("@/server/services/machines", () => machinesMock);
 vi.mock("@/app/actions/machines", () => actionsMock);
 
 describe("machines page", () => {
+  it("passes multiple machine status filters from repeated query params", async () => {
+    workspaceMock.requireWorkspaceId.mockResolvedValue("workspace-1");
+    machinesMock.listMachines.mockResolvedValue([]);
+
+    render(
+      await MachinesPage({
+        searchParams: Promise.resolve({
+          status: ["active", "maintenance", "toString"],
+        }),
+      }),
+    );
+
+    expect(machinesMock.listMachines).toHaveBeenCalledWith(
+      "workspace-1",
+      expect.objectContaining({
+        statuses: ["active", "maintenance"],
+      }),
+    );
+    expect(screen.getByLabelText("正常")).toBeChecked();
+    expect(screen.getByLabelText("维护中")).toBeChecked();
+    expect(screen.getByLabelText("空闲")).not.toBeChecked();
+  });
+
   it("uses a dialog for machine creation and keeps the table full width", async () => {
     workspaceMock.requireWorkspaceId.mockResolvedValue("workspace-1");
     machinesMock.listMachines.mockResolvedValue([

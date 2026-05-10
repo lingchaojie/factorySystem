@@ -26,6 +26,11 @@ enum ProductionRecordType {
   shipped
 }
 
+enum UserRole {
+  manager
+  employee
+}
+
 model Workspace {
   id        String   @id @default(cuid())
   name      String
@@ -43,15 +48,44 @@ model User {
   id           String   @id @default(cuid())
   workspaceId  String
   username     String
+  displayName  String
+  role         UserRole @default(manager)
   passwordHash String
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  sessions  Session[]
+  workspace                Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  sessions                 Session[]
+  createdProductionRecords ProductionRecord[] @relation("ProductionRecordCreatedBy")
+  updatedProductionRecords ProductionRecord[] @relation("ProductionRecordUpdatedBy")
 
+  @@unique([username])
   @@unique([workspaceId, username])
   @@index([workspaceId])
+}
+
+model PlatformAdmin {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  displayName  String
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  sessions PlatformAdminSession[]
+}
+
+model PlatformAdminSession {
+  id        String   @id @default(cuid())
+  adminId   String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  admin PlatformAdmin @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([adminId])
+  @@index([expiresAt])
 }
 
 model Session {
@@ -138,22 +172,28 @@ model OrderDrawing {
 }
 
 model ProductionRecord {
-  id          String               @id @default(cuid())
-  workspaceId String
-  machineId   String
-  orderId     String
-  recordedAt  DateTime
-  type        ProductionRecordType
-  quantity    Int
-  notes       String?
-  createdAt   DateTime             @default(now())
-  updatedAt   DateTime             @updatedAt
+  id              String               @id @default(cuid())
+  workspaceId     String
+  machineId       String
+  orderId         String
+  recordedAt      DateTime
+  type            ProductionRecordType
+  quantity        Int
+  notes           String?
+  createdByUserId String?
+  updatedByUserId String?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
 
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  machine   Machine   @relation(fields: [workspaceId, machineId], references: [workspaceId, id], onDelete: Restrict)
-  order     Order     @relation(fields: [workspaceId, orderId], references: [workspaceId, id], onDelete: Restrict)
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  machine       Machine   @relation(fields: [workspaceId, machineId], references: [workspaceId, id], onDelete: Restrict)
+  order         Order     @relation(fields: [workspaceId, orderId], references: [workspaceId, id], onDelete: Restrict)
+  createdByUser User?     @relation("ProductionRecordCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  updatedByUser User?     @relation("ProductionRecordUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
 
   @@index([workspaceId, recordedAt])
   @@index([workspaceId, machineId])
   @@index([workspaceId, orderId])
+  @@index([createdByUserId])
+  @@index([updatedByUserId])
 }

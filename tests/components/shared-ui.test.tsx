@@ -11,13 +11,21 @@ describe("shared UI primitives", () => {
     const { AppShell } = await import("@/components/app-shell");
 
     render(
-      <AppShell user={{ username: "operator" }}>
+      <AppShell
+        user={{
+          username: "operator",
+          displayName: "张三",
+          role: "manager",
+          workspaceName: "精密加工一厂",
+        }}
+      >
         <div>workspace content</div>
       </AppShell>,
     );
 
     expect(screen.getByText("workspace content")).toBeInTheDocument();
-    expect(screen.getAllByText("operator").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("精密加工一厂").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("张三").length).toBeGreaterThan(0);
     expect(screen.getAllByRole("link", { name: /机器/ })[0]).toHaveAttribute(
       "href",
       "/machines",
@@ -30,11 +38,36 @@ describe("shared UI primitives", () => {
       "href",
       "/records",
     );
+    expect(screen.getAllByRole("link", { name: /经营/ })[0]).toHaveAttribute(
+      "href",
+      "/analytics",
+    );
     const logoutButton = screen.getAllByRole("button", { name: /退出/ })[0];
     expect(logoutButton).toBeInTheDocument();
     expect(
       logoutButton.closest("form"),
     ).toHaveAttribute("action", "/api/auth/logout");
+  });
+
+  it("hides manager-only navigation for employee accounts", async () => {
+    const { AppShell } = await import("@/components/app-shell");
+
+    render(
+      <AppShell
+        user={{
+          username: "operator",
+          displayName: "李四",
+          role: "employee",
+          workspaceName: "精密加工二厂",
+        }}
+      >
+        <div>employee content</div>
+      </AppShell>,
+    );
+
+    expect(screen.getByText("employee content")).toBeInTheDocument();
+    expect(screen.getAllByText("精密加工二厂").length).toBeGreaterThan(0);
+    expect(screen.queryByRole("link", { name: /经营/ })).not.toBeInTheDocument();
   });
 
   it("renders labeled native form controls", async () => {

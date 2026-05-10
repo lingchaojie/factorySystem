@@ -107,13 +107,20 @@ export async function listMachines(
   workspaceId: string,
   filters: {
     status?: MachineStatus;
+    statuses?: MachineStatus[];
     query?: string;
   } = {},
 ) {
+  const statuses = filters.statuses?.length
+    ? filters.statuses
+    : filters.status
+      ? [filters.status]
+      : undefined;
+
   return prisma.machine.findMany({
     where: {
       workspaceId,
-      status: filters.status,
+      status: statuses ? { in: statuses } : undefined,
       OR: filters.query
         ? [
             { code: { contains: filters.query, mode: "insensitive" } },
@@ -132,7 +139,11 @@ export async function getMachine(workspaceId: string, machineId: string) {
     include: {
       currentOrder: true,
       productionRecords: {
-        include: { order: true },
+        include: {
+          order: true,
+          createdByUser: true,
+          updatedByUser: true,
+        },
         orderBy: { recordedAt: "desc" },
       },
     },

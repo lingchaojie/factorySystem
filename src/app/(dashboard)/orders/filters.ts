@@ -1,5 +1,7 @@
 import type { OrderStatus } from "@prisma/client";
 
+type QueryParamValue = string | string[] | undefined;
+
 const orderStatusFilters = new Set<OrderStatus>([
   "development_pending",
   "processing_pending",
@@ -7,11 +9,27 @@ const orderStatusFilters = new Set<OrderStatus>([
   "completed",
 ]);
 
+function queryValues(value: QueryParamValue) {
+  return (Array.isArray(value) ? value : [value])
+    .filter((item): item is string => typeof item === "string")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+export function parseOrderStatusFilters(
+  value: QueryParamValue,
+): OrderStatus[] | undefined {
+  const statuses = queryValues(value).filter((item, index, items) => {
+    return (
+      orderStatusFilters.has(item as OrderStatus) &&
+      items.indexOf(item) === index
+    );
+  }) as OrderStatus[];
+  return statuses.length > 0 ? statuses : undefined;
+}
+
 export function parseOrderStatusFilter(
-  value: string | undefined,
+  value: QueryParamValue,
 ): OrderStatus | undefined {
-  if (!value) return undefined;
-  return orderStatusFilters.has(value as OrderStatus)
-    ? (value as OrderStatus)
-    : undefined;
+  return parseOrderStatusFilters(value)?.[0];
 }

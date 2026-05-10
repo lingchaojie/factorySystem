@@ -6,6 +6,7 @@ import {
 } from "@/app/actions/machines";
 import { CreateEntityDialog } from "@/components/create-entity-dialog";
 import {
+  MultiSelectInput,
   SelectInput,
   SubmitButton,
   Textarea,
@@ -20,17 +21,33 @@ import { businessTodayBounds } from "@/lib/business-time";
 import { requireWorkspaceId } from "@/lib/workspace";
 import { listMachines } from "@/server/services/machines";
 
-const statusOptions: Array<{ value: MachineStatus | ""; label: string }> = [
-  { value: "", label: "全部状态" },
+type QueryParamValue = string | string[] | undefined;
+
+const statusOptions: Array<{ value: MachineStatus; label: string }> = [
   { value: "active", label: machineStatusLabels.active },
   { value: "idle", label: machineStatusLabels.idle },
   { value: "maintenance", label: machineStatusLabels.maintenance },
   { value: "disabled", label: machineStatusLabels.disabled },
 ];
+const machineStatusFilters = new Set<MachineStatus>(
+  statusOptions.map((option) => option.value),
+);
 
-function parseStatus(value: string | undefined): MachineStatus | undefined {
-  if (!value) return undefined;
-  return value in machineStatusLabels ? (value as MachineStatus) : undefined;
+function queryValues(value: QueryParamValue) {
+  return (Array.isArray(value) ? value : [value])
+    .filter((item): item is string => typeof item === "string")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function parseStatuses(value: QueryParamValue): MachineStatus[] | undefined {
+  const statuses = queryValues(value).filter((item, index, items) => {
+    return (
+      machineStatusFilters.has(item as MachineStatus) &&
+      items.indexOf(item) === index
+    );
+  }) as MachineStatus[];
+  return statuses.length > 0 ? statuses : undefined;
 }
 
 function formatOrder(order: { orderNo: string; partName: string }) {
@@ -40,13 +57,13 @@ function formatOrder(order: { orderNo: string; partName: string }) {
 export default async function MachinesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ query?: string; status?: string }>;
+  searchParams: Promise<{ query?: string; status?: string | string[] }>;
 }) {
   const workspaceId = await requireWorkspaceId();
   const params = await searchParams;
   const query = params.query?.trim() ?? "";
-  const status = parseStatus(params.status);
-  const machines = await listMachines(workspaceId, { query, status });
+  const statuses = parseStatuses(params.status);
+  const machines = await listMachines(workspaceId, { query, statuses });
   const { start, end } = businessTodayBounds();
 
   const machinesWithToday = machines.map((machine) => {
@@ -89,7 +106,7 @@ export default async function MachinesPage({
                 id="createMachineStatus"
                 name="status"
                 defaultValue="active"
-                options={statusOptions.filter((option) => option.value)}
+                options={statusOptions}
               />
               <Textarea label="备注" name="notes" />
               <SubmitButton>创建机器</SubmitButton>
@@ -106,10 +123,10 @@ export default async function MachinesPage({
             placeholder="机器名称"
             defaultValue={query}
           />
-          <SelectInput
+          <MultiSelectInput
             label="状态"
             name="status"
-            defaultValue={status ?? ""}
+            selectedValues={statuses ?? []}
             options={statusOptions}
           />
           <div className="flex items-end">

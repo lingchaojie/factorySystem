@@ -1,8 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { workspaceMock, recordsMock, cacheMock } = vi.hoisted(() => ({
+const { workspaceMock, authMock, recordsMock, cacheMock } = vi.hoisted(() => ({
   workspaceMock: {
     requireWorkspaceId: vi.fn(),
+  },
+  authMock: {
+    requireUser: vi.fn(),
   },
   recordsMock: {
     updateProductionRecord: vi.fn(),
@@ -14,6 +17,7 @@ const { workspaceMock, recordsMock, cacheMock } = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/workspace", () => workspaceMock);
+vi.mock("@/lib/auth", () => authMock);
 vi.mock("@/server/services/records", () => recordsMock);
 vi.mock("next/cache", () => cacheMock);
 
@@ -23,6 +27,14 @@ describe("record actions", () => {
     vi.resetModules();
     vi.stubEnv("TZ", "UTC");
     workspaceMock.requireWorkspaceId.mockResolvedValue("workspace-1");
+    authMock.requireUser.mockResolvedValue({
+      id: "user-1",
+      workspaceId: "workspace-1",
+      username: "operator",
+      displayName: "张三",
+      role: "employee",
+      workspace: { name: "精密加工一厂" },
+    });
   });
 
   it("updates a record with Shanghai datetime parsing and dependent revalidation", async () => {
@@ -49,6 +61,7 @@ describe("record actions", () => {
         type: "shipped",
         quantity: 12,
         notes: "白班",
+        actorUserId: "user-1",
       },
     );
     expect(cacheMock.revalidatePath).toHaveBeenCalledWith("/records");

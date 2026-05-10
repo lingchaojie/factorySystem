@@ -5,8 +5,8 @@ import { createOrderAction } from "@/app/actions/orders";
 import { CreateEntityDialog } from "@/components/create-entity-dialog";
 import {
   DateInput,
+  MultiSelectInput,
   NumberInput,
-  SelectInput,
   SubmitButton,
   Textarea,
   TextInput,
@@ -17,12 +17,11 @@ import {
   businessDateRange,
   formatBusinessDate,
 } from "@/lib/business-time";
-import { requireWorkspaceId } from "@/lib/workspace";
+import { requireUser } from "@/lib/auth";
 import { listOrders } from "@/server/services/orders";
-import { parseOrderStatusFilter } from "./filters";
+import { parseOrderStatusFilters } from "./filters";
 
-const statusOptions: Array<{ value: OrderStatus | ""; label: string }> = [
-  { value: "", label: "全部状态" },
+const statusOptions: Array<{ value: OrderStatus; label: string }> = [
   {
     value: "development_pending",
     label: orderStatusLabels.development_pending,
@@ -58,22 +57,23 @@ export default async function OrdersPage({
   searchParams: Promise<{
     customerName?: string;
     query?: string;
-    status?: string;
+    status?: string | string[];
     dueDateFrom?: string;
     dueDateTo?: string;
   }>;
 }) {
-  const workspaceId = await requireWorkspaceId();
+  const user = await requireUser();
+  const canManageOrders = user.role === "manager";
   const params = await searchParams;
   const customerName = params.customerName?.trim() ?? "";
   const query = params.query?.trim() ?? "";
-  const status = parseOrderStatusFilter(params.status);
+  const statuses = parseOrderStatusFilters(params.status);
   const dueDateFrom = parseDateRange(params.dueDateFrom, "开始交期");
   const dueDateTo = parseDateRange(params.dueDateTo, "结束交期");
-  const orders = await listOrders(workspaceId, {
+  const orders = await listOrders(user.workspaceId, {
     customerName,
     query,
-    status,
+    statuses,
     dueDateFrom: dueDateFrom?.start,
     dueDateTo: dueDateTo?.end,
   });
@@ -91,39 +91,41 @@ export default async function OrdersPage({
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <p className="text-sm text-slate-500">共 {orders.length} 单</p>
-          <CreateEntityDialog buttonLabel="新增订单" title="新增订单">
-            <form action={createOrderAction} className="grid gap-4">
-              <TextInput
-                label="客户名称"
-                id="createCustomerName"
-                name="customerName"
-                required
-              />
-              <TextInput
-                label="工件名称"
-                id="createPartName"
-                name="partName"
-                required
-              />
-              <NumberInput
-                label="计划数量"
-                id="createPlannedQuantity"
-                name="plannedQuantity"
-                min={1}
-                step={1}
-              />
-              <NumberInput
-                label="单价（元/件）"
-                id="createUnitPrice"
-                name="unitPrice"
-                min={0}
-                step={0.01}
-              />
-              <DateInput label="交期" id="createDueDate" name="dueDate" />
-              <Textarea label="备注" id="createOrderNotes" name="notes" />
-              <SubmitButton>创建订单</SubmitButton>
-            </form>
-          </CreateEntityDialog>
+          {canManageOrders ? (
+            <CreateEntityDialog buttonLabel="新增订单" title="新增订单">
+              <form action={createOrderAction} className="grid gap-4">
+                <TextInput
+                  label="客户名称"
+                  id="createCustomerName"
+                  name="customerName"
+                  required
+                />
+                <TextInput
+                  label="工件名称"
+                  id="createPartName"
+                  name="partName"
+                  required
+                />
+                <NumberInput
+                  label="计划数量"
+                  id="createPlannedQuantity"
+                  name="plannedQuantity"
+                  min={1}
+                  step={1}
+                />
+                <NumberInput
+                  label="单价（元/件）"
+                  id="createUnitPrice"
+                  name="unitPrice"
+                  min={0}
+                  step={0.01}
+                />
+                <DateInput label="交期" id="createDueDate" name="dueDate" />
+                <Textarea label="备注" id="createOrderNotes" name="notes" />
+                <SubmitButton>创建订单</SubmitButton>
+              </form>
+            </CreateEntityDialog>
+          ) : null}
         </div>
       </header>
 
@@ -144,10 +146,10 @@ export default async function OrdersPage({
             placeholder="订单号或工件"
             defaultValue={query}
           />
-          <SelectInput
+          <MultiSelectInput
             label="状态"
             name="status"
-            defaultValue={status ?? ""}
+            selectedValues={statuses ?? []}
             options={statusOptions}
           />
           <DateInput
@@ -183,8 +185,12 @@ export default async function OrdersPage({
                 <tr>
                   <th className="px-4 py-3">订单</th>
                   <th className="whitespace-nowrap px-4 py-3">状态</th>
-                  <th className="px-4 py-3 text-right">单价</th>
-                  <th className="px-4 py-3 text-right">金额</th>
+                  {canManageOrders ? (
+                    <>
+                      <th className="px-4 py-3 text-right">单价</th>
+                      <th className="px-4 py-3 text-right">金额</th>
+                    </>
+                  ) : null}
                   <th className="whitespace-nowrap px-4 py-3 text-right">
                     计划
                   </th>
@@ -226,17 +232,21 @@ export default async function OrdersPage({
                         labels={orderStatusLabels}
                       />
                     </td>
-                    <td className="px-4 py-4 text-right font-medium text-slate-950">
-                      {formatCnyFromCents(order.unitPriceCents)}
-                    </td>
-                    <td className="px-4 py-4 text-right font-medium text-slate-950">
-                      {formatCnyFromCents(
-                        getOrderAmountCents(
-                          order.unitPriceCents,
-                          order.plannedQuantity,
-                        ),
-                      )}
-                    </td>
+                    {canManageOrders ? (
+                      <>
+                        <td className="px-4 py-4 text-right font-medium text-slate-950">
+                          {formatCnyFromCents(order.unitPriceCents)}
+                        </td>
+                        <td className="px-4 py-4 text-right font-medium text-slate-950">
+                          {formatCnyFromCents(
+                            getOrderAmountCents(
+                              order.unitPriceCents,
+                              order.plannedQuantity,
+                            ),
+                          )}
+                        </td>
+                      </>
+                    ) : null}
                     <td className="whitespace-nowrap px-4 py-4 text-right font-medium text-slate-950">
                       {formatQuantity(order.plannedQuantity)}
                     </td>
