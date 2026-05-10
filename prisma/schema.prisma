@@ -28,6 +28,7 @@ model Workspace {
   users             User[]
   machines          Machine[]
   orders            Order[]
+  orderDrawings     OrderDrawing[]
   productionRecords ProductionRecord[]
 }
 
@@ -87,9 +88,10 @@ model Order {
   id              String      @id @default(cuid())
   workspaceId     String
   customerName    String
-  orderNo         String?
+  orderNo         String
   partName        String
   plannedQuantity Int
+  unitPriceCents  Int?
   dueDate         DateTime?
   status          OrderStatus @default(open)
   notes           String?
@@ -99,13 +101,33 @@ model Order {
 
   workspace         Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   currentMachines   Machine[]          @relation("CurrentMachineOrder")
+  drawings          OrderDrawing[]
   productionRecords ProductionRecord[]
 
   @@unique([workspaceId, id])
+  @@unique([workspaceId, orderNo])
   @@index([workspaceId])
   @@index([workspaceId, status])
   @@index([workspaceId, customerName])
   @@index([workspaceId, dueDate])
+}
+
+model OrderDrawing {
+  id           String   @id @default(cuid())
+  workspaceId  String
+  orderId      String
+  originalName String
+  relativePath String
+  storedPath   String
+  sizeBytes    Int
+  mimeType     String?
+  createdAt    DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  order     Order     @relation(fields: [workspaceId, orderId], references: [workspaceId, id], onDelete: Cascade)
+
+  @@unique([workspaceId, id])
+  @@index([workspaceId, orderId])
 }
 
 model ProductionRecord {

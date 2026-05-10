@@ -31,6 +31,33 @@ describe("factory services", () => {
     });
   });
 
+  it("generates daily order numbers and stores unit prices", async () => {
+    const workspace = await createWorkspace();
+
+    const first = await createOrder(workspace.id, {
+      customerName: "甲方工厂",
+      partName: "法兰盘",
+      plannedQuantity: 100,
+      unitPriceCents: 1250,
+      dueDate: null,
+      notes: "",
+    });
+    const second = await createOrder(workspace.id, {
+      customerName: "乙方工厂",
+      partName: "轴套",
+      plannedQuantity: 50,
+      unitPriceCents: null,
+      dueDate: null,
+      notes: "",
+    });
+
+    expect(first.orderNo).toMatch(/^ORD-\d{8}-0001$/);
+    expect(second.orderNo).toMatch(/^ORD-\d{8}-0002$/);
+    expect(first.orderNo).not.toBe(second.orderNo);
+    expect(first.unitPriceCents).toBe(1250);
+    expect(second.unitPriceCents).toBeNull();
+  });
+
   it("creates records from a machine and recomputes order summary after deletion", async () => {
     const workspace = await createWorkspace();
     const machine = await createMachine(workspace.id, {
@@ -447,7 +474,7 @@ describe("factory services", () => {
       dueDateFrom: new Date("2026-05-09T00:00:00.000Z"),
       dueDateTo: new Date("2026-05-11T00:00:00.000Z"),
     });
-    expect(filtered.map((order) => order.orderNo)).toEqual(["A-007"]);
+    expect(filtered.map((order) => order.orderNo)).toEqual([dueOrder.orderNo]);
 
     const detail = await getOrderWithSummary(workspace.id, dueOrder.id);
     expect(detail.productionRecords[0].machine.code).toBe("5");

@@ -39,6 +39,7 @@ describe("order actions", () => {
     form.set("orderNo", " MO-100 ");
     form.set("partName", " 法兰盘 ");
     form.set("plannedQuantity", "25");
+    form.set("unitPrice", "12.34");
     form.set("dueDate", "2026-05-10");
     form.set("notes", " 加急 ");
 
@@ -46,9 +47,9 @@ describe("order actions", () => {
 
     expect(ordersMock.createOrder).toHaveBeenCalledWith("workspace-1", {
       customerName: " 甲方工厂 ",
-      orderNo: " MO-100 ",
       partName: " 法兰盘 ",
       plannedQuantity: 25,
+      unitPriceCents: 1234,
       dueDate: new Date("2026-05-09T16:00:00.000Z"),
       notes: " 加急 ",
     });
@@ -65,6 +66,20 @@ describe("order actions", () => {
     form.set("plannedQuantity", "0");
 
     await expect(createOrderAction(form)).rejects.toThrow("计划数量必须大于 0");
+    expect(ordersMock.createOrder).not.toHaveBeenCalled();
+  });
+
+  it("rejects unit prices with more than two decimals", async () => {
+    const { createOrderAction } = await import("@/app/actions/orders");
+    const form = new FormData();
+    form.set("customerName", "甲方工厂");
+    form.set("partName", "法兰盘");
+    form.set("plannedQuantity", "10");
+    form.set("unitPrice", "12.345");
+
+    await expect(createOrderAction(form)).rejects.toThrow(
+      "单价最多保留两位小数",
+    );
     expect(ordersMock.createOrder).not.toHaveBeenCalled();
   });
 

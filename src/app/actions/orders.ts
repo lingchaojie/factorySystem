@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { parsePositiveQuantity } from "@/domain/factory";
+import { parseOptionalYuanToCents } from "@/domain/money";
 import { parseBusinessDate } from "@/lib/business-time";
 import { requireWorkspaceId } from "@/lib/workspace";
 import {
@@ -36,12 +37,12 @@ export async function createOrderAction(formData: FormData) {
 
   const created = await createOrder(workspaceId, {
     customerName: getString(formData, "customerName"),
-    orderNo: getString(formData, "orderNo"),
     partName: getString(formData, "partName"),
     plannedQuantity: parsePositiveQuantity(
       getString(formData, "plannedQuantity"),
       "计划数量",
     ),
+    unitPriceCents: parseOptionalYuanToCents(getString(formData, "unitPrice")),
     dueDate: parseOptionalDueDate(formData.get("dueDate")),
     notes: getString(formData, "notes"),
   });
