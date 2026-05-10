@@ -9,6 +9,14 @@ import {
 import { requireManager } from "@/lib/auth";
 import { getWorkspaceAnalytics } from "@/server/services/analytics";
 
+const customerChartColors = [
+  "#0f766e",
+  "#2563eb",
+  "#b45309",
+  "#7c3aed",
+  "#475569",
+];
+
 function parseFrom(value: string | undefined) {
   if (!value) {
     const today = businessTodayBounds();
@@ -69,10 +77,9 @@ export default async function AnalyticsPage({
     topCustomerTotal > 0
       ? topCustomers
           .map((row, index) => {
-            const colors = ["#0f766e", "#2563eb", "#b45309", "#7c3aed", "#475569"];
             const start = pieCursor;
             pieCursor += percent(row.revenueCents, topCustomerTotal);
-            return `${colors[index]} ${start}% ${pieCursor}%`;
+            return `${customerChartColors[index]} ${start}% ${pieCursor}%`;
           })
           .join(", ")
       : "#e2e8f0 0% 100%";
@@ -132,13 +139,26 @@ export default async function AnalyticsPage({
             {topCustomers.length === 0 ? (
               <p className="text-sm text-slate-500">当前范围没有已定价出货。</p>
             ) : (
-              topCustomers.map((row) => (
+              topCustomers.map((row, index) => (
                 <div
                   key={row.customerName}
                   className="flex items-center justify-between gap-3 text-sm"
                 >
-                  <span className="font-medium text-slate-950">
-                    {row.customerName}
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span className="truncate font-medium text-slate-950">
+                      {row.customerName}
+                    </span>
+                    <span
+                      aria-label={`${row.customerName}图例颜色`}
+                      className="size-3 shrink-0 rounded-sm border border-slate-200"
+                      style={{ backgroundColor: customerChartColors[index] }}
+                    />
+                    <span
+                      aria-label={`${row.customerName}营业额占比`}
+                      className="shrink-0 text-xs font-medium tabular-nums text-slate-500"
+                    >
+                      {percent(row.revenueCents, topCustomerTotal)}%
+                    </span>
                   </span>
                   <span className="text-slate-600">
                     {formatCnyFromCents(row.revenueCents)}

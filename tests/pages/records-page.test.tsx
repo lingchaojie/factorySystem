@@ -97,7 +97,7 @@ describe("records page", () => {
       expect(container.querySelector(`#record-2-${field}`)).not.toBeNull();
     }
     expect(screen.getAllByRole("button", { name: "修改" })).toHaveLength(2);
-    expect(screen.getAllByText("订单：进行中")).toHaveLength(2);
+    expect(screen.getAllByText("进行中")).toHaveLength(2);
     expect(screen.getAllByText("出货量 35 / 100")).toHaveLength(2);
     expect(screen.getAllByText("加工量 80 / 100")).toHaveLength(2);
     expect(screen.getAllByText("5")).toHaveLength(2);
@@ -109,11 +109,11 @@ describe("records page", () => {
     const firstArticle = container.querySelector("article");
     expect(firstArticle).not.toBeNull();
     const headingRow = firstArticle?.querySelector("h2")?.parentElement;
-    expect(headingRow).not.toHaveTextContent("订单：进行中");
+    expect(headingRow).not.toHaveTextContent("进行中");
     const orderBlock = within(firstArticle as HTMLElement)
       .getByText("订单")
       .closest("div");
-    expect(orderBlock).toHaveTextContent("订单：进行中");
+    expect(orderBlock).toHaveTextContent("进行中");
     const detailGrid = firstArticle?.querySelector("dl");
     expect(detailGrid).toHaveClass("gap-x-8");
     expect(detailGrid?.className).toContain("minmax(260px,1.6fr)");

@@ -38,7 +38,8 @@ describe("analytics page", () => {
         },
       ],
       customerRevenue: [
-        { customerName: "甲方", revenueCents: 120000, shippedQuantity: 60 },
+        { customerName: "甲方", revenueCents: 90000, shippedQuantity: 45 },
+        { customerName: "乙方", revenueCents: 30000, shippedQuantity: 15 },
       ],
       orderStatusDistribution: [{ status: "in_progress", count: 2 }],
       overPlannedOrders: [],
@@ -63,11 +64,19 @@ describe("analytics page", () => {
       }),
     );
     expect(screen.getByRole("heading", { name: "经营" })).toBeInTheDocument();
-    expect(screen.getAllByText("¥1,200.00").length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByText("¥1,200.00")).toBeInTheDocument();
     expect(screen.getByText("80")).toBeInTheDocument();
     expect(screen.getByText("65")).toBeInTheDocument();
     expect(screen.getByText("未定价出货 5 件")).toBeInTheDocument();
     expect(screen.getByText("客户营业额占比")).toBeInTheDocument();
+    expect(screen.getByLabelText("甲方图例颜色")).toHaveStyle({
+      backgroundColor: "#0f766e",
+    });
+    expect(screen.getByLabelText("乙方图例颜色")).toHaveStyle({
+      backgroundColor: "#2563eb",
+    });
+    expect(screen.getByLabelText("甲方营业额占比")).toHaveTextContent("75%");
+    expect(screen.getByLabelText("乙方营业额占比")).toHaveTextContent("25%");
     expect(screen.getByText("每日趋势")).toBeInTheDocument();
     expect(screen.getByText("订单状态分布")).toBeInTheDocument();
   });

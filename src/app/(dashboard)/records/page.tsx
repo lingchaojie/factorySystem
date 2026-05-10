@@ -42,13 +42,6 @@ const statusOptions: Array<{ value: OrderStatus; label: string }> = [
   { value: "completed", label: orderStatusLabels.completed },
 ];
 
-const recordOrderStatusLabels: Record<OrderStatus, string> = {
-  development_pending: `订单：${orderStatusLabels.development_pending}`,
-  processing_pending: `订单：${orderStatusLabels.processing_pending}`,
-  in_progress: `订单：${orderStatusLabels.in_progress}`,
-  completed: `订单：${orderStatusLabels.completed}`,
-};
-
 const recordTypeLabels = {
   completed: "加工",
   shipped: "出货",
@@ -221,7 +214,7 @@ export default async function RecordsPage({
                           </Link>
                           <StatusBadge
                             status={record.order.status}
-                            labels={recordOrderStatusLabels}
+                            labels={orderStatusLabels}
                           />
                           <OrderProgressBars
                             plannedQuantity={record.order.plannedQuantity}
