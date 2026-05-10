@@ -11,7 +11,7 @@ Examples:
   scripts/deploy-tencent.sh root@1.2.3.4 factory.example.com
 
 Optional environment variables:
-  DEPLOY_BRANCH=factory-mvp
+  DEPLOY_BRANCH=main
   DEPLOY_REPO_URL=https://github.com/lingchaojie/factorySystem.git
   DEPLOY_APP_DIR=/opt/factory-system/app
   DEPLOY_PUBLIC_HOST=1.2.3.4
@@ -33,7 +33,7 @@ fi
 
 REMOTE_TARGET="$1"
 DEPLOY_DOMAIN="${2:-}"
-DEPLOY_BRANCH="${DEPLOY_BRANCH:-factory-mvp}"
+DEPLOY_BRANCH="${DEPLOY_BRANCH:-main}"
 DEPLOY_REPO_URL="${DEPLOY_REPO_URL:-https://github.com/lingchaojie/factorySystem.git}"
 DEPLOY_APP_DIR="${DEPLOY_APP_DIR:-/opt/factory-system/app}"
 BOOTSTRAP_USERNAME="${BOOTSTRAP_USERNAME:-admin}"

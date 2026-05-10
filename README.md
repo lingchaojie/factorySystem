@@ -2,25 +2,25 @@
 
 CNC factory order and machine management web app.
 
-## Run With Docker Compose
+## Local Development
+
+Local development is intended to run directly in WSL without Docker. Use Docker only for production deployment or production-stack verification.
+
+With local PostgreSQL available:
 
 ```bash
-docker compose up -d --build
+cp .env.example .env
+# Adjust DATABASE_URL to your local PostgreSQL, for example localhost:5432.
+npm install
+npm run db:generate
+npm run db:migrate
+npm run db:seed
+npm run dev
 ```
 
 Open `http://localhost:3000` in the Windows browser.
 
-Default bootstrap account:
-
-- Username: `admin`
-- Password: `change-me-before-use`
-
-The compose stack runs two containers:
-
-- `web`: Next.js app on host port `3000`
-- `db`: PostgreSQL on host port `5433`, mapped to container port `5432`
-
-Uploaded order drawings are stored in the `order-drawings-data` Docker volume.
+See [current project notes](docs/project-current-state.md) for implemented features, account model, local debugging notes, and operational experience.
 
 ## Tencent Cloud Production Deploy
 
@@ -30,20 +30,7 @@ Deploy to a Tencent Cloud CVM with one command:
 scripts/deploy-tencent.sh root@1.2.3.4 factory.example.com
 ```
 
-See [Tencent CVM deployment](docs/deployment/tencent-cvm.md) for first deploy, redeploy, logs, and backup commands.
-
-## Local Development
-
-Use the compose database with the app running directly in WSL:
-
-```bash
-cp .env.example .env
-npm install
-npm run db:generate
-npm run db:migrate
-npm run db:seed
-npm run dev
-```
+The deploy scripts pull `main` by default. See [Tencent CVM deployment](docs/deployment/tencent-cvm.md) for first deploy, redeploy, logs, backup, and clear-database commands.
 
 ## Useful Commands
 

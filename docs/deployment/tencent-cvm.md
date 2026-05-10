@@ -64,12 +64,12 @@ cd /opt/factory-system/app
 scripts/deploy-production.sh
 ```
 
-The script fetches the latest `factory-mvp` branch and restarts the stack.
+The script fetches the latest `main` branch and restarts the stack.
 
 To deploy a different branch:
 
 ```bash
-DEPLOY_BRANCH=main scripts/deploy-tencent.sh root@1.2.3.4 factory.example.com
+DEPLOY_BRANCH=factory-mvp scripts/deploy-tencent.sh root@1.2.3.4 factory.example.com
 ```
 
 ## Server Paths

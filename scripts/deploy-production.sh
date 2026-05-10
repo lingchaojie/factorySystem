@@ -4,7 +4,7 @@ set -Eeuo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 COMPOSE_FILE="${COMPOSE_FILE:-$ROOT_DIR/deploy/production/docker-compose.yml}"
 ENV_FILE="${ENV_FILE:-$ROOT_DIR/deploy/production/.env.production}"
-DEPLOY_BRANCH="${DEPLOY_BRANCH:-factory-mvp}"
+DEPLOY_BRANCH="${DEPLOY_BRANCH:-main}"
 BOOTSTRAP_USERNAME="${BOOTSTRAP_USERNAME:-admin}"
 BOOTSTRAP_PASSWORD="${BOOTSTRAP_PASSWORD:-}"
 ORIGINAL_ARGS=("$@")
@@ -30,7 +30,7 @@ Redeploy existing production stack:
 Options:
   --domain DOMAIN        Use HTTPS domain mode. Creates APP_ORIGIN=https://DOMAIN.
   --public-host HOST     Use public IP/host HTTP mode. Creates APP_ORIGIN=http://HOST.
-  --branch BRANCH        Git branch to deploy. Default: factory-mvp.
+  --branch BRANCH        Git branch to deploy. Default: main.
   --skip-pull            Deploy current checkout without git fetch/reset.
   --skip-verify          Do not wait for /login HTTP check after compose up.
   --env-file PATH        Production env file. Default: deploy/production/.env.production.
@@ -40,7 +40,7 @@ Options:
 Environment:
   BOOTSTRAP_USERNAME=admin
   BOOTSTRAP_PASSWORD=optional-fixed-initial-password
-  DEPLOY_BRANCH=factory-mvp
+  DEPLOY_BRANCH=main
 USAGE
 }
 
