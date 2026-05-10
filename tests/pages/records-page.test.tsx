@@ -39,13 +39,13 @@ describe("records filters", () => {
     const filters = parseRecordFilters({
       from: ["2026-05-01", "2026-05-02"],
       to: ["2026-05-03", "2026-05-04"],
-      machineId: [" machine-1 ", "machine-2"],
+      type: [" shipped ", "completed"],
       orderId: [" order-1 ", "order-2"],
       customerName: [" Acme ", "Other"],
       status: ["completed", "in_progress"],
     });
 
-    expect(filters.machineId).toBe("machine-1");
+    expect(filters.recordType).toBe("shipped");
     expect(filters.orderId).toBe("order-1");
     expect(filters.customerName).toBe("Acme");
     expect(filters.orderStatus).toBe("completed");
@@ -55,13 +55,13 @@ describe("records filters", () => {
 
   it("ignores inherited property names in status filters", () => {
     expect(parseRecordFilters({ status: "toString" }).orderStatus).toBeUndefined();
+    expect(parseRecordFilters({ type: "toString" }).recordType).toBeUndefined();
   });
 });
 
 describe("records page", () => {
-  it("renders record-specific edit dialogs instead of default inline forms", async () => {
+  it("renders type filters and record-specific edit dialogs", async () => {
     workspaceMock.requireWorkspaceId.mockResolvedValue("workspace-1");
-    machinesMock.listMachines.mockResolvedValue([]);
     ordersMock.listOrders.mockResolvedValue([]);
     recordsMock.listProductionRecords.mockResolvedValue([
       buildRecord("record-1"),
@@ -70,17 +70,25 @@ describe("records page", () => {
 
     const { container } = render(
       await RecordsPage({
-        searchParams: Promise.resolve({}),
+        searchParams: Promise.resolve({ type: "completed" }),
       }),
     );
 
+    expect(machinesMock.listMachines).not.toHaveBeenCalled();
+    expect(recordsMock.listProductionRecords).toHaveBeenCalledWith(
+      "workspace-1",
+      expect.objectContaining({ type: "completed" }),
+    );
+    expect(screen.getByLabelText("记录类型")).toHaveValue("completed");
+    expect(screen.queryByLabelText("机器")).not.toBeInTheDocument();
     for (const field of ["recordedAt", "type", "quantity", "notes"]) {
       expect(container.querySelectorAll(`#${field}`)).toHaveLength(0);
       expect(container.querySelector(`#record-1-${field}`)).not.toBeNull();
       expect(container.querySelector(`#record-2-${field}`)).not.toBeNull();
     }
     expect(screen.getAllByRole("button", { name: "修改" })).toHaveLength(2);
-    expect(screen.getAllByText("加工")).toHaveLength(4);
+    expect(screen.getByRole("option", { name: "全部类型" })).toBeInTheDocument();
+    expect(screen.getAllByText("订单：进行中")).toHaveLength(2);
     expect(screen.getAllByText("5")).toHaveLength(2);
   });
 });

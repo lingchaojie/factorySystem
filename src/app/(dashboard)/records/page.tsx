@@ -1,4 +1,4 @@
-import { OrderStatus } from "@prisma/client";
+import { OrderStatus, ProductionRecordType } from "@prisma/client";
 import Link from "next/link";
 import React from "react";
 import {
@@ -20,7 +20,6 @@ import {
   formatDateTimeLocalValue,
 } from "@/lib/business-time";
 import { requireWorkspaceId } from "@/lib/workspace";
-import { listMachines } from "@/server/services/machines";
 import { listOrders } from "@/server/services/orders";
 import { listProductionRecords } from "@/server/services/records";
 import { DeleteRecordButton } from "./delete-record-button";
@@ -40,6 +39,13 @@ const statusOptions: Array<{ value: OrderStatus | ""; label: string }> = [
   { value: "completed", label: orderStatusLabels.completed },
 ];
 
+const recordOrderStatusLabels: Record<OrderStatus, string> = {
+  development_pending: `订单：${orderStatusLabels.development_pending}`,
+  processing_pending: `订单：${orderStatusLabels.processing_pending}`,
+  in_progress: `订单：${orderStatusLabels.in_progress}`,
+  completed: `订单：${orderStatusLabels.completed}`,
+};
+
 const recordTypeLabels = {
   completed: "加工",
   shipped: "出货",
@@ -48,6 +54,14 @@ const recordTypeLabels = {
 const recordTypeOptions = [
   { value: "completed", label: recordTypeLabels.completed },
   { value: "shipped", label: recordTypeLabels.shipped },
+];
+
+const recordTypeFilterOptions: Array<{
+  value: ProductionRecordType | "";
+  label: string;
+}> = [
+  { value: "", label: "全部类型" },
+  ...recordTypeOptions,
 ];
 
 function formatOrder(order: { orderNo: string | null; partName: string }) {
@@ -81,26 +95,18 @@ export default async function RecordsPage({
   const params = await searchParams;
   const filters = parseRecordFilters(params);
 
-  const [records, machines, orders] = await Promise.all([
+  const [records, orders] = await Promise.all([
     listProductionRecords(workspaceId, {
-      machineId: filters.machineId,
+      type: filters.recordType,
       orderId: filters.orderId,
       customerName: filters.customerName,
       orderStatus: filters.orderStatus,
       from: filters.from,
       to: filters.to,
     }),
-    listMachines(workspaceId, {}),
     listOrders(workspaceId, {}),
   ]);
 
-  const machineOptions = [
-    { value: "", label: "全部机器" },
-    ...machines.map((machine) => ({
-      value: machine.id,
-      label: machine.code,
-    })),
-  ];
   const orderOptions = [
     { value: "", label: "全部订单" },
     ...orders.map((order) => ({
@@ -125,7 +131,7 @@ export default async function RecordsPage({
 
       <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
         <form
-          className="grid gap-3 lg:grid-cols-[140px_140px_180px_220px_1fr_150px_auto]"
+          className="grid gap-3 lg:grid-cols-[140px_140px_150px_220px_1fr_150px_auto]"
           action="/records"
         >
           <DateInput
@@ -139,10 +145,11 @@ export default async function RecordsPage({
             defaultValue={filters.values.to ?? ""}
           />
           <SelectInput
-            label="机器"
-            name="machineId"
-            defaultValue={filters.machineId ?? ""}
-            options={machineOptions}
+            label="记录类型"
+            id="recordTypeFilter"
+            name="type"
+            defaultValue={filters.recordType ?? ""}
+            options={recordTypeFilterOptions}
           />
           <SelectInput
             label="订单"
@@ -194,7 +201,7 @@ export default async function RecordsPage({
                       <RecordTypeBadge type={record.type} />
                       <StatusBadge
                         status={record.order.status}
-                        labels={orderStatusLabels}
+                        labels={recordOrderStatusLabels}
                       />
                     </div>
                     <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">

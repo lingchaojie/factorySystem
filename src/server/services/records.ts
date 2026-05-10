@@ -154,7 +154,7 @@ export async function deleteProductionRecord(
 export async function listProductionRecords(
   workspaceId: string,
   filters: {
-    machineId?: string;
+    type?: ProductionRecordType;
     orderId?: string;
     customerName?: string;
     orderStatus?: OrderStatus;
@@ -165,7 +165,7 @@ export async function listProductionRecords(
   return prisma.productionRecord.findMany({
     where: {
       workspaceId,
-      machineId: filters.machineId,
+      type: filters.type,
       orderId: filters.orderId,
       order:
         filters.customerName || filters.orderStatus

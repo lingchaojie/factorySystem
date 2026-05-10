@@ -1,4 +1,4 @@
-import type { OrderStatus } from "@prisma/client";
+import type { OrderStatus, ProductionRecordType } from "@prisma/client";
 import { businessDateRange } from "@/lib/business-time";
 
 type QueryParamValue = string | string[] | undefined;
@@ -6,7 +6,7 @@ type QueryParamValue = string | string[] | undefined;
 export type RecordSearchParams = {
   from?: QueryParamValue;
   to?: QueryParamValue;
-  machineId?: QueryParamValue;
+  type?: QueryParamValue;
   orderId?: QueryParamValue;
   customerName?: QueryParamValue;
   status?: QueryParamValue;
@@ -15,7 +15,7 @@ export type RecordSearchParams = {
 type NormalizedRecordSearchParams = {
   from?: string;
   to?: string;
-  machineId?: string;
+  type?: string;
   orderId?: string;
   customerName?: string;
   status?: string;
@@ -28,14 +28,30 @@ const orderStatusFilters = new Set<OrderStatus>([
   "completed",
 ]);
 
+const recordTypeFilters = new Set<ProductionRecordType>([
+  "completed",
+  "shipped",
+]);
+
 function firstValue(value: QueryParamValue) {
   return Array.isArray(value) ? value[0] : value;
 }
 
 function parseOrderStatus(value: string | undefined): OrderStatus | undefined {
   if (!value) return undefined;
-  return orderStatusFilters.has(value as OrderStatus)
-    ? (value as OrderStatus)
+  const trimmed = value.trim();
+  return orderStatusFilters.has(trimmed as OrderStatus)
+    ? (trimmed as OrderStatus)
+    : undefined;
+}
+
+function parseRecordType(
+  value: string | undefined,
+): ProductionRecordType | undefined {
+  if (!value) return undefined;
+  const trimmed = value.trim();
+  return recordTypeFilters.has(trimmed as ProductionRecordType)
+    ? (trimmed as ProductionRecordType)
     : undefined;
 }
 
@@ -54,7 +70,7 @@ export function normalizeRecordSearchParams(
   return {
     from: firstValue(params.from),
     to: firstValue(params.to),
-    machineId: firstValue(params.machineId),
+    type: firstValue(params.type),
     orderId: firstValue(params.orderId),
     customerName: firstValue(params.customerName),
     status: firstValue(params.status),
@@ -68,7 +84,7 @@ export function parseRecordFilters(params: RecordSearchParams) {
 
   return {
     values,
-    machineId: values.machineId?.trim() || undefined,
+    recordType: parseRecordType(values.type),
     orderId: values.orderId?.trim() || undefined,
     customerName: values.customerName?.trim() ?? "",
     orderStatus: parseOrderStatus(values.status),
