@@ -115,7 +115,7 @@ echo "Starting production database..."
 compose up -d db
 
 echo "Rebuilding production web image from current checkout..."
-compose build --no-cache web
+compose build web
 
 echo "Starting production services..."
 compose up -d --force-recreate web caddy
