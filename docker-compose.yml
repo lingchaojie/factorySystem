@@ -28,11 +28,15 @@ services:
       SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-factory_session}
       SESSION_TTL_DAYS: ${SESSION_TTL_DAYS:-30}
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
+      ORDER_DRAWING_STORAGE_DIR: /app/storage/order-drawings
     ports:
       - "3000:3000"
+    volumes:
+      - order-drawings-data:/app/storage/order-drawings
     depends_on:
       db:
         condition: service_healthy
 
 volumes:
   postgres-data:
+  order-drawings-data:

@@ -55,3 +55,4 @@ coverage/
 test-results/
 playwright-report/
 postgres-data/
+storage/
