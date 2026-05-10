@@ -1,11 +1,12 @@
 "use client";
 
-import { SubmitButton } from "@/components/forms";
+import React from "react";
 
 export function DeleteRecordButton({ disabled = false }: { disabled?: boolean }) {
   return (
-    <SubmitButton
-      className="bg-white text-red-700 ring-1 ring-inset ring-red-200 hover:bg-red-50 disabled:bg-red-100"
+    <button
+      type="submit"
+      className="inline-flex items-center justify-center rounded-md border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-700 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:bg-red-100 disabled:text-red-300"
       disabled={disabled}
       onClick={(event) => {
         if (!window.confirm("确定删除这条生产记录吗？")) {
@@ -14,6 +15,6 @@ export function DeleteRecordButton({ disabled = false }: { disabled?: boolean })
       }}
     >
       删除
-    </SubmitButton>
+    </button>
   );
 }
