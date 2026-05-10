@@ -2,6 +2,7 @@ import { OrderStatus } from "@prisma/client";
 import Link from "next/link";
 import React from "react";
 import { createOrderAction } from "@/app/actions/orders";
+import { CreateEntityDialog } from "@/components/create-entity-dialog";
 import {
   DateInput,
   NumberInput,
@@ -67,7 +68,7 @@ export default async function OrdersPage({
 
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-6">
-      <header className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-normal text-slate-950">
             订单
@@ -76,7 +77,43 @@ export default async function OrdersPage({
             跟踪计划数量、生产出货进度和结单状态。
           </p>
         </div>
-        <p className="text-sm text-slate-500">共 {orders.length} 单</p>
+        <div className="flex flex-wrap items-center gap-3">
+          <p className="text-sm text-slate-500">共 {orders.length} 单</p>
+          <CreateEntityDialog buttonLabel="新增订单" title="新增订单">
+            <form action={createOrderAction} className="grid gap-4">
+              <TextInput
+                label="客户名称"
+                id="createCustomerName"
+                name="customerName"
+                required
+              />
+              <TextInput
+                label="工件名称"
+                id="createPartName"
+                name="partName"
+                required
+              />
+              <NumberInput
+                label="计划数量"
+                id="createPlannedQuantity"
+                name="plannedQuantity"
+                min={1}
+                step={1}
+                required
+              />
+              <NumberInput
+                label="单价（元/件）"
+                id="createUnitPrice"
+                name="unitPrice"
+                min={0}
+                step={0.01}
+              />
+              <DateInput label="交期" id="createDueDate" name="dueDate" />
+              <Textarea label="备注" id="createOrderNotes" name="notes" />
+              <SubmitButton>创建订单</SubmitButton>
+            </form>
+          </CreateEntityDialog>
+        </div>
       </header>
 
       <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
@@ -118,138 +155,112 @@ export default async function OrdersPage({
         </form>
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
-        <div className="min-w-0 rounded-lg border border-slate-200 bg-white shadow-sm">
-          {orders.length === 0 ? (
-            <div className="p-8 text-center">
-              <h2 className="text-base font-semibold text-slate-950">
-                暂无订单
-              </h2>
-              <p className="mt-2 text-sm text-slate-500">
-                创建订单后，这里会显示计划、出货和结单进度。
-              </p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-slate-200 text-sm">
-                <thead className="bg-slate-50 text-left text-xs font-medium uppercase text-slate-500">
-                  <tr>
-                    <th className="px-4 py-3">订单</th>
-                    <th className="whitespace-nowrap px-4 py-3">状态</th>
-                    <th className="px-4 py-3 text-right">单价</th>
-                    <th className="px-4 py-3 text-right">金额</th>
-                    <th className="px-4 py-3 text-right">计划</th>
-                    <th className="px-4 py-3 text-right">加工</th>
-                    <th className="px-4 py-3 text-right">出货</th>
-                    <th className="px-4 py-3 text-right">剩余</th>
-                    <th className="whitespace-nowrap px-4 py-3">提示</th>
-                    <th className="whitespace-nowrap px-4 py-3 text-right">
-                      操作
-                    </th>
+      <section className="min-w-0 rounded-lg border border-slate-200 bg-white shadow-sm">
+        {orders.length === 0 ? (
+          <div className="p-8 text-center">
+            <h2 className="text-base font-semibold text-slate-950">
+              暂无订单
+            </h2>
+            <p className="mt-2 text-sm text-slate-500">
+              创建订单后，这里会显示计划、出货和结单进度。
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-slate-200 text-sm">
+              <thead className="bg-slate-50 text-left text-xs font-medium uppercase text-slate-500">
+                <tr>
+                  <th className="px-4 py-3">订单</th>
+                  <th className="whitespace-nowrap px-4 py-3">状态</th>
+                  <th className="px-4 py-3 text-right">单价</th>
+                  <th className="px-4 py-3 text-right">金额</th>
+                  <th className="px-4 py-3 text-right">计划</th>
+                  <th className="px-4 py-3 text-right">加工</th>
+                  <th className="px-4 py-3 text-right">出货</th>
+                  <th className="px-4 py-3 text-right">剩余</th>
+                  <th className="whitespace-nowrap px-4 py-3">提示</th>
+                  <th className="whitespace-nowrap px-4 py-3 text-right">
+                    操作
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 bg-white">
+                {orders.map((order) => (
+                  <tr key={order.id} className="align-top">
+                    <td className="px-4 py-4">
+                      <div className="font-medium text-slate-950">
+                        {formatOrderTitle(order)}
+                      </div>
+                      <div className="mt-1 text-slate-600">
+                        {order.customerName}
+                      </div>
+                      <div className="mt-1 text-xs text-slate-500">
+                        交期{" "}
+                        {order.dueDate
+                          ? formatBusinessDate(order.dueDate)
+                          : "未填写"}
+                      </div>
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-4">
+                      <StatusBadge
+                        status={order.status}
+                        labels={orderStatusLabels}
+                      />
+                    </td>
+                    <td className="px-4 py-4 text-right font-medium text-slate-950">
+                      {formatCnyFromCents(order.unitPriceCents)}
+                    </td>
+                    <td className="px-4 py-4 text-right font-medium text-slate-950">
+                      {formatCnyFromCents(
+                        getOrderAmountCents(
+                          order.unitPriceCents,
+                          order.plannedQuantity,
+                        ),
+                      )}
+                    </td>
+                    <td className="px-4 py-4 text-right font-medium text-slate-950">
+                      {order.plannedQuantity}
+                    </td>
+                    <td className="px-4 py-4 text-right font-medium text-slate-950">
+                      {order.completedQuantity}
+                    </td>
+                    <td className="px-4 py-4 text-right font-medium text-slate-950">
+                      {order.shippedQuantity}
+                    </td>
+                    <td className="px-4 py-4 text-right font-medium text-slate-950">
+                      {order.remainingQuantity}
+                    </td>
+                    <td className="px-4 py-4">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {order.isOverPlanned ? (
+                          <span className="text-xs font-medium text-amber-700">
+                            超出计划
+                          </span>
+                        ) : null}
+                        {order.canClose ? (
+                          <span className="text-xs font-medium text-emerald-700">
+                            已满足结单条件
+                          </span>
+                        ) : null}
+                        {!order.isOverPlanned && !order.canClose ? (
+                          <span className="text-slate-400">-</span>
+                        ) : null}
+                      </div>
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-4 text-right">
+                      <Link
+                        href={`/orders/${order.id}`}
+                        className="inline-flex whitespace-nowrap rounded-md border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                      >
+                        详情
+                      </Link>
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 bg-white">
-                  {orders.map((order) => (
-                    <tr key={order.id} className="align-top">
-                      <td className="px-4 py-4">
-                        <div className="font-medium text-slate-950">
-                          {formatOrderTitle(order)}
-                        </div>
-                        <div className="mt-1 text-slate-600">
-                          {order.customerName}
-                        </div>
-                        <div className="mt-1 text-xs text-slate-500">
-                          交期{" "}
-                          {order.dueDate
-                            ? formatBusinessDate(order.dueDate)
-                            : "未填写"}
-                        </div>
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-4">
-                        <StatusBadge
-                          status={order.status}
-                          labels={orderStatusLabels}
-                        />
-                      </td>
-                      <td className="px-4 py-4 text-right font-medium text-slate-950">
-                        {formatCnyFromCents(order.unitPriceCents)}
-                      </td>
-                      <td className="px-4 py-4 text-right font-medium text-slate-950">
-                        {formatCnyFromCents(
-                          getOrderAmountCents(
-                            order.unitPriceCents,
-                            order.plannedQuantity,
-                          ),
-                        )}
-                      </td>
-                      <td className="px-4 py-4 text-right font-medium text-slate-950">
-                        {order.plannedQuantity}
-                      </td>
-                      <td className="px-4 py-4 text-right font-medium text-slate-950">
-                        {order.completedQuantity}
-                      </td>
-                      <td className="px-4 py-4 text-right font-medium text-slate-950">
-                        {order.shippedQuantity}
-                      </td>
-                      <td className="px-4 py-4 text-right font-medium text-slate-950">
-                        {order.remainingQuantity}
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className="flex flex-wrap items-center gap-2">
-                          {order.isOverPlanned ? (
-                            <span className="text-xs font-medium text-amber-700">
-                              超出计划
-                            </span>
-                          ) : null}
-                          {order.canClose ? (
-                            <span className="text-xs font-medium text-emerald-700">
-                              已满足结单条件
-                            </span>
-                          ) : null}
-                          {!order.isOverPlanned && !order.canClose ? (
-                            <span className="text-slate-400">-</span>
-                          ) : null}
-                        </div>
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-4 text-right">
-                        <Link
-                          href={`/orders/${order.id}`}
-                          className="inline-flex whitespace-nowrap rounded-md border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-                        >
-                          详情
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-
-        <aside className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-          <h2 className="text-base font-semibold text-slate-950">新增订单</h2>
-          <form action={createOrderAction} className="mt-4 grid gap-4">
-            <TextInput label="客户名称" name="customerName" required />
-            <TextInput label="工件名称" name="partName" required />
-            <NumberInput
-              label="计划数量"
-              name="plannedQuantity"
-              min={1}
-              step={1}
-              required
-            />
-            <NumberInput
-              label="单价（元/件）"
-              name="unitPrice"
-              min={0}
-              step={0.01}
-            />
-            <DateInput label="交期" name="dueDate" />
-            <Textarea label="备注" name="notes" />
-            <SubmitButton>创建订单</SubmitButton>
-          </form>
-        </aside>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
     </div>
   );

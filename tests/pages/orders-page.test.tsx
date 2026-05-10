@@ -49,12 +49,17 @@ describe("orders page", () => {
       },
     ]);
 
-    render(
+    const { container } = render(
       await OrdersPage({
         searchParams: Promise.resolve({}),
       }),
     );
 
+    expect(
+      screen.getByRole("button", { name: "新增订单" }),
+    ).toBeInTheDocument();
+    expect(container.querySelector("dialog")).toBeInTheDocument();
+    expect(container.querySelector("aside")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("订单号")).not.toBeInTheDocument();
     expect(screen.getByLabelText("单价（元/件）")).toBeInTheDocument();
     expect(screen.getByText(/12\.34/)).toBeInTheDocument();

@@ -22,8 +22,9 @@ async function createOrder(
     page.getByRole("heading", { name: "订单", exact: true }),
   ).toBeVisible();
 
+  await page.getByRole("button", { name: "新增订单" }).click();
   const form = page
-    .locator("form")
+    .locator("dialog[open] form")
     .filter({ has: page.getByRole("button", { name: "创建订单" }) });
   await form.locator('input[name="customerName"]').fill(order.customerName);
   await form.locator('input[name="partName"]').fill(order.partName);
@@ -44,25 +45,24 @@ async function createOrder(
 
 async function createMachine(
   page: Page,
-  machine: { code: string; name: string },
+  machine: { code: string },
 ) {
   await page.goto("/machines");
   await expect(
     page.getByRole("heading", { name: "机器", exact: true }),
   ).toBeVisible();
 
+  await page.getByRole("button", { name: "新增机器" }).click();
   const form = page
-    .locator("form")
+    .locator("dialog[open] form")
     .filter({ has: page.getByRole("button", { name: "创建机器" }) });
   await form.locator('input[name="code"]').fill(machine.code);
-  await form.locator('input[name="name"]').fill(machine.name);
   await form.getByRole("button", { name: "创建机器" }).click();
 
   const row = page.locator("tbody tr").filter({ hasText: machine.code });
-  await expect(row).toContainText(machine.name);
   await row.getByRole("link", { name: "详情" }).click();
   await expect(
-    page.getByRole("heading", { name: `${machine.code} / ${machine.name}` }),
+    page.getByRole("heading", { name: `${machine.code} / ${machine.code}` }),
   ).toBeVisible();
 }
 
@@ -160,7 +160,6 @@ test("factory order, machine, production, and deletion flow updates totals", asy
   };
   const machine = {
     code: `E2E-MACHINE-${suffix}`,
-    name: `E2E Machine ${suffix}`,
   };
   const firstRecord = { completed: "60", shipped: "20", notes: `E2E record 1 ${suffix}` };
   const secondRecord = { completed: "50", shipped: "90", notes: `E2E record 2 ${suffix}` };

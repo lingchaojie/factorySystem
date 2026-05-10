@@ -43,10 +43,12 @@ function parseRecordedAt(value: FormDataEntryValue | null): Date {
 
 export async function createMachineAction(formData: FormData) {
   const workspaceId = await requireWorkspaceId();
+  const code = getString(formData, "code");
+  const providedName = getString(formData, "name");
 
   await createMachine(workspaceId, {
-    code: getString(formData, "code"),
-    name: getString(formData, "name"),
+    code,
+    name: providedName.trim() ? providedName : code.trim(),
     model: getString(formData, "model"),
     location: getString(formData, "location"),
     status: parseMachineStatus(formData.get("status")),

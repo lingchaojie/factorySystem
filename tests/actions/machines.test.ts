@@ -56,6 +56,25 @@ describe("machine actions", () => {
     expect(navigationMock.redirect).toHaveBeenCalledWith("/machines");
   });
 
+  it("uses the machine code as the name when the creation form omits name fields", async () => {
+    const { createMachineAction } = await import("@/app/actions/machines");
+    const form = new FormData();
+    form.set("code", " 15 ");
+    form.set("status", "idle");
+    form.set("notes", "备用");
+
+    await createMachineAction(form);
+
+    expect(machinesMock.createMachine).toHaveBeenCalledWith("workspace-1", {
+      code: " 15 ",
+      name: "15",
+      model: "",
+      location: "",
+      status: "idle",
+      notes: "备用",
+    });
+  });
+
   it("rejects invalid machine status values before creating", async () => {
     const { createMachineAction } = await import("@/app/actions/machines");
     const form = new FormData();
