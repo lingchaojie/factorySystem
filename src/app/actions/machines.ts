@@ -9,6 +9,7 @@ import { requireWorkspaceId } from "@/lib/workspace";
 import {
   createMachine,
   linkMachineToOrder,
+  updateMachine,
 } from "@/server/services/machines";
 import { createProductionRecord } from "@/server/services/records";
 
@@ -56,6 +57,22 @@ export async function createMachineAction(formData: FormData) {
 
   revalidatePath("/machines");
   redirect("/machines");
+}
+
+export async function updateMachineAction(formData: FormData) {
+  const workspaceId = await requireWorkspaceId();
+  const machineId = getString(formData, "machineId");
+
+  if (!machineId) throw new Error("机器必填");
+
+  await updateMachine(workspaceId, machineId, {
+    status: parseMachineStatus(formData.get("status")),
+    notes: getString(formData, "notes"),
+  });
+
+  revalidatePath("/machines");
+  revalidatePath(`/machines/${machineId}`);
+  redirect(`/machines/${machineId}`);
 }
 
 export async function linkMachineAction(formData: FormData) {

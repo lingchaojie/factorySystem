@@ -199,10 +199,6 @@ export default async function RecordsPage({
                         {formatBusinessDateTime(record.recordedAt)}
                       </h2>
                       <RecordTypeBadge type={record.type} />
-                      <StatusBadge
-                        status={record.order.status}
-                        labels={recordOrderStatusLabels}
-                      />
                     </div>
                     <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
                       <div>
@@ -224,13 +220,17 @@ export default async function RecordsPage({
                       </div>
                       <div>
                         <dt className="text-slate-500">订单</dt>
-                        <dd className="mt-1 font-medium text-slate-950">
+                        <dd className="mt-1 flex flex-col items-start gap-1 font-medium text-slate-950">
                           <Link
                             href={`/orders/${record.orderId}`}
                             className="hover:text-slate-600"
                           >
                             {formatOrder(record.order)}
                           </Link>
+                          <StatusBadge
+                            status={record.order.status}
+                            labels={recordOrderStatusLabels}
+                          />
                         </dd>
                       </div>
                       <div>

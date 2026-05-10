@@ -34,7 +34,7 @@ describe("machine detail page", () => {
       name: "一号机",
       model: null,
       location: null,
-      notes: null,
+      notes: "等待保养",
       status: "active",
       currentOrderId: "order-1",
       currentOrder: {
@@ -69,6 +69,9 @@ describe("machine detail page", () => {
     expect(screen.queryByText("机器编号")).not.toBeInTheDocument();
     expect(screen.queryByText("型号")).not.toBeInTheDocument();
     expect(screen.queryByText("位置")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "编辑机器" })).toBeInTheDocument();
+    expect(screen.getByLabelText("机器状态")).toHaveValue("active");
+    expect(screen.getByLabelText("机器备注")).toHaveValue("等待保养");
 
     const orderLinks = screen.getAllByRole("link", { name: /MO-1/ });
     expect(orderLinks).toHaveLength(2);

@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import React from "react";
 import { describe, expect, it, vi } from "vitest";
 import RecordsPage from "@/app/(dashboard)/records/page";
@@ -90,6 +90,15 @@ describe("records page", () => {
     expect(screen.getByRole("option", { name: "全部类型" })).toBeInTheDocument();
     expect(screen.getAllByText("订单：进行中")).toHaveLength(2);
     expect(screen.getAllByText("5")).toHaveLength(2);
+
+    const firstArticle = container.querySelector("article");
+    expect(firstArticle).not.toBeNull();
+    const headingRow = firstArticle?.querySelector("h2")?.parentElement;
+    expect(headingRow).not.toHaveTextContent("订单：进行中");
+    const orderBlock = within(firstArticle as HTMLElement)
+      .getByText("订单")
+      .closest("div");
+    expect(orderBlock).toHaveTextContent("订单：进行中");
   });
 });
 

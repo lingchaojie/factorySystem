@@ -4,7 +4,11 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db";
-import { createMachine, linkMachineToOrder } from "@/server/services/machines";
+import {
+  createMachine,
+  linkMachineToOrder,
+  updateMachine,
+} from "@/server/services/machines";
 import {
   getOrderDrawingArchive,
   replaceOrderDrawings,
@@ -91,6 +95,26 @@ describe("factory services", () => {
     expect(first.unitPriceCents).toBe(1250);
     expect(second.plannedQuantity).toBeNull();
     expect(second.unitPriceCents).toBeNull();
+  });
+
+  it("updates machine status and notes", async () => {
+    const workspace = await createWorkspace();
+    const machine = await createMachine(workspace.id, {
+      code: "1",
+      name: "1号机",
+      model: "",
+      location: "",
+      status: "active",
+      notes: "",
+    });
+
+    const updated = await updateMachine(workspace.id, machine.id, {
+      status: "maintenance",
+      notes: "等待换刀",
+    });
+
+    expect(updated.status).toBe("maintenance");
+    expect(updated.notes).toBe("等待换刀");
   });
 
   it("replaces existing drawing records and files when uploading again", async () => {

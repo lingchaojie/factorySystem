@@ -1,9 +1,12 @@
+import type { MachineStatus } from "@prisma/client";
 import Link from "next/link";
 import React from "react";
 import {
   createMachineRecordAction,
   linkMachineAction,
+  updateMachineAction,
 } from "@/app/actions/machines";
+import { CreateEntityDialog } from "@/components/create-entity-dialog";
 import {
   NumberInput,
   SelectInput,
@@ -32,6 +35,13 @@ const recordTypeLabels = {
   completed: "加工",
   shipped: "出货",
 } as const;
+
+const machineStatusOptions: Array<{ value: MachineStatus; label: string }> = [
+  { value: "active", label: machineStatusLabels.active },
+  { value: "idle", label: machineStatusLabels.idle },
+  { value: "maintenance", label: machineStatusLabels.maintenance },
+  { value: "disabled", label: machineStatusLabels.disabled },
+];
 
 export default async function MachineDetailPage({
   params,
@@ -76,7 +86,35 @@ export default async function MachineDetailPage({
       <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
         <div className="grid gap-6">
           <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="text-base font-semibold text-slate-950">机器信息</h2>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-base font-semibold text-slate-950">
+                机器信息
+              </h2>
+              <CreateEntityDialog
+                buttonLabel="编辑机器"
+                title="编辑机器"
+                buttonIcon="pencil"
+                buttonVariant="secondary"
+              >
+                <form action={updateMachineAction} className="grid gap-4">
+                  <input type="hidden" name="machineId" value={machine.id} />
+                  <SelectInput
+                    label="机器状态"
+                    id="editMachineStatus"
+                    name="status"
+                    defaultValue={machine.status}
+                    options={machineStatusOptions}
+                  />
+                  <Textarea
+                    label="机器备注"
+                    id="editMachineNotes"
+                    name="notes"
+                    defaultValue={machine.notes ?? ""}
+                  />
+                  <SubmitButton>保存机器</SubmitButton>
+                </form>
+              </CreateEntityDialog>
+            </div>
             <dl className="mt-4 grid gap-4 text-sm sm:grid-cols-2">
               <div>
                 <dt className="text-slate-500">机器名称</dt>

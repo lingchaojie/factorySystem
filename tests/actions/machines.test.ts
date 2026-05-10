@@ -8,6 +8,7 @@ const { workspaceMock, machinesMock, recordsMock, cacheMock, navigationMock } =
     machinesMock: {
       createMachine: vi.fn(),
       linkMachineToOrder: vi.fn(),
+      updateMachine: vi.fn(),
     },
     recordsMock: {
       createProductionRecord: vi.fn(),
@@ -80,6 +81,38 @@ describe("machine actions", () => {
 
     await expect(createMachineAction(form)).rejects.toThrow("机器状态无效");
     expect(machinesMock.createMachine).not.toHaveBeenCalled();
+  });
+
+  it("updates machine status and notes from the detail page", async () => {
+    const { updateMachineAction } = await import("@/app/actions/machines");
+    const form = new FormData();
+    form.set("machineId", "machine-1");
+    form.set("status", "maintenance");
+    form.set("notes", "等待换刀");
+
+    await updateMachineAction(form);
+
+    expect(machinesMock.updateMachine).toHaveBeenCalledWith(
+      "workspace-1",
+      "machine-1",
+      {
+        status: "maintenance",
+        notes: "等待换刀",
+      },
+    );
+    expect(cacheMock.revalidatePath).toHaveBeenCalledWith("/machines");
+    expect(cacheMock.revalidatePath).toHaveBeenCalledWith("/machines/machine-1");
+    expect(navigationMock.redirect).toHaveBeenCalledWith("/machines/machine-1");
+  });
+
+  it("rejects invalid machine status values before updating", async () => {
+    const { updateMachineAction } = await import("@/app/actions/machines");
+    const form = new FormData();
+    form.set("machineId", "machine-1");
+    form.set("status", "offline");
+
+    await expect(updateMachineAction(form)).rejects.toThrow("机器状态无效");
+    expect(machinesMock.updateMachine).not.toHaveBeenCalled();
   });
 
   it("creates a record and revalidates dependent machine, order, and record pages", async () => {

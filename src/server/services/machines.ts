@@ -14,6 +14,11 @@ export type CreateMachineInput = {
   notes: string;
 };
 
+export type UpdateMachineInput = {
+  status: MachineStatus;
+  notes: string;
+};
+
 export async function createMachine(
   workspaceId: string,
   input: CreateMachineInput,
@@ -24,9 +29,9 @@ export async function createMachine(
   try {
     return await prisma.machine.create({
       data: {
-          workspaceId,
-          code: input.code.trim(),
-          name: machineName,
+        workspaceId,
+        code: input.code.trim(),
+        name: machineName,
         model: input.model.trim() || null,
         location: input.location.trim() || null,
         status: input.status,
@@ -42,6 +47,20 @@ export async function createMachine(
     }
     throw error;
   }
+}
+
+export async function updateMachine(
+  workspaceId: string,
+  machineId: string,
+  input: UpdateMachineInput,
+) {
+  return prisma.machine.update({
+    where: { workspaceId_id: { workspaceId, id: machineId } },
+    data: {
+      status: input.status,
+      notes: input.notes.trim() || null,
+    },
+  });
 }
 
 export async function linkMachineToOrder(
