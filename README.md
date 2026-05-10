@@ -22,6 +22,16 @@ The compose stack runs two containers:
 
 Uploaded order drawings are stored in the `order-drawings-data` Docker volume.
 
+## Tencent Cloud Production Deploy
+
+Deploy to a Tencent Cloud CVM with one command:
+
+```bash
+scripts/deploy-tencent.sh root@1.2.3.4 factory.example.com
+```
+
+See [Tencent CVM deployment](docs/deployment/tencent-cvm.md) for first deploy, redeploy, logs, and backup commands.
+
 ## Local Development
 
 Use the compose database with the app running directly in WSL:
