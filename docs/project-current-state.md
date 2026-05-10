@@ -111,29 +111,27 @@ http://localhost:3000
 - `web`：Next.js 应用
 - `caddy`：HTTP/HTTPS 入口
 
-一键部署脚本：
+服务器上部署：
 
 ```bash
-scripts/deploy-tencent.sh root@1.2.3.4 factory.example.com
+cd ~/FactorySystem
+git checkout main
+git pull --ff-only
+scripts/deploy-production.sh
 ```
 
-服务器已 clone 代码时：
+部署脚本只使用当前 checkout，不会自动拉代码或切分支。需要部署其他分支时，先在服务器上切到目标分支，再运行同一个脚本：
 
 ```bash
-cd /opt/factory-system/app
-scripts/deploy-production.sh --domain factory.example.com
-```
-
-部署脚本默认拉取并 hard reset 到 `origin/main`。需要部署其他分支时显式传入：
-
-```bash
-DEPLOY_BRANCH=factory-mvp scripts/deploy-tencent.sh root@1.2.3.4 factory.example.com
+git checkout some-branch
+git pull --ff-only origin some-branch
+scripts/deploy-production.sh
 ```
 
 生产环境变量保存在服务器本地：
 
 ```text
-/opt/factory-system/app/deploy/production/.env.production
+~/FactorySystem/deploy/production/.env.production
 ```
 
 该文件不会提交到 git。重复部署会保留已有 `.env.production`，不会重置生产密码。

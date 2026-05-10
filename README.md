@@ -22,15 +22,17 @@ Open `http://localhost:3000` in the Windows browser.
 
 See [current project notes](docs/project-current-state.md) for implemented features, account model, local debugging notes, and operational experience.
 
-## Tencent Cloud Production Deploy
+## Production Deploy
 
-Deploy to a Tencent Cloud CVM with one command:
+Production runs with Docker Compose. On the server, checkout and pull the branch you want to deploy, then rebuild and restart the stack:
 
 ```bash
-scripts/deploy-tencent.sh root@1.2.3.4 factory.example.com
+git checkout main
+git pull --ff-only
+scripts/deploy-production.sh
 ```
 
-The deploy scripts pull `main` by default. See [Tencent CVM deployment](docs/deployment/tencent-cvm.md) for first deploy, redeploy, logs, backup, and clear-database commands.
+The deploy script uses the current checkout, reads `deploy/production/.env.production`, rebuilds the `web` image, and starts `db/web/caddy`. See [Tencent CVM deployment](docs/deployment/tencent-cvm.md) for first deploy, redeploy, logs, backup, and clear-database commands.
 
 ## Useful Commands
 
