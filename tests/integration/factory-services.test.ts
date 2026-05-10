@@ -352,6 +352,20 @@ describe("factory services", () => {
     expect(records.map((record) => record.orderId).sort()).toEqual(
       [completedOrder.id, inProgressOrder.id, inProgressOrder.id].sort(),
     );
+
+    const namedRecords = await listProductionRecords(workspace.id, {
+      orderQuery: "甲方 / 法兰",
+    });
+    expect(namedRecords.map((record) => record.orderId).sort()).toEqual(
+      [inProgressOrder.id, inProgressOrder.id].sort(),
+    );
+
+    const partRecords = await listProductionRecords(workspace.id, {
+      orderQuery: "底座",
+    });
+    expect(partRecords.map((record) => record.orderId)).toEqual([
+      completedOrder.id,
+    ]);
   });
 
   it("replaces existing drawing records and files when uploading again", async () => {

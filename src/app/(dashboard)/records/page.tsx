@@ -21,7 +21,6 @@ import {
   formatDateTimeLocalValue,
 } from "@/lib/business-time";
 import { requireWorkspaceId } from "@/lib/workspace";
-import { listOrders } from "@/server/services/orders";
 import { listProductionRecords } from "@/server/services/records";
 import { DeleteRecordButton } from "./delete-record-button";
 import { parseRecordFilters, type RecordSearchParams } from "./filters";
@@ -91,25 +90,18 @@ export default async function RecordsPage({
   const params = await searchParams;
   const filters = parseRecordFilters(params);
 
-  const [records, orders] = await Promise.all([
-    listProductionRecords(workspaceId, {
-      type: filters.recordType,
-      types: filters.recordTypes,
-      orderId: filters.orderId,
-      orderIds: filters.orderIds,
-      customerName: filters.customerName,
-      orderStatus: filters.orderStatus,
-      orderStatuses: filters.orderStatuses,
-      from: filters.from,
-      to: filters.to,
-    }),
-    listOrders(workspaceId, {}),
-  ]);
-
-  const orderOptions = orders.map((order) => ({
-      value: order.id,
-      label: formatOrder(order),
-    }));
+  const records = await listProductionRecords(workspaceId, {
+    type: filters.recordType,
+    types: filters.recordTypes,
+    orderId: filters.orderId,
+    orderIds: filters.orderIds,
+    orderQuery: filters.orderQuery,
+    customerName: filters.customerName,
+    orderStatus: filters.orderStatus,
+    orderStatuses: filters.orderStatuses,
+    from: filters.from,
+    to: filters.to,
+  });
 
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-6">
@@ -127,7 +119,7 @@ export default async function RecordsPage({
 
       <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
         <form
-          className="grid gap-3 lg:grid-cols-[140px_140px_180px_240px_1fr_180px_auto]"
+          className="grid gap-3 lg:grid-cols-[140px_140px_180px_minmax(180px,1fr)_minmax(160px,1fr)_180px_auto]"
           action="/records"
         >
           <DateInput
@@ -147,11 +139,11 @@ export default async function RecordsPage({
             selectedValues={filters.recordTypes ?? []}
             options={recordTypeOptions}
           />
-          <MultiSelectInput
+          <TextInput
             label="订单"
-            name="orderId"
-            selectedValues={filters.orderIds ?? []}
-            options={orderOptions}
+            name="orderQuery"
+            placeholder="客户 / 工件"
+            defaultValue={filters.orderQuery}
           />
           <TextInput
             label="客户"

@@ -8,6 +8,7 @@ export type RecordSearchParams = {
   to?: QueryParamValue;
   type?: QueryParamValue;
   orderId?: QueryParamValue;
+  orderQuery?: QueryParamValue;
   customerName?: QueryParamValue;
   status?: QueryParamValue;
 };
@@ -17,6 +18,7 @@ type NormalizedRecordSearchParams = {
   to?: string;
   type: string[];
   orderId: string[];
+  orderQuery?: string;
   customerName?: string;
   status: string[];
 };
@@ -70,6 +72,7 @@ export function normalizeRecordSearchParams(
     orderId: queryValues(params.orderId).filter(
       (item, index, items) => items.indexOf(item) === index,
     ),
+    orderQuery: firstValue(params.orderQuery),
     customerName: firstValue(params.customerName),
     status: queryValues(params.status),
   };
@@ -89,6 +92,7 @@ export function parseRecordFilters(params: RecordSearchParams) {
     recordTypes,
     orderId: orderIds?.[0],
     orderIds,
+    orderQuery: values.orderQuery?.trim() ?? "",
     customerName: values.customerName?.trim() ?? "",
     orderStatus: orderStatuses?.[0],
     orderStatuses,
