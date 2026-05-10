@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import React from "react";
 import { describe, expect, it, vi } from "vitest";
 import RecordsPage from "@/app/(dashboard)/records/page";
@@ -42,13 +42,13 @@ describe("records filters", () => {
       machineId: [" machine-1 ", "machine-2"],
       orderId: [" order-1 ", "order-2"],
       customerName: [" Acme ", "Other"],
-      status: ["closed", "open"],
+      status: ["completed", "in_progress"],
     });
 
     expect(filters.machineId).toBe("machine-1");
     expect(filters.orderId).toBe("order-1");
     expect(filters.customerName).toBe("Acme");
-    expect(filters.orderStatus).toBe("closed");
+    expect(filters.orderStatus).toBe("completed");
     expect(filters.from?.toISOString()).toBe("2026-04-30T16:00:00.000Z");
     expect(filters.to?.toISOString()).toBe("2026-05-03T16:00:00.000Z");
   });
@@ -59,7 +59,7 @@ describe("records filters", () => {
 });
 
 describe("records page", () => {
-  it("renders record-specific inline edit field ids", async () => {
+  it("renders record-specific edit dialogs instead of default inline forms", async () => {
     workspaceMock.requireWorkspaceId.mockResolvedValue("workspace-1");
     machinesMock.listMachines.mockResolvedValue([]);
     ordersMock.listOrders.mockResolvedValue([]);
@@ -74,16 +74,13 @@ describe("records page", () => {
       }),
     );
 
-    for (const field of [
-      "recordedAt",
-      "completedQuantity",
-      "shippedQuantity",
-      "notes",
-    ]) {
+    for (const field of ["recordedAt", "type", "quantity", "notes"]) {
       expect(container.querySelectorAll(`#${field}`)).toHaveLength(0);
       expect(container.querySelector(`#record-1-${field}`)).not.toBeNull();
       expect(container.querySelector(`#record-2-${field}`)).not.toBeNull();
     }
+    expect(screen.getAllByRole("button", { name: "修改" })).toHaveLength(2);
+    expect(screen.getAllByText("加工 5")).toHaveLength(2);
   });
 });
 
@@ -94,8 +91,8 @@ function buildRecord(id: string) {
     machineId: "machine-1",
     orderId: "order-1",
     recordedAt: new Date("2026-05-01T01:00:00.000Z"),
-    completedQuantity: 5,
-    shippedQuantity: 2,
+    type: "completed",
+    quantity: 5,
     notes: null,
     createdAt: new Date("2026-05-01T01:00:00.000Z"),
     machine: {
@@ -108,7 +105,7 @@ function buildRecord(id: string) {
       orderNo: "MO-1",
       partName: "法兰",
       customerName: "Acme",
-      status: "open",
+      status: "in_progress",
     },
   };
 }

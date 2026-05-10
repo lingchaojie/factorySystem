@@ -28,6 +28,11 @@ function formatOrder(order: { orderNo: string; partName: string }) {
   return `${order.orderNo} / ${order.partName}`;
 }
 
+const recordTypeLabels = {
+  completed: "加工",
+  shipped: "出货",
+} as const;
+
 export default async function MachineDetailPage({
   params,
 }: {
@@ -35,13 +40,16 @@ export default async function MachineDetailPage({
 }) {
   const { id } = await params;
   const workspaceId = await requireWorkspaceId();
-  const [machine, openOrders] = await Promise.all([
+  const [machine, orders] = await Promise.all([
     getMachine(workspaceId, id),
-    listOrders(workspaceId, { status: "open" }),
+    listOrders(workspaceId, {}),
   ]);
+  const availableOrders = orders.filter((order) => order.status !== "completed");
   const hasCurrentOrder = Boolean(machine.currentOrderId);
-  const hasOpenCurrentOrder = machine.currentOrder?.status === "open";
-  const orderOptions = openOrders.map((order) => ({
+  const canRecordCurrentOrder = Boolean(
+    machine.currentOrder && machine.currentOrder.status !== "completed",
+  );
+  const orderOptions = availableOrders.map((order) => ({
     value: order.id,
     label: formatOrder(order),
   }));
@@ -58,14 +66,10 @@ export default async function MachineDetailPage({
           </Link>
           <div className="mt-3 flex flex-wrap items-center gap-3">
             <h1 className="text-2xl font-semibold text-slate-950">
-              {machine.code} / {machine.name}
+              {machine.code}
             </h1>
             <StatusBadge status={machine.status} labels={machineStatusLabels} />
           </div>
-          <p className="mt-2 text-sm text-slate-500">
-            {[machine.model, machine.location].filter(Boolean).join(" / ") ||
-              "未填写型号和位置"}
-          </p>
         </div>
       </header>
 
@@ -75,52 +79,15 @@ export default async function MachineDetailPage({
             <h2 className="text-base font-semibold text-slate-950">机器信息</h2>
             <dl className="mt-4 grid gap-4 text-sm sm:grid-cols-2">
               <div>
-                <dt className="text-slate-500">机器编号</dt>
-                <dd className="mt-1 font-medium text-slate-950">
-                  {machine.code}
-                </dd>
-              </div>
-              <div>
                 <dt className="text-slate-500">机器名称</dt>
                 <dd className="mt-1 font-medium text-slate-950">
-                  {machine.name}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-slate-500">型号</dt>
-                <dd className="mt-1 text-slate-950">{machine.model || "-"}</dd>
-              </div>
-              <div>
-                <dt className="text-slate-500">位置</dt>
-                <dd className="mt-1 text-slate-950">
-                  {machine.location || "-"}
+                  {machine.code}
                 </dd>
               </div>
               <div className="sm:col-span-2">
                 <dt className="text-slate-500">备注</dt>
                 <dd className="mt-1 whitespace-pre-wrap text-slate-950">
                   {machine.notes || "-"}
-                </dd>
-              </div>
-              <div className="sm:col-span-2">
-                <dt className="text-slate-500">当前订单</dt>
-                <dd className="mt-1">
-                  {machine.currentOrder ? (
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Link
-                        href={`/orders/${machine.currentOrder.id}`}
-                        className="font-medium text-slate-950 underline-offset-4 hover:underline"
-                      >
-                        {formatOrder(machine.currentOrder)}
-                      </Link>
-                      <StatusBadge
-                        status={machine.currentOrder.status}
-                        labels={orderStatusLabels}
-                      />
-                    </div>
-                  ) : (
-                    <span className="text-slate-500">未关联订单</span>
-                  )}
                 </dd>
               </div>
             </dl>
@@ -143,8 +110,10 @@ export default async function MachineDetailPage({
                     <tr>
                       <th className="px-4 py-3">记录时间</th>
                       <th className="px-4 py-3">订单</th>
-                      <th className="px-4 py-3 text-right">加工</th>
-                      <th className="px-4 py-3 text-right">出货</th>
+                      <th className="whitespace-nowrap px-4 py-3">类型</th>
+                      <th className="whitespace-nowrap px-4 py-3 text-right">
+                        数量
+                      </th>
                       <th className="px-4 py-3">备注</th>
                     </tr>
                   </thead>
@@ -162,11 +131,11 @@ export default async function MachineDetailPage({
                             {formatOrder(record.order)}
                           </Link>
                         </td>
-                        <td className="px-4 py-4 text-right font-medium text-slate-950">
-                          {record.completedQuantity}
+                        <td className="whitespace-nowrap px-4 py-4 text-slate-950">
+                          {recordTypeLabels[record.type]}
                         </td>
-                        <td className="px-4 py-4 text-right font-medium text-slate-950">
-                          {record.shippedQuantity}
+                        <td className="whitespace-nowrap px-4 py-4 text-right font-medium text-slate-950">
+                          {record.quantity}
                         </td>
                         <td className="px-4 py-4 text-slate-600">
                           {record.notes || "-"}
@@ -183,17 +152,32 @@ export default async function MachineDetailPage({
         <aside className="grid content-start gap-6 pb-24 md:pb-0">
           <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
             <h2 className="text-base font-semibold text-slate-950">关联订单</h2>
-            {openOrders.length === 0 ? (
+            {machine.currentOrder ? (
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+                <span className="text-slate-500">当前订单</span>
+                <Link
+                  href={`/orders/${machine.currentOrder.id}`}
+                  className="font-medium text-slate-950 underline-offset-4 hover:underline"
+                >
+                  {formatOrder(machine.currentOrder)}
+                </Link>
+                <StatusBadge
+                  status={machine.currentOrder.status}
+                  labels={orderStatusLabels}
+                />
+              </div>
+            ) : null}
+            {availableOrders.length === 0 ? (
               <p className="mt-3 text-sm text-slate-500">
-                当前没有进行中的订单。请先在订单流程中创建或重开订单。
+                当前没有未完成的订单。请先在订单流程中创建订单。
               </p>
             ) : (
               <form action={linkMachineAction} className="mt-4 grid gap-4">
                 <input type="hidden" name="machineId" value={machine.id} />
                 <SelectInput
-                  label="进行中的订单"
+                  label="可关联订单"
                   name="orderId"
-                  defaultValue={machine.currentOrderId ?? openOrders[0]?.id}
+                  defaultValue={machine.currentOrderId ?? availableOrders[0]?.id}
                   options={orderOptions}
                   required
                 />
@@ -209,9 +193,9 @@ export default async function MachineDetailPage({
                 这台机器未关联订单，不能录入生产记录。
               </p>
             ) : null}
-            {hasCurrentOrder && !hasOpenCurrentOrder ? (
+            {hasCurrentOrder && !canRecordCurrentOrder ? (
               <p className="mt-3 text-sm text-slate-500">
-                当前订单已关闭，请关联进行中的订单或重开订单后再录入。
+                当前订单已完成，请关联未完成的订单后再录入。
               </p>
             ) : null}
             <form action={createMachineRecordAction} className="mt-4 grid gap-4">
@@ -221,7 +205,7 @@ export default async function MachineDetailPage({
                 name="recordedAt"
                 type="datetime-local"
                 defaultValue={formatDateTimeLocalValue()}
-                disabled={!hasOpenCurrentOrder}
+                disabled={!canRecordCurrentOrder}
               />
               <NumberInput
                 label="加工数量"
@@ -229,7 +213,7 @@ export default async function MachineDetailPage({
                 min={0}
                 step={1}
                 defaultValue={0}
-                disabled={!hasOpenCurrentOrder}
+                disabled={!canRecordCurrentOrder}
               />
               <NumberInput
                 label="出货数量"
@@ -237,14 +221,14 @@ export default async function MachineDetailPage({
                 min={0}
                 step={1}
                 defaultValue={0}
-                disabled={!hasOpenCurrentOrder}
+                disabled={!canRecordCurrentOrder}
               />
               <Textarea
                 label="备注"
                 name="notes"
-                disabled={!hasOpenCurrentOrder}
+                disabled={!canRecordCurrentOrder}
               />
-              <SubmitButton disabled={!hasOpenCurrentOrder}>保存记录</SubmitButton>
+              <SubmitButton disabled={!canRecordCurrentOrder}>保存记录</SubmitButton>
             </form>
           </section>
         </aside>

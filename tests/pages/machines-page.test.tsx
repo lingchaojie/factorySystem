@@ -44,8 +44,8 @@ describe("machines page", () => {
       screen.getByRole("button", { name: "新增机器" }),
     ).toBeInTheDocument();
     expect(container.querySelector("dialog")).toBeInTheDocument();
-    expect(screen.getByLabelText("机器编号")).toBeInTheDocument();
-    expect(screen.queryByLabelText("机器名称")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("机器名称")).toBeInTheDocument();
+    expect(screen.queryByLabelText("机器编号")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("型号")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("位置")).not.toBeInTheDocument();
     expect(container.querySelector("aside")).not.toBeInTheDocument();

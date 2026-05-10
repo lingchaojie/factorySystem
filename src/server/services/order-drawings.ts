@@ -188,6 +188,10 @@ export async function replaceOrderDrawings(
           }),
         );
       }
+      await tx.order.updateMany({
+        where: { id: orderId, workspaceId, status: "development_pending" },
+        data: { status: "processing_pending", closedAt: null },
+      });
       return created;
     });
   } catch (error) {

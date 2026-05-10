@@ -41,14 +41,14 @@ describe("machine detail page", () => {
         id: "order-1",
         orderNo: "MO-1",
         partName: "法兰",
-        status: "open",
+        status: "in_progress",
       },
       productionRecords: [
         {
           id: "record-1",
           recordedAt: new Date("2026-05-10T08:00:00.000Z"),
-          completedQuantity: 10,
-          shippedQuantity: 4,
+          type: "completed",
+          quantity: 10,
           notes: null,
           order: {
             id: "order-1",
@@ -65,13 +65,18 @@ describe("machine detail page", () => {
       }),
     );
 
+    expect(screen.getByRole("heading", { name: "CNC-1" })).toBeInTheDocument();
+    expect(screen.queryByText("机器编号")).not.toBeInTheDocument();
+    expect(screen.queryByText("型号")).not.toBeInTheDocument();
+    expect(screen.queryByText("位置")).not.toBeInTheDocument();
+
     const orderLinks = screen.getAllByRole("link", { name: /MO-1/ });
     expect(orderLinks).toHaveLength(2);
     expect(orderLinks[0]).toHaveAttribute("href", "/orders/order-1");
     expect(orderLinks[1]).toHaveAttribute("href", "/orders/order-1");
   });
 
-  it("disables record entry when the current order is closed", async () => {
+  it("disables record entry when the current order is completed", async () => {
     workspaceMock.requireWorkspaceId.mockResolvedValue("workspace-1");
     ordersMock.listOrders.mockResolvedValue([]);
     machinesMock.getMachine.mockResolvedValue({
@@ -87,7 +92,7 @@ describe("machine detail page", () => {
         id: "order-1",
         orderNo: "MO-1",
         partName: "法兰",
-        status: "closed",
+        status: "completed",
       },
       productionRecords: [],
     });
@@ -99,7 +104,7 @@ describe("machine detail page", () => {
     );
 
     expect(
-      screen.getByText("当前订单已关闭，请关联进行中的订单或重开订单后再录入。"),
+      screen.getByText("当前订单已完成，请关联未完成的订单后再录入。"),
     ).toBeInTheDocument();
     expect(screen.getByLabelText("记录时间")).toBeDisabled();
     expect(screen.getByLabelText("加工数量")).toBeDisabled();

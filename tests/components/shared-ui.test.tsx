@@ -83,18 +83,20 @@ describe("shared UI primitives", () => {
 
     expect(machineStatusLabels.active).toBe("正常");
     expect(machineStatusLabels.maintenance).toBe("维护中");
-    expect(orderStatusLabels.open).toBe("进行中");
-    expect(orderStatusLabels.closed).toBe("已结单");
+    expect(orderStatusLabels.development_pending).toBe("待开发");
+    expect(orderStatusLabels.processing_pending).toBe("待加工");
+    expect(orderStatusLabels.in_progress).toBe("进行中");
+    expect(orderStatusLabels.completed).toBe("完成");
 
     render(
       <>
         <StatusBadge status="active" labels={machineStatusLabels} />
-        <StatusBadge status="closed" labels={orderStatusLabels} />
+        <StatusBadge status="completed" labels={orderStatusLabels} />
       </>,
     );
 
     expect(screen.getByText("正常")).toBeInTheDocument();
-    expect(screen.getByText("已结单")).toBeInTheDocument();
+    expect(screen.getByText("完成")).toBeInTheDocument();
   });
 
   it("centers create dialogs in the viewport", async () => {

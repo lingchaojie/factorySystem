@@ -5,6 +5,7 @@ import {
   deleteRecordAction,
   updateRecordAction,
 } from "@/app/actions/records";
+import { CreateEntityDialog } from "@/components/create-entity-dialog";
 import {
   DateInput,
   NumberInput,
@@ -27,8 +28,26 @@ import { parseRecordFilters, type RecordSearchParams } from "./filters";
 
 const statusOptions: Array<{ value: OrderStatus | ""; label: string }> = [
   { value: "", label: "全部状态" },
-  { value: "open", label: orderStatusLabels.open },
-  { value: "closed", label: orderStatusLabels.closed },
+  {
+    value: "development_pending",
+    label: orderStatusLabels.development_pending,
+  },
+  {
+    value: "processing_pending",
+    label: orderStatusLabels.processing_pending,
+  },
+  { value: "in_progress", label: orderStatusLabels.in_progress },
+  { value: "completed", label: orderStatusLabels.completed },
+];
+
+const recordTypeLabels = {
+  completed: "加工",
+  shipped: "出货",
+} as const;
+
+const recordTypeOptions = [
+  { value: "completed", label: recordTypeLabels.completed },
+  { value: "shipped", label: recordTypeLabels.shipped },
 ];
 
 function formatOrder(order: { orderNo: string | null; partName: string }) {
@@ -61,7 +80,7 @@ export default async function RecordsPage({
     { value: "", label: "全部机器" },
     ...machines.map((machine) => ({
       value: machine.id,
-      label: `${machine.code} / ${machine.name}`,
+      label: machine.code,
     })),
   ];
   const orderOptions = [
@@ -141,10 +160,11 @@ export default async function RecordsPage({
       ) : (
         <section className="grid gap-4">
           {records.map((record) => {
-            const isClosed = record.order.status === "closed";
+            const isCompleted = record.order.status === "completed";
             return (
               <article
                 key={record.id}
+                data-record-type={record.type}
                 className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
               >
                 <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
@@ -166,7 +186,7 @@ export default async function RecordsPage({
                             href={`/machines/${record.machineId}`}
                             className="hover:text-slate-600"
                           >
-                            {record.machine.code} / {record.machine.name}
+                            {record.machine.code}
                           </Link>
                         </dd>
                       </div>
@@ -190,8 +210,7 @@ export default async function RecordsPage({
                       <div>
                         <dt className="text-slate-500">数量</dt>
                         <dd className="mt-1 font-medium text-slate-950">
-                          加工 {record.completedQuantity} / 出货{" "}
-                          {record.shippedQuantity}
+                          {recordTypeLabels[record.type]} {record.quantity}
                         </dd>
                       </div>
                     </dl>
@@ -201,16 +220,22 @@ export default async function RecordsPage({
                   </div>
                 </div>
 
-                <div className="mt-4 border-t border-slate-100 pt-4">
-                  {isClosed ? (
+                <div className="mt-4 flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
+                  {isCompleted ? (
                     <p className="mb-3 text-sm text-slate-500">
-                      所属订单已结单，不能修改或删除记录。
+                      所属订单已完成，不能修改或删除记录。
                     </p>
                   ) : null}
-                  <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
+                  <div className="sm:ml-auto">
+                    <CreateEntityDialog
+                      buttonLabel="修改"
+                      title="修改记录"
+                      buttonIcon="pencil"
+                      buttonClassName="border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                    >
                     <form
                       action={updateRecordAction}
-                      className="grid gap-3 md:grid-cols-[180px_130px_130px_minmax(220px,1fr)_auto]"
+                      className="grid gap-4"
                     >
                       <input type="hidden" name="recordId" value={record.id} />
                       <TextInput
@@ -219,42 +244,39 @@ export default async function RecordsPage({
                         name="recordedAt"
                         type="datetime-local"
                         defaultValue={formatDateTimeLocalValue(record.recordedAt)}
-                        disabled={isClosed}
+                        disabled={isCompleted}
+                      />
+                      <SelectInput
+                        id={`${record.id}-type`}
+                        label="类型"
+                        name="type"
+                        defaultValue={record.type}
+                        options={recordTypeOptions}
+                        disabled={isCompleted}
                       />
                       <NumberInput
-                        id={`${record.id}-completedQuantity`}
-                        label="加工数量"
-                        name="completedQuantity"
-                        min={0}
+                        id={`${record.id}-quantity`}
+                        label="数量"
+                        name="quantity"
+                        min={1}
                         step={1}
-                        defaultValue={record.completedQuantity}
-                        disabled={isClosed}
-                      />
-                      <NumberInput
-                        id={`${record.id}-shippedQuantity`}
-                        label="出货数量"
-                        name="shippedQuantity"
-                        min={0}
-                        step={1}
-                        defaultValue={record.shippedQuantity}
-                        disabled={isClosed}
+                        defaultValue={record.quantity}
+                        disabled={isCompleted}
                       />
                       <Textarea
                         id={`${record.id}-notes`}
                         label="备注"
                         name="notes"
                         defaultValue={record.notes ?? ""}
-                        className="min-h-10"
-                        disabled={isClosed}
+                        disabled={isCompleted}
                       />
-                      <div className="flex items-end">
-                        <SubmitButton disabled={isClosed}>保存</SubmitButton>
-                      </div>
+                      <SubmitButton disabled={isCompleted}>保存</SubmitButton>
                     </form>
-                    <form action={deleteRecordAction}>
+                    <form action={deleteRecordAction} className="mt-3">
                       <input type="hidden" name="recordId" value={record.id} />
-                      <DeleteRecordButton disabled={isClosed} />
+                      <DeleteRecordButton disabled={isCompleted} />
                     </form>
+                    </CreateEntityDialog>
                   </div>
                 </div>
               </article>

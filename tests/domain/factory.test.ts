@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
-  ProductionRecordInput,
+  MachineRecordInput,
   parseNonNegativeQuantity,
   summarizeOrder,
+  validateMachineRecordInput,
   validateProductionRecordInput,
 } from "@/domain/factory";
 
@@ -10,10 +11,11 @@ describe("factory domain rules", () => {
   it("summarizes order progress from production records", () => {
     const summary = summarizeOrder({
       plannedQuantity: 100,
-      closedAt: null,
       records: [
-        { completedQuantity: 40, shippedQuantity: 10 },
-        { completedQuantity: 70, shippedQuantity: 95 },
+        { type: "completed", quantity: 40 },
+        { type: "shipped", quantity: 10 },
+        { type: "completed", quantity: 70 },
+        { type: "shipped", quantity: 95 },
       ],
     });
 
@@ -24,25 +26,37 @@ describe("factory domain rules", () => {
     expect(summary.canClose).toBe(true);
   });
 
-  it("does not mark closed orders as closable again", () => {
+  it("keeps target-derived fields unavailable when planned quantity is blank", () => {
     const summary = summarizeOrder({
-      plannedQuantity: 20,
-      closedAt: new Date("2026-05-10T08:00:00.000Z"),
-      records: [{ completedQuantity: 20, shippedQuantity: 20 }],
+      plannedQuantity: null,
+      records: [
+        { type: "completed", quantity: 20 },
+        { type: "shipped", quantity: 8 },
+      ],
     });
 
+    expect(summary.completedQuantity).toBe(20);
+    expect(summary.shippedQuantity).toBe(8);
+    expect(summary.remainingQuantity).toBeNull();
+    expect(summary.isOverPlanned).toBe(false);
     expect(summary.canClose).toBe(false);
   });
 
-  it("rejects records where both quantities are zero", () => {
-    const input: ProductionRecordInput = {
+  it("rejects machine entries where both quantities are zero", () => {
+    const input: MachineRecordInput = {
       completedQuantity: 0,
       shippedQuantity: 0,
     };
 
-    expect(() => validateProductionRecordInput(input)).toThrow(
+    expect(() => validateMachineRecordInput(input)).toThrow(
       "加工数量和出货数量不能同时为 0",
     );
+  });
+
+  it("rejects split production records with invalid quantities", () => {
+    expect(() =>
+      validateProductionRecordInput({ type: "completed", quantity: 0 }),
+    ).toThrow("记录数量必须大于 0");
   });
 
   it("rejects negative quantities", () => {

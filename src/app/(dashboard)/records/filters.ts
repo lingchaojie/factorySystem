@@ -21,7 +21,12 @@ type NormalizedRecordSearchParams = {
   status?: string;
 };
 
-const orderStatusFilters = new Set<OrderStatus>(["open", "closed"]);
+const orderStatusFilters = new Set<OrderStatus>([
+  "development_pending",
+  "processing_pending",
+  "in_progress",
+  "completed",
+]);
 
 function firstValue(value: QueryParamValue) {
   return Array.isArray(value) ? value[0] : value;

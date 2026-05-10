@@ -56,11 +56,13 @@ export default async function MachinesPage({
     return {
       ...machine,
       todayCompletedQuantity: todayRecords.reduce(
-        (total, record) => total + record.completedQuantity,
+        (total, record) =>
+          record.type === "completed" ? total + record.quantity : total,
         0,
       ),
       todayShippedQuantity: todayRecords.reduce(
-        (total, record) => total + record.shippedQuantity,
+        (total, record) =>
+          record.type === "shipped" ? total + record.quantity : total,
         0,
       ),
     };
@@ -81,7 +83,7 @@ export default async function MachinesPage({
           <p className="text-sm text-slate-500">共 {machines.length} 台</p>
           <CreateEntityDialog buttonLabel="新增机器" title="新增机器">
             <form action={createMachineAction} className="grid gap-4">
-              <TextInput label="机器编号" name="code" required />
+              <TextInput label="机器名称" name="code" required />
               <SelectInput
                 label="状态"
                 id="createMachineStatus"
@@ -101,7 +103,7 @@ export default async function MachinesPage({
           <TextInput
             label="搜索"
             name="query"
-            placeholder="机器编号或名称"
+            placeholder="机器名称"
             defaultValue={query}
           />
           <SelectInput

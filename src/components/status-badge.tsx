@@ -8,8 +8,10 @@ export const machineStatusLabels = {
 } as const;
 
 export const orderStatusLabels = {
-  open: "进行中",
-  closed: "已结单",
+  development_pending: "待开发",
+  processing_pending: "待加工",
+  in_progress: "进行中",
+  completed: "完成",
 } as const;
 
 type Status = keyof typeof machineStatusLabels | keyof typeof orderStatusLabels;
@@ -25,8 +27,10 @@ const statusClassNames: Record<Status, string> = {
   idle: "border-slate-200 bg-slate-100 text-slate-700",
   maintenance: "border-amber-200 bg-amber-50 text-amber-800",
   disabled: "border-rose-200 bg-rose-50 text-rose-700",
-  open: "border-sky-200 bg-sky-50 text-sky-700",
-  closed: "border-slate-200 bg-white text-slate-600",
+  development_pending: "border-amber-200 bg-amber-50 text-amber-800",
+  processing_pending: "border-sky-200 bg-sky-50 text-sky-700",
+  in_progress: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  completed: "border-slate-200 bg-white text-slate-600",
 };
 
 export function StatusBadge<TStatus extends Status>({

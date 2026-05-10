@@ -14,8 +14,7 @@ const { workspaceMock, ordersMock, actionsMock } = vi.hoisted(() => ({
   },
   actionsMock: {
     createOrderAction: vi.fn(),
-    closeOrderAction: vi.fn(),
-    reopenOrderAction: vi.fn(),
+    updateOrderStatusAction: vi.fn(),
     uploadOrderDrawingsAction: vi.fn(),
   },
 }));
@@ -40,7 +39,7 @@ describe("orders page", () => {
         plannedQuantity: 100,
         unitPriceCents: 1234,
         dueDate: null,
-        status: "open",
+        status: "in_progress",
         completedQuantity: 20,
         shippedQuantity: 10,
         remainingQuantity: 90,
@@ -67,9 +66,41 @@ describe("orders page", () => {
       "whitespace-nowrap",
     );
     expect(screen.queryByLabelText("订单号")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("计划数量")).not.toBeRequired();
     expect(screen.getByLabelText("单价（元/件）")).toBeInTheDocument();
     expect(screen.getByText(/12\.34/)).toBeInTheDocument();
     expect(screen.getByText(/1,234\.00/)).toBeInTheDocument();
+  });
+
+  it("renders blank optional planned quantities as dashes", async () => {
+    workspaceMock.requireWorkspaceId.mockResolvedValue("workspace-1");
+    ordersMock.listOrders.mockResolvedValue([
+      {
+        id: "order-1",
+        orderNo: "ORD-20260510-0001",
+        customerName: "甲方工厂",
+        partName: "法兰",
+        plannedQuantity: null,
+        unitPriceCents: 1234,
+        dueDate: null,
+        status: "development_pending",
+        completedQuantity: 0,
+        shippedQuantity: 0,
+        remainingQuantity: null,
+        isOverPlanned: false,
+        canClose: false,
+      },
+    ]);
+
+    render(
+      await OrdersPage({
+        searchParams: Promise.resolve({}),
+      }),
+    );
+
+    const row = screen.getByRole("row", { name: /ORD-20260510-0001/ });
+    expect(row).toHaveTextContent("待开发");
+    expect(row).toHaveTextContent("-");
   });
 
   it("shows drawing overwrite upload controls and download links on order detail", async () => {
@@ -82,7 +113,7 @@ describe("orders page", () => {
       plannedQuantity: 100,
       unitPriceCents: 1234,
       dueDate: null,
-      status: "open",
+      status: "development_pending",
       notes: null,
       closedAt: null,
       createdAt: new Date("2026-05-10T00:00:00.000Z"),
@@ -117,6 +148,9 @@ describe("orders page", () => {
     expect(screen.getByText("重新上传会覆盖原有图纸")).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "上传图纸" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "修改状态" }),
     ).toBeInTheDocument();
     expect(screen.queryByText("上传文件")).not.toBeInTheDocument();
     expect(screen.queryByText("上传文件夹")).not.toBeInTheDocument();

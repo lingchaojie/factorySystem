@@ -23,8 +23,16 @@ import { parseOrderStatusFilter } from "./filters";
 
 const statusOptions: Array<{ value: OrderStatus | ""; label: string }> = [
   { value: "", label: "全部状态" },
-  { value: "open", label: orderStatusLabels.open },
-  { value: "closed", label: orderStatusLabels.closed },
+  {
+    value: "development_pending",
+    label: orderStatusLabels.development_pending,
+  },
+  {
+    value: "processing_pending",
+    label: orderStatusLabels.processing_pending,
+  },
+  { value: "in_progress", label: orderStatusLabels.in_progress },
+  { value: "completed", label: orderStatusLabels.completed },
 ];
 
 function parseDateRange(value: string | undefined, label: string) {
@@ -38,6 +46,10 @@ function parseDateRange(value: string | undefined, label: string) {
 
 function formatOrderTitle(order: { orderNo: string; partName: string }) {
   return `${order.orderNo} / ${order.partName}`;
+}
+
+function formatQuantity(value: number | null) {
+  return value === null ? "-" : value;
 }
 
 export default async function OrdersPage({
@@ -99,7 +111,6 @@ export default async function OrdersPage({
                 name="plannedQuantity"
                 min={1}
                 step={1}
-                required
               />
               <NumberInput
                 label="单价（元/件）"
@@ -227,7 +238,7 @@ export default async function OrdersPage({
                       )}
                     </td>
                     <td className="whitespace-nowrap px-4 py-4 text-right font-medium text-slate-950">
-                      {order.plannedQuantity}
+                      {formatQuantity(order.plannedQuantity)}
                     </td>
                     <td className="whitespace-nowrap px-4 py-4 text-right font-medium text-slate-950">
                       {order.completedQuantity}
@@ -236,7 +247,7 @@ export default async function OrdersPage({
                       {order.shippedQuantity}
                     </td>
                     <td className="whitespace-nowrap px-4 py-4 text-right font-medium text-slate-950">
-                      {order.remainingQuantity}
+                      {formatQuantity(order.remainingQuantity)}
                     </td>
                     <td className="px-4 py-4">
                       <div className="flex flex-wrap items-center gap-2">
@@ -247,7 +258,7 @@ export default async function OrdersPage({
                         ) : null}
                         {order.canClose ? (
                           <span className="text-xs font-medium text-emerald-700">
-                            已满足结单条件
+                            出货达到计划
                           </span>
                         ) : null}
                         {!order.isOverPlanned && !order.canClose ? (

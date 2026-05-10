@@ -1,11 +1,9 @@
 import Link from "next/link";
 import { Archive, FileText, Folder } from "lucide-react";
 import React from "react";
-import {
-  closeOrderAction,
-  reopenOrderAction,
-} from "@/app/actions/orders";
-import { SubmitButton } from "@/components/forms";
+import { updateOrderStatusAction } from "@/app/actions/orders";
+import { CreateEntityDialog } from "@/components/create-entity-dialog";
+import { SelectInput, SubmitButton } from "@/components/forms";
 import {
   machineStatusLabels,
   orderStatusLabels,
@@ -36,6 +34,28 @@ type DrawingFolder = {
 
 function formatOrderTitle(order: { orderNo: string; partName: string }) {
   return `${order.orderNo} / ${order.partName}`;
+}
+
+const orderStatusOptions = [
+  {
+    value: "development_pending",
+    label: orderStatusLabels.development_pending,
+  },
+  {
+    value: "processing_pending",
+    label: orderStatusLabels.processing_pending,
+  },
+  { value: "in_progress", label: orderStatusLabels.in_progress },
+  { value: "completed", label: orderStatusLabels.completed },
+];
+
+const recordTypeLabels = {
+  completed: "加工",
+  shipped: "出货",
+} as const;
+
+function formatQuantity(value: number | string | null) {
+  return value === null ? "-" : value;
 }
 
 function formatFileSize(bytes: number) {
@@ -95,12 +115,14 @@ function Metric({
   value,
 }: {
   label: string;
-  value: number | string;
+  value: number | string | null;
 }) {
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
       <dt className="text-sm text-slate-500">{label}</dt>
-      <dd className="mt-2 text-2xl font-semibold text-slate-950">{value}</dd>
+            <dd className="mt-2 text-2xl font-semibold text-slate-950">
+              {formatQuantity(value)}
+            </dd>
     </div>
   );
 }
@@ -185,18 +207,23 @@ export default async function OrderDetailPage({
           <p className="mt-2 text-sm text-slate-500">{order.customerName}</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {order.canClose ? (
-            <form action={closeOrderAction}>
+          <CreateEntityDialog
+            buttonLabel="修改状态"
+            title="修改订单状态"
+            buttonIcon="pencil"
+          >
+            <form action={updateOrderStatusAction} className="grid gap-4">
               <input type="hidden" name="orderId" value={order.id} />
-              <SubmitButton>手动结单</SubmitButton>
+              <SelectInput
+                label="订单状态"
+                name="status"
+                defaultValue={order.status}
+                options={orderStatusOptions}
+                required
+              />
+              <SubmitButton>保存状态</SubmitButton>
             </form>
-          ) : null}
-          {order.status === "closed" ? (
-            <form action={reopenOrderAction}>
-              <input type="hidden" name="orderId" value={order.id} />
-              <SubmitButton>重开订单</SubmitButton>
-            </form>
-          ) : null}
+          </CreateEntityDialog>
         </div>
       </header>
 
@@ -255,7 +282,7 @@ export default async function OrderDetailPage({
                 </dd>
               </div>
               <div>
-                <dt className="text-slate-500">结单时间</dt>
+                <dt className="text-slate-500">完成时间</dt>
                 <dd className="mt-1 text-slate-950">
                   {order.closedAt ? formatBusinessDateTime(order.closedAt) : "-"}
                 </dd>
@@ -266,8 +293,8 @@ export default async function OrderDetailPage({
                   {order.isOverPlanned
                     ? "生产或出货已超出计划"
                     : order.canClose
-                      ? "已满足结单条件"
-                      : "未满足结单条件"}
+                      ? "出货已达到计划"
+                      : "继续跟踪"}
                 </dd>
               </div>
               <div className="sm:col-span-2">
@@ -331,8 +358,10 @@ export default async function OrderDetailPage({
                     <tr>
                       <th className="px-4 py-3">记录时间</th>
                       <th className="px-4 py-3">机器</th>
-                      <th className="px-4 py-3 text-right">加工</th>
-                      <th className="px-4 py-3 text-right">出货</th>
+                      <th className="whitespace-nowrap px-4 py-3">类型</th>
+                      <th className="whitespace-nowrap px-4 py-3 text-right">
+                        数量
+                      </th>
                       <th className="px-4 py-3">备注</th>
                     </tr>
                   </thead>
@@ -343,13 +372,13 @@ export default async function OrderDetailPage({
                           {formatBusinessDateTime(record.recordedAt)}
                         </td>
                         <td className="px-4 py-4 text-slate-950">
-                          {record.machine.code} / {record.machine.name}
+                          {record.machine.code}
                         </td>
-                        <td className="px-4 py-4 text-right font-medium text-slate-950">
-                          {record.completedQuantity}
+                        <td className="whitespace-nowrap px-4 py-4 text-slate-950">
+                          {recordTypeLabels[record.type]}
                         </td>
-                        <td className="px-4 py-4 text-right font-medium text-slate-950">
-                          {record.shippedQuantity}
+                        <td className="whitespace-nowrap px-4 py-4 text-right font-medium text-slate-950">
+                          {record.quantity}
                         </td>
                         <td className="px-4 py-4 text-slate-600">
                           {record.notes || "-"}
@@ -379,13 +408,8 @@ export default async function OrderDetailPage({
                         href={`/machines/${machine.id}`}
                         className="font-medium text-slate-950 hover:text-slate-700"
                       >
-                        {machine.code} / {machine.name}
+                        {machine.code}
                       </Link>
-                      <div className="mt-1 text-xs text-slate-500">
-                        {[machine.model, machine.location]
-                          .filter(Boolean)
-                          .join(" / ") || "未填写型号和位置"}
-                      </div>
                     </div>
                     <StatusBadge
                       status={machine.status}

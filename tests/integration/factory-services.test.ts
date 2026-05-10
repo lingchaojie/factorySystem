@@ -10,10 +10,10 @@ import {
   replaceOrderDrawings,
 } from "@/server/services/order-drawings";
 import {
-  closeOrder,
   createOrder,
   getOrderWithSummary,
   listOrders,
+  updateOrderStatus,
 } from "@/server/services/orders";
 import {
   createProductionRecord,
@@ -64,7 +64,7 @@ describe("factory services", () => {
     }
   });
 
-  it("generates daily order numbers and stores unit prices", async () => {
+  it("generates daily order numbers and stores optional quantities and prices", async () => {
     const workspace = await createWorkspace();
 
     const first = await createOrder(workspace.id, {
@@ -78,7 +78,7 @@ describe("factory services", () => {
     const second = await createOrder(workspace.id, {
       customerName: "乙方工厂",
       partName: "轴套",
-      plannedQuantity: 50,
+      plannedQuantity: null,
       unitPriceCents: null,
       dueDate: null,
       notes: "",
@@ -87,7 +87,9 @@ describe("factory services", () => {
     expect(first.orderNo).toMatch(/^ORD-\d{8}-0001$/);
     expect(second.orderNo).toMatch(/^ORD-\d{8}-0002$/);
     expect(first.orderNo).not.toBe(second.orderNo);
+    expect(first.status).toBe("development_pending");
     expect(first.unitPriceCents).toBe(1250);
+    expect(second.plannedQuantity).toBeNull();
     expect(second.unitPriceCents).toBeNull();
   });
 
@@ -119,6 +121,9 @@ describe("factory services", () => {
     expect(
       await readFile(path.join(storageDir, initial[0].storedPath), "utf8"),
     ).toBe("first");
+    await expect(
+      prisma.order.findUniqueOrThrow({ where: { id: order.id } }),
+    ).resolves.toMatchObject({ status: "processing_pending" });
 
     const replacement = await replaceOrderDrawings(workspace.id, order.id, [
       createDrawingFile("replacement", "replacement.pdf", "application/pdf"),
@@ -174,7 +179,7 @@ describe("factory services", () => {
     expect(archiveText).not.toContain("other/b.step");
   });
 
-  it("creates records from a machine and recomputes order summary after deletion", async () => {
+  it("creates split records from one machine entry and recomputes summary after deletion", async () => {
     const workspace = await createWorkspace();
     const machine = await createMachine(workspace.id, {
       code: "1",
@@ -194,13 +199,23 @@ describe("factory services", () => {
     });
 
     await linkMachineToOrder(workspace.id, machine.id, order.id);
-    const record = await createProductionRecord(workspace.id, {
+    const created = await createProductionRecord(workspace.id, {
       machineId: machine.id,
       recordedAt: new Date("2026-05-10T08:00:00.000Z"),
       completedQuantity: 120,
       shippedQuantity: 80,
       notes: "白班",
     });
+    expect(created.records).toHaveLength(2);
+    expect(
+      created.records.map((record) => ({
+        type: record.type,
+        quantity: record.quantity,
+      })),
+    ).toEqual([
+      { type: "completed", quantity: 120 },
+      { type: "shipped", quantity: 80 },
+    ]);
 
     let summary = await getOrderWithSummary(workspace.id, order.id);
     expect(summary.completedQuantity).toBe(120);
@@ -208,9 +223,11 @@ describe("factory services", () => {
     expect(summary.isOverPlanned).toBe(true);
     expect(summary.canClose).toBe(false);
 
-    await deleteProductionRecord(workspace.id, record.id);
+    const shippedRecord = created.records.find((record) => record.type === "shipped");
+    expect(shippedRecord).toBeDefined();
+    await deleteProductionRecord(workspace.id, shippedRecord?.id ?? "");
     summary = await getOrderWithSummary(workspace.id, order.id);
-    expect(summary.completedQuantity).toBe(0);
+    expect(summary.completedQuantity).toBe(120);
     expect(summary.shippedQuantity).toBe(0);
   });
 
@@ -242,30 +259,30 @@ describe("factory services", () => {
     });
 
     await linkMachineToOrder(workspace.id, machine.id, order.id);
-    const record = await createProductionRecord(workspace.id, {
+    const created = await createProductionRecord(workspace.id, {
       machineId: machine.id,
       recordedAt: new Date("2026-05-10T08:00:00.000Z"),
       completedQuantity: 20,
-      shippedQuantity: 10,
+      shippedQuantity: 0,
       notes: "白班",
     });
     await linkMachineToOrder(workspace.id, machine.id, otherOrder.id);
 
-    const updated = await updateProductionRecord(workspace.id, record.id, {
+    const updated = await updateProductionRecord(workspace.id, created.records[0].id, {
       recordedAt: new Date("2026-05-10T09:30:00.000Z"),
-      completedQuantity: 60,
-      shippedQuantity: 40,
+      type: "shipped",
+      quantity: 40,
       notes: "复核后调整",
     });
 
     expect(updated.orderId).toBe(order.id);
     expect(updated.machineId).toBe(machine.id);
-    expect(updated.completedQuantity).toBe(60);
-    expect(updated.shippedQuantity).toBe(40);
+    expect(updated.type).toBe("shipped");
+    expect(updated.quantity).toBe(40);
     expect(updated.notes).toBe("复核后调整");
 
     const originalSummary = await getOrderWithSummary(workspace.id, order.id);
-    expect(originalSummary.completedQuantity).toBe(60);
+    expect(originalSummary.completedQuantity).toBe(0);
     expect(originalSummary.shippedQuantity).toBe(40);
 
     const otherSummary = await getOrderWithSummary(workspace.id, otherOrder.id);
@@ -314,18 +331,20 @@ describe("factory services", () => {
     expect(summary.remainingQuantity).toBe(0);
     expect(summary.isOverPlanned).toBe(true);
 
-    await deleteProductionRecord(workspace.id, second.id);
+    const secondShipped = second.records.find((record) => record.type === "shipped");
+    expect(secondShipped).toBeDefined();
+    await deleteProductionRecord(workspace.id, secondShipped?.id ?? "");
 
     summary = await getOrderWithSummary(workspace.id, order.id);
-    expect(summary.completedQuantity).toBe(60);
+    expect(summary.completedQuantity).toBe(110);
     expect(summary.shippedQuantity).toBe(20);
     expect(summary.remainingQuantity).toBe(80);
-    expect(summary.isOverPlanned).toBe(false);
+    expect(summary.isOverPlanned).toBe(true);
   });
 
-  it("rejects closing incomplete orders and allows closing fully shipped orders", async () => {
+  it("updates order status manually", async () => {
     const workspace = await createWorkspace();
-    const incompleteOrder = await createOrder(workspace.id, {
+    const order = await createOrder(workspace.id, {
       customerName: "甲方工厂",
       partName: "轴套",
       plannedQuantity: 100,
@@ -334,46 +353,24 @@ describe("factory services", () => {
       notes: "",
     });
 
-    await expect(closeOrder(workspace.id, incompleteOrder.id)).rejects.toThrow(
-      "订单出货数量未达到计划数量，不能结单",
+    const completedOrder = await updateOrderStatus(
+      workspace.id,
+      order.id,
+      "completed",
     );
+    expect(completedOrder.status).toBe("completed");
+    expect(completedOrder.closedAt).not.toBeNull();
 
-    const machine = await createMachine(workspace.id, {
-      code: "2",
-      name: "2号机",
-      model: "VMC",
-      location: "A区",
-      status: "active",
-      notes: "",
-    });
-    const completeOrder = await createOrder(workspace.id, {
-      customerName: "乙方工厂",
-      partName: "齿轮",
-      plannedQuantity: 100,
-      unitPriceCents: null,
-      dueDate: null,
-      notes: "",
-    });
-
-    await linkMachineToOrder(workspace.id, machine.id, completeOrder.id);
-    await createProductionRecord(workspace.id, {
-      machineId: machine.id,
-      recordedAt: new Date("2026-05-10T09:00:00.000Z"),
-      completedQuantity: 100,
-      shippedQuantity: 100,
-      notes: "完工",
-    });
-
-    const closedOrder = await closeOrder(workspace.id, completeOrder.id);
-    expect(closedOrder.status).toBe("closed");
-    expect(closedOrder.closedAt).not.toBeNull();
-
-    await expect(closeOrder(workspace.id, completeOrder.id)).rejects.toThrow(
-      "订单已结单",
+    const reopened = await updateOrderStatus(
+      workspace.id,
+      order.id,
+      "in_progress",
     );
+    expect(reopened.status).toBe("in_progress");
+    expect(reopened.closedAt).toBeNull();
   });
 
-  it("rejects records for a machine linked to a closed order", async () => {
+  it("rejects records for a machine linked to a completed order", async () => {
     const workspace = await createWorkspace();
     const machine = await createMachine(workspace.id, {
       code: "3",
@@ -400,7 +397,7 @@ describe("factory services", () => {
       shippedQuantity: 100,
       notes: "完工",
     });
-    await closeOrder(workspace.id, order.id);
+    await updateOrderStatus(workspace.id, order.id, "completed");
 
     await expect(
       createProductionRecord(workspace.id, {
@@ -410,10 +407,10 @@ describe("factory services", () => {
         shippedQuantity: 0,
         notes: "返工",
       }),
-    ).rejects.toThrow("订单已结单，不能录入记录");
+    ).rejects.toThrow("订单已完成，不能录入记录");
   });
 
-  it("rejects linking a machine to a closed order", async () => {
+  it("rejects linking a machine to a completed order", async () => {
     const workspace = await createWorkspace();
     const sourceMachine = await createMachine(workspace.id, {
       code: "4A",
@@ -448,11 +445,11 @@ describe("factory services", () => {
       shippedQuantity: 100,
       notes: "完工",
     });
-    await closeOrder(workspace.id, order.id);
+    await updateOrderStatus(workspace.id, order.id, "completed");
 
     await expect(
       linkMachineToOrder(workspace.id, targetMachine.id, order.id),
-    ).rejects.toThrow("订单已结单，不能关联机器");
+    ).rejects.toThrow("订单已完成，不能关联机器");
   });
 
   it("rejects linking a missing machine to an order", async () => {
@@ -471,7 +468,7 @@ describe("factory services", () => {
     ).rejects.toThrow("机器不存在");
   });
 
-  it("rejects deleting records from a closed order", async () => {
+  it("rejects deleting records from a completed order", async () => {
     const workspace = await createWorkspace();
     const machine = await createMachine(workspace.id, {
       code: "4",
@@ -491,27 +488,27 @@ describe("factory services", () => {
     });
 
     await linkMachineToOrder(workspace.id, machine.id, order.id);
-    const record = await createProductionRecord(workspace.id, {
+    const created = await createProductionRecord(workspace.id, {
       machineId: machine.id,
       recordedAt: new Date("2026-05-10T12:00:00.000Z"),
       completedQuantity: 100,
       shippedQuantity: 100,
       notes: "完工",
     });
-    await closeOrder(workspace.id, order.id);
+    await updateOrderStatus(workspace.id, order.id, "completed");
 
-    await expect(deleteProductionRecord(workspace.id, record.id)).rejects.toThrow(
-      "订单已结单，不能删除记录",
-    );
+    await expect(
+      deleteProductionRecord(workspace.id, created.records[0].id),
+    ).rejects.toThrow("订单已完成，不能删除记录");
 
     const summary = await getOrderWithSummary(workspace.id, order.id);
-    expect(summary.status).toBe("closed");
+    expect(summary.status).toBe("completed");
     expect(summary.completedQuantity).toBe(100);
     expect(summary.shippedQuantity).toBe(100);
     expect(summary.canClose).toBe(false);
   });
 
-  it("rejects updating records from a closed order", async () => {
+  it("rejects updating records from a completed order", async () => {
     const workspace = await createWorkspace();
     const machine = await createMachine(workspace.id, {
       code: "4U",
@@ -531,23 +528,23 @@ describe("factory services", () => {
     });
 
     await linkMachineToOrder(workspace.id, machine.id, order.id);
-    const record = await createProductionRecord(workspace.id, {
+    const created = await createProductionRecord(workspace.id, {
       machineId: machine.id,
       recordedAt: new Date("2026-05-10T12:00:00.000Z"),
       completedQuantity: 100,
       shippedQuantity: 100,
       notes: "完工",
     });
-    await closeOrder(workspace.id, order.id);
+    await updateOrderStatus(workspace.id, order.id, "completed");
 
     await expect(
-      updateProductionRecord(workspace.id, record.id, {
+      updateProductionRecord(workspace.id, created.records[0].id, {
         recordedAt: new Date("2026-05-10T13:00:00.000Z"),
-        completedQuantity: 101,
-        shippedQuantity: 100,
+        type: "completed",
+        quantity: 101,
         notes: "返工",
       }),
-    ).rejects.toThrow("订单已结单，不能修改记录");
+    ).rejects.toThrow("订单已完成，不能修改记录");
   });
 
   it("filters orders by due date range and includes machine info in order detail records", async () => {

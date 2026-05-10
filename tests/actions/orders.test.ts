@@ -7,8 +7,7 @@ const { workspaceMock, ordersMock, drawingsMock, cacheMock, navigationMock } =
     },
     ordersMock: {
       createOrder: vi.fn(),
-      closeOrder: vi.fn(),
-      reopenOrder: vi.fn(),
+      updateOrderStatus: vi.fn(),
     },
     drawingsMock: {
       replaceOrderDrawings: vi.fn(),
@@ -61,7 +60,28 @@ describe("order actions", () => {
     expect(navigationMock.redirect).toHaveBeenCalledWith("/orders");
   });
 
-  it("rejects non-positive planned quantities before creating", async () => {
+  it("creates an order without planned quantity", async () => {
+    const { createOrderAction } = await import("@/app/actions/orders");
+    ordersMock.createOrder.mockResolvedValue({ id: "order-new" });
+    const form = new FormData();
+    form.set("customerName", "甲方工厂");
+    form.set("partName", "法兰盘");
+    form.set("plannedQuantity", "");
+    form.set("unitPrice", "");
+
+    await createOrderAction(form);
+
+    expect(ordersMock.createOrder).toHaveBeenCalledWith("workspace-1", {
+      customerName: "甲方工厂",
+      partName: "法兰盘",
+      plannedQuantity: null,
+      unitPriceCents: null,
+      dueDate: null,
+      notes: "",
+    });
+  });
+
+  it("rejects non-positive planned quantities when provided", async () => {
     const { createOrderAction } = await import("@/app/actions/orders");
     const form = new FormData();
     form.set("customerName", "甲方工厂");
@@ -86,27 +106,32 @@ describe("order actions", () => {
     expect(ordersMock.createOrder).not.toHaveBeenCalled();
   });
 
-  it("closes and reopens orders with list and detail revalidation", async () => {
-    const { closeOrderAction, reopenOrderAction } = await import(
-      "@/app/actions/orders"
-    );
+  it("updates order status with list and detail revalidation", async () => {
+    const { updateOrderStatusAction } = await import("@/app/actions/orders");
     const form = new FormData();
     form.set("orderId", "order-1");
+    form.set("status", "completed");
 
-    await closeOrderAction(form);
-    await reopenOrderAction(form);
+    await updateOrderStatusAction(form);
 
-    expect(ordersMock.closeOrder).toHaveBeenCalledWith(
+    expect(ordersMock.updateOrderStatus).toHaveBeenCalledWith(
       "workspace-1",
       "order-1",
-    );
-    expect(ordersMock.reopenOrder).toHaveBeenCalledWith(
-      "workspace-1",
-      "order-1",
+      "completed",
     );
     expect(cacheMock.revalidatePath).toHaveBeenCalledWith("/orders");
     expect(cacheMock.revalidatePath).toHaveBeenCalledWith("/orders/order-1");
     expect(navigationMock.redirect).toHaveBeenCalledWith("/orders/order-1");
+  });
+
+  it("rejects invalid manual order statuses before updating", async () => {
+    const { updateOrderStatusAction } = await import("@/app/actions/orders");
+    const form = new FormData();
+    form.set("orderId", "order-1");
+    form.set("status", "closed");
+
+    await expect(updateOrderStatusAction(form)).rejects.toThrow("订单状态无效");
+    expect(ordersMock.updateOrderStatus).not.toHaveBeenCalled();
   });
 
   it("uploads drawings in overwrite mode and revalidates the order detail", async () => {

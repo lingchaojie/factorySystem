@@ -3,7 +3,7 @@ import { OrderStatus, Prisma } from "@prisma/client";
 export type LockedOrder = {
   id: string;
   status: OrderStatus;
-  plannedQuantity: number;
+  plannedQuantity: number | null;
   closedAt: Date | null;
 };
 

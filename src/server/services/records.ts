@@ -1,6 +1,9 @@
-import { OrderStatus } from "@prisma/client";
+import { OrderStatus, ProductionRecordType } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { validateProductionRecordInput } from "@/domain/factory";
+import {
+  validateMachineRecordInput,
+  validateProductionRecordInput,
+} from "@/domain/factory";
 import {
   lockMachineForUpdate,
   lockOrderForUpdate,
@@ -16,8 +19,8 @@ export type CreateProductionRecordInput = {
 
 export type UpdateProductionRecordInput = {
   recordedAt: Date;
-  completedQuantity: number;
-  shippedQuantity: number;
+  type: ProductionRecordType;
+  quantity: number;
   notes: string;
 };
 
@@ -28,11 +31,18 @@ function validateRecordMutationInput(input: UpdateProductionRecordInput) {
   validateProductionRecordInput(input);
 }
 
+function validateMachineRecordMutationInput(input: CreateProductionRecordInput) {
+  if (Number.isNaN(input.recordedAt.getTime())) {
+    throw new Error("记录时间无效");
+  }
+  validateMachineRecordInput(input);
+}
+
 export async function createProductionRecord(
   workspaceId: string,
   input: CreateProductionRecordInput,
 ) {
-  validateRecordMutationInput(input);
+  validateMachineRecordMutationInput(input);
 
   return prisma.$transaction(async (tx) => {
     const machine = await lockMachineForUpdate(tx, workspaceId, input.machineId);
@@ -51,25 +61,42 @@ export async function createProductionRecord(
     if (!order) {
       throw new Error("订单不存在");
     }
-    if (order.status !== "open") {
-      throw new Error("订单已结单，不能录入记录");
+    if (order.status === "completed") {
+      throw new Error("订单已完成，不能录入记录");
     }
 
-    return tx.productionRecord.create({
-      data: {
-        workspace: { connect: { id: workspaceId } },
-        machine: {
-          connect: { workspaceId_id: { workspaceId, id: machine.id } },
-        },
-        order: {
-          connect: { workspaceId_id: { workspaceId, id: machine.currentOrderId } },
-        },
-        recordedAt: input.recordedAt,
-        completedQuantity: input.completedQuantity,
-        shippedQuantity: input.shippedQuantity,
-        notes: input.notes.trim() || null,
-      },
-    });
+    const rows: Array<{ type: ProductionRecordType; quantity: number }> = [];
+    if (input.completedQuantity > 0) {
+      rows.push({ type: "completed", quantity: input.completedQuantity });
+    }
+    if (input.shippedQuantity > 0) {
+      rows.push({ type: "shipped", quantity: input.shippedQuantity });
+    }
+
+    const records = [];
+    for (const row of rows) {
+      records.push(
+        await tx.productionRecord.create({
+          data: {
+            workspace: { connect: { id: workspaceId } },
+            machine: {
+              connect: { workspaceId_id: { workspaceId, id: machine.id } },
+            },
+            order: {
+              connect: {
+                workspaceId_id: { workspaceId, id: machine.currentOrderId },
+              },
+            },
+            recordedAt: input.recordedAt,
+            type: row.type,
+            quantity: row.quantity,
+            notes: input.notes.trim() || null,
+          },
+        }),
+      );
+    }
+
+    return { machineId: machine.id, orderId: machine.currentOrderId, records };
   });
 }
 
@@ -87,16 +114,16 @@ export async function updateProductionRecord(
     });
 
     const order = await lockOrderForUpdate(tx, workspaceId, record.orderId);
-    if (order?.status !== "open") {
-      throw new Error("订单已结单，不能修改记录");
+    if (order?.status === "completed") {
+      throw new Error("订单已完成，不能修改记录");
     }
 
     return tx.productionRecord.update({
       where: { id: record.id },
       data: {
         recordedAt: input.recordedAt,
-        completedQuantity: input.completedQuantity,
-        shippedQuantity: input.shippedQuantity,
+        type: input.type,
+        quantity: input.quantity,
         notes: input.notes.trim() || null,
       },
     });
@@ -114,8 +141,8 @@ export async function deleteProductionRecord(
     });
 
     const order = await lockOrderForUpdate(tx, workspaceId, record.orderId);
-    if (order?.status !== "open") {
-      throw new Error("订单已结单，不能删除记录");
+    if (order?.status === "completed") {
+      throw new Error("订单已完成，不能删除记录");
     }
 
     return tx.productionRecord.delete({

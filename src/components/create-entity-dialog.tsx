@@ -1,29 +1,39 @@
 "use client";
 
-import { Plus, X } from "lucide-react";
+import { Pencil, Plus, X } from "lucide-react";
 import React, { type ReactNode, useRef } from "react";
 
 type CreateEntityDialogProps = {
   buttonLabel: string;
   title: string;
+  buttonIcon?: "plus" | "pencil";
+  buttonClassName?: string;
   children: ReactNode;
 };
 
 export function CreateEntityDialog({
   buttonLabel,
   title,
+  buttonIcon = "plus",
+  buttonClassName,
   children,
 }: CreateEntityDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const Icon = buttonIcon === "pencil" ? Pencil : Plus;
 
   return (
     <>
       <button
         type="button"
-        className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-slate-950 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-800"
+        className={[
+          "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-slate-950 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-800",
+          buttonClassName,
+        ]
+          .filter(Boolean)
+          .join(" ")}
         onClick={() => dialogRef.current?.showModal()}
       >
-        <Plus aria-hidden="true" size={16} />
+        <Icon aria-hidden="true" size={16} />
         {buttonLabel}
       </button>
       <dialog

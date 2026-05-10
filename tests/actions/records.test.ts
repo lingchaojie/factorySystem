@@ -35,8 +35,8 @@ describe("record actions", () => {
     const form = new FormData();
     form.set("recordId", "record-1");
     form.set("recordedAt", "2026-05-10T08:30");
-    form.set("completedQuantity", "12");
-    form.set("shippedQuantity", "4");
+    form.set("type", "shipped");
+    form.set("quantity", "12");
     form.set("notes", "白班");
 
     await updateRecordAction(form);
@@ -46,8 +46,8 @@ describe("record actions", () => {
       "record-1",
       {
         recordedAt: new Date("2026-05-10T00:30:00.000Z"),
-        completedQuantity: 12,
-        shippedQuantity: 4,
+        type: "shipped",
+        quantity: 12,
         notes: "白班",
       },
     );
@@ -56,6 +56,18 @@ describe("record actions", () => {
     expect(cacheMock.revalidatePath).toHaveBeenCalledWith("/machines");
     expect(cacheMock.revalidatePath).toHaveBeenCalledWith("/orders/order-1");
     expect(cacheMock.revalidatePath).toHaveBeenCalledWith("/machines/machine-1");
+  });
+
+  it("rejects invalid record types before updating", async () => {
+    const { updateRecordAction } = await import("@/app/actions/records");
+    const form = new FormData();
+    form.set("recordId", "record-1");
+    form.set("recordedAt", "2026-05-10T08:30");
+    form.set("type", "other");
+    form.set("quantity", "12");
+
+    await expect(updateRecordAction(form)).rejects.toThrow("记录类型无效");
+    expect(recordsMock.updateProductionRecord).not.toHaveBeenCalled();
   });
 
   it("deletes a record and revalidates dependent pages from the deleted row", async () => {

@@ -2,16 +2,22 @@ import { OrderStatus } from "@prisma/client";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { parsePositiveQuantity, summarizeOrder } from "@/domain/factory";
-import { lockOrderForUpdate } from "@/server/services/order-locks";
 
 export type CreateOrderInput = {
   customerName: string;
   partName: string;
-  plannedQuantity: number;
+  plannedQuantity: number | null;
   unitPriceCents: number | null;
   dueDate: Date | null;
   notes: string;
 };
+
+const orderStatuses = new Set<OrderStatus>([
+  "development_pending",
+  "processing_pending",
+  "in_progress",
+  "completed",
+]);
 
 function getOrderDateCode(date = new Date()): string {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -59,7 +65,9 @@ function formatOrderNo(prefix: string, sequence: number) {
 export async function createOrder(workspaceId: string, input: CreateOrderInput) {
   if (!input.customerName.trim()) throw new Error("客户名称必填");
   if (!input.partName.trim()) throw new Error("工件名称必填");
-  parsePositiveQuantity(String(input.plannedQuantity), "计划数量");
+  if (input.plannedQuantity !== null) {
+    parsePositiveQuantity(String(input.plannedQuantity), "计划数量");
+  }
 
   const prefix = `ORD-${getOrderDateCode()}-`;
   let sequence = await getNextOrderSequence(workspaceId, prefix);
@@ -103,8 +111,8 @@ export async function getOrderWithSummary(workspaceId: string, orderId: string) 
     plannedQuantity: order.plannedQuantity,
     closedAt: order.closedAt,
     records: order.productionRecords.map((record) => ({
-      completedQuantity: record.completedQuantity,
-      shippedQuantity: record.shippedQuantity,
+      type: record.type,
+      quantity: record.quantity,
     })),
   });
   return { ...order, ...summary };
@@ -151,51 +159,21 @@ export async function listOrders(
       plannedQuantity: order.plannedQuantity,
       closedAt: order.closedAt,
       records: order.productionRecords.map((record) => ({
-        completedQuantity: record.completedQuantity,
-        shippedQuantity: record.shippedQuantity,
+        type: record.type,
+        quantity: record.quantity,
       })),
     }),
   }));
 }
 
-export async function closeOrder(workspaceId: string, orderId: string) {
-  return prisma.$transaction(async (tx) => {
-    const order = await lockOrderForUpdate(tx, workspaceId, orderId);
-    if (!order) {
-      await tx.order.findFirstOrThrow({
-        where: { id: orderId, workspaceId },
-        select: { id: true },
-      });
-      throw new Error("订单不存在");
-    }
-    if (order.status === "closed") {
-      throw new Error("订单已结单");
-    }
-
-    const productionRecords = await tx.productionRecord.findMany({
-      where: { orderId: order.id, workspaceId },
-      select: { completedQuantity: true, shippedQuantity: true },
-    });
-    const summary = summarizeOrder({
-      plannedQuantity: order.plannedQuantity,
-      closedAt: order.closedAt,
-      records: productionRecords.map((record) => ({
-        completedQuantity: record.completedQuantity,
-        shippedQuantity: record.shippedQuantity,
-      })),
-    });
-    if (!summary.canClose) {
-      throw new Error("订单出货数量未达到计划数量，不能结单");
-    }
-
-    return tx.order.update({
-      where: { id: order.id },
-      data: { status: "closed", closedAt: new Date() },
-    });
-  });
-}
-
-export async function reopenOrder(workspaceId: string, orderId: string) {
+export async function updateOrderStatus(
+  workspaceId: string,
+  orderId: string,
+  status: OrderStatus,
+) {
+  if (!orderStatuses.has(status)) {
+    throw new Error("订单状态无效");
+  }
   const order = await prisma.order.findFirstOrThrow({
     where: { id: orderId, workspaceId },
     select: { id: true },
@@ -203,6 +181,9 @@ export async function reopenOrder(workspaceId: string, orderId: string) {
 
   return prisma.order.update({
     where: { id: order.id },
-    data: { status: "open", closedAt: null },
+    data: {
+      status,
+      closedAt: status === "completed" ? new Date() : null,
+    },
   });
 }

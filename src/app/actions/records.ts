@@ -1,7 +1,8 @@
 "use server";
 
+import { ProductionRecordType } from "@prisma/client";
 import { revalidatePath } from "next/cache";
-import { parseNonNegativeQuantity } from "@/domain/factory";
+import { parsePositiveQuantity } from "@/domain/factory";
 import { parseBusinessDateTimeLocal } from "@/lib/business-time";
 import { requireWorkspaceId } from "@/lib/workspace";
 import {
@@ -31,6 +32,14 @@ function parseRecordedAt(value: FormDataEntryValue | null): Date {
   return recordedAt;
 }
 
+function parseRecordType(value: FormDataEntryValue | null): ProductionRecordType {
+  const type = String(value ?? "");
+  if (type !== "completed" && type !== "shipped") {
+    throw new Error("记录类型无效");
+  }
+  return type;
+}
+
 function revalidateRecordDependencies(result?: {
   machineId?: string | null;
   orderId?: string | null;
@@ -53,14 +62,8 @@ export async function updateRecordAction(formData: FormData) {
 
   const updated = await updateProductionRecord(workspaceId, recordId, {
     recordedAt: parseRecordedAt(formData.get("recordedAt")),
-    completedQuantity: parseNonNegativeQuantity(
-      getString(formData, "completedQuantity") || "0",
-      "加工数量",
-    ),
-    shippedQuantity: parseNonNegativeQuantity(
-      getString(formData, "shippedQuantity") || "0",
-      "出货数量",
-    ),
+    type: parseRecordType(formData.get("type")),
+    quantity: parsePositiveQuantity(getString(formData, "quantity"), "记录数量"),
     notes: getString(formData, "notes"),
   });
 

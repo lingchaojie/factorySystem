@@ -30,8 +30,8 @@ export function formatCnyFromCents(cents: number | null | undefined): string {
 
 export function getOrderAmountCents(
   unitPriceCents: number | null | undefined,
-  plannedQuantity: number,
+  plannedQuantity: number | null | undefined,
 ): number | null {
-  if (unitPriceCents == null) return null;
+  if (unitPriceCents == null || plannedQuantity == null) return null;
   return unitPriceCents * plannedQuantity;
 }

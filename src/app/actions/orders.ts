@@ -1,17 +1,24 @@
 "use server";
 
+import { OrderStatus } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { parsePositiveQuantity } from "@/domain/factory";
+import { parseOptionalPositiveQuantity } from "@/domain/factory";
 import { parseOptionalYuanToCents } from "@/domain/money";
 import { parseBusinessDate } from "@/lib/business-time";
 import { requireWorkspaceId } from "@/lib/workspace";
 import {
-  closeOrder,
   createOrder,
-  reopenOrder,
+  updateOrderStatus,
 } from "@/server/services/orders";
 import { replaceOrderDrawings } from "@/server/services/order-drawings";
+
+const orderStatuses = new Set<OrderStatus>([
+  "development_pending",
+  "processing_pending",
+  "in_progress",
+  "completed",
+]);
 
 function getString(formData: FormData, name: string): string {
   return String(formData.get(name) ?? "");
@@ -33,6 +40,14 @@ function getOrderId(formData: FormData): string {
   return orderId;
 }
 
+function parseOrderStatus(value: FormDataEntryValue | null): OrderStatus {
+  const status = String(value ?? "");
+  if (!orderStatuses.has(status as OrderStatus)) {
+    throw new Error("订单状态无效");
+  }
+  return status as OrderStatus;
+}
+
 function isUploadedFile(value: FormDataEntryValue): value is File {
   return (
     typeof value === "object" &&
@@ -48,7 +63,7 @@ export async function createOrderAction(formData: FormData) {
   const created = await createOrder(workspaceId, {
     customerName: getString(formData, "customerName"),
     partName: getString(formData, "partName"),
-    plannedQuantity: parsePositiveQuantity(
+    plannedQuantity: parseOptionalPositiveQuantity(
       getString(formData, "plannedQuantity"),
       "计划数量",
     ),
@@ -62,22 +77,12 @@ export async function createOrderAction(formData: FormData) {
   redirect("/orders");
 }
 
-export async function closeOrderAction(formData: FormData) {
+export async function updateOrderStatusAction(formData: FormData) {
   const workspaceId = await requireWorkspaceId();
   const orderId = getOrderId(formData);
+  const status = parseOrderStatus(formData.get("status"));
 
-  await closeOrder(workspaceId, orderId);
-
-  revalidatePath("/orders");
-  revalidatePath(`/orders/${orderId}`);
-  redirect(`/orders/${orderId}`);
-}
-
-export async function reopenOrderAction(formData: FormData) {
-  const workspaceId = await requireWorkspaceId();
-  const orderId = getOrderId(formData);
-
-  await reopenOrder(workspaceId, orderId);
+  await updateOrderStatus(workspaceId, orderId, status);
 
   revalidatePath("/orders");
   revalidatePath(`/orders/${orderId}`);

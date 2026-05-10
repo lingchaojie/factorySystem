@@ -1,18 +1,25 @@
-export type ProductionRecordInput = {
+export type ProductionRecordType = "completed" | "shipped";
+
+export type MachineRecordInput = {
   completedQuantity: number;
   shippedQuantity: number;
 };
 
+export type ProductionRecordInput = {
+  type: ProductionRecordType;
+  quantity: number;
+};
+
 export type OrderSummaryInput = {
-  plannedQuantity: number;
-  closedAt: Date | null;
+  plannedQuantity: number | null;
+  closedAt?: Date | null;
   records: ProductionRecordInput[];
 };
 
 export type OrderSummary = {
   completedQuantity: number;
   shippedQuantity: number;
-  remainingQuantity: number;
+  remainingQuantity: number | null;
   isOverPlanned: boolean;
   canClose: boolean;
 };
@@ -26,6 +33,15 @@ export function parsePositiveQuantity(value: string, label: string): number {
     throw new Error(`${label}必须大于 0`);
   }
   return parsed;
+}
+
+export function parseOptionalPositiveQuantity(
+  value: string,
+  label: string,
+): number | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  return parsePositiveQuantity(trimmed, label);
 }
 
 export function parseNonNegativeQuantity(value: string, label: string): number {
@@ -42,6 +58,18 @@ export function parseNonNegativeQuantity(value: string, label: string): number {
 export function validateProductionRecordInput(
   input: ProductionRecordInput,
 ): ProductionRecordInput {
+  if (input.type !== "completed" && input.type !== "shipped") {
+    throw new Error("记录类型无效");
+  }
+  if (!Number.isInteger(input.quantity) || input.quantity <= 0) {
+    throw new Error("记录数量必须大于 0");
+  }
+  return input;
+}
+
+export function validateMachineRecordInput(
+  input: MachineRecordInput,
+): MachineRecordInput {
   if (!Number.isInteger(input.completedQuantity) || input.completedQuantity < 0) {
     throw new Error("加工数量不能为负数");
   }
@@ -56,20 +84,29 @@ export function validateProductionRecordInput(
 
 export function summarizeOrder(input: OrderSummaryInput): OrderSummary {
   const completedQuantity = input.records.reduce(
-    (total, record) => total + record.completedQuantity,
+    (total, record) =>
+      record.type === "completed" ? total + record.quantity : total,
     0,
   );
   const shippedQuantity = input.records.reduce(
-    (total, record) => total + record.shippedQuantity,
+    (total, record) =>
+      record.type === "shipped" ? total + record.quantity : total,
     0,
   );
+  const plannedQuantity = input.plannedQuantity;
+  const hasPlan = plannedQuantity !== null;
   return {
     completedQuantity,
     shippedQuantity,
-    remainingQuantity: Math.max(input.plannedQuantity - shippedQuantity, 0),
-    isOverPlanned:
-      completedQuantity > input.plannedQuantity ||
-      shippedQuantity > input.plannedQuantity,
-    canClose: input.closedAt === null && shippedQuantity >= input.plannedQuantity,
+    remainingQuantity: hasPlan
+      ? Math.max(plannedQuantity - shippedQuantity, 0)
+      : null,
+    isOverPlanned: hasPlan
+      ? completedQuantity > plannedQuantity ||
+        shippedQuantity > plannedQuantity
+      : false,
+    canClose: hasPlan
+      ? input.closedAt == null && shippedQuantity >= plannedQuantity
+      : false,
   };
 }

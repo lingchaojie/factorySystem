@@ -62,7 +62,7 @@ async function createMachine(
   const row = page.locator("tbody tr").filter({ hasText: machine.code });
   await row.getByRole("link", { name: "详情" }).click();
   await expect(
-    page.getByRole("heading", { name: `${machine.code} / ${machine.code}` }),
+    page.getByRole("heading", { name: machine.code }),
   ).toBeVisible();
 }
 
@@ -79,7 +79,7 @@ async function linkMachineToOrder(page: Page, orderNo: string) {
   await form.getByRole("button", { name: "保存关联" }).click();
   await expect(
     page.locator("section").filter({
-      has: page.getByRole("heading", { name: "机器信息", exact: true }),
+      has: page.getByRole("heading", { name: "关联订单", exact: true }),
     }).last(),
   ).toContainText(orderNo);
 }
@@ -115,8 +115,9 @@ async function createProductionRecord(
   await saveButton.click({ force: true });
 
   const row = page.locator("tbody tr").filter({ hasText: record.notes });
-  await expect(row).toContainText(record.completed);
-  await expect(row).toContainText(record.shipped);
+  await expect(row).toHaveCount(2);
+  await expect(row.filter({ hasText: "加工" })).toContainText(record.completed);
+  await expect(row.filter({ hasText: "出货" })).toContainText(record.shipped);
 }
 
 async function orderRow(page: Page, orderNo: string): Promise<Locator> {
@@ -180,15 +181,27 @@ test("factory order, machine, production, and deletion flow updates totals", asy
   });
 
   await page.goto(`/records?customerName=${encodeURIComponent(order.customerName)}`);
-  const record = page.locator("article").filter({ hasText: secondRecord.notes });
-  await expect(record).toHaveCount(1);
-
-  page.once("dialog", async (dialog) => {
-    expect(dialog.type()).toBe("confirm");
-    await dialog.accept();
-  });
-  await record.getByRole("button", { name: "删除" }).click();
-  await expect(record).toHaveCount(0);
+  for (const recordType of ["加工", "出货"]) {
+    const recordSelector =
+      recordType === "加工"
+        ? 'article[data-record-type="completed"]'
+        : 'article[data-record-type="shipped"]';
+    const record = page
+      .locator(recordSelector)
+      .filter({ hasText: secondRecord.notes });
+    await expect(record).toHaveCount(1);
+    await record.getByRole("button", { name: "修改" }).click();
+    const dialog = page
+      .locator("dialog[open]")
+      .filter({ has: page.getByRole("heading", { name: "修改记录" }) });
+    await expect(dialog).toBeVisible();
+    page.once("dialog", async (confirmDialog) => {
+      expect(confirmDialog.type()).toBe("confirm");
+      await confirmDialog.accept();
+    });
+    await dialog.getByRole("button", { name: "删除" }).click();
+    await expect(record).toHaveCount(0);
+  }
 
   await expectOrderSummary(page, orderNo, {
     completed: "60",

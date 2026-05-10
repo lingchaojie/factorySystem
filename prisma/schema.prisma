@@ -15,8 +15,15 @@ enum MachineStatus {
 }
 
 enum OrderStatus {
-  open
-  closed
+  development_pending
+  processing_pending
+  in_progress
+  completed
+}
+
+enum ProductionRecordType {
+  completed
+  shipped
 }
 
 model Workspace {
@@ -90,10 +97,10 @@ model Order {
   customerName    String
   orderNo         String
   partName        String
-  plannedQuantity Int
+  plannedQuantity Int?
   unitPriceCents  Int?
   dueDate         DateTime?
-  status          OrderStatus @default(open)
+  status          OrderStatus @default(development_pending)
   notes           String?
   closedAt        DateTime?
   createdAt       DateTime    @default(now())
@@ -131,16 +138,16 @@ model OrderDrawing {
 }
 
 model ProductionRecord {
-  id                String   @id @default(cuid())
-  workspaceId       String
-  machineId         String
-  orderId           String
-  recordedAt        DateTime
-  completedQuantity Int      @default(0)
-  shippedQuantity   Int      @default(0)
-  notes             String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id          String               @id @default(cuid())
+  workspaceId String
+  machineId   String
+  orderId     String
+  recordedAt  DateTime
+  type        ProductionRecordType
+  quantity    Int
+  notes       String?
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   machine   Machine   @relation(fields: [workspaceId, machineId], references: [workspaceId, id], onDelete: Restrict)

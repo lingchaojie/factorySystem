@@ -18,15 +18,15 @@ export async function createMachine(
   workspaceId: string,
   input: CreateMachineInput,
 ) {
-  if (!input.code.trim()) throw new Error("机器编号必填");
-  if (!input.name.trim()) throw new Error("机器名称必填");
+  if (!input.code.trim()) throw new Error("机器名称必填");
+  const machineName = input.name.trim() || input.code.trim();
 
   try {
     return await prisma.machine.create({
       data: {
-        workspaceId,
-        code: input.code.trim(),
-        name: input.name.trim(),
+          workspaceId,
+          code: input.code.trim(),
+          name: machineName,
         model: input.model.trim() || null,
         location: input.location.trim() || null,
         status: input.status,
@@ -38,7 +38,7 @@ export async function createMachine(
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === "P2002"
     ) {
-      throw new Error("机器编号已存在");
+      throw new Error("机器名称已存在");
     }
     throw error;
   }
@@ -59,8 +59,18 @@ export async function linkMachineToOrder(
     if (!order) {
       throw new Error("订单不存在");
     }
-    if (order.status !== "open") {
-      throw new Error("订单已结单，不能关联机器");
+    if (order.status === "completed") {
+      throw new Error("订单已完成，不能关联机器");
+    }
+
+    if (
+      order.status === "development_pending" ||
+      order.status === "processing_pending"
+    ) {
+      await tx.order.update({
+        where: { id: order.id },
+        data: { status: "in_progress", closedAt: null },
+      });
     }
 
     return tx.machine.update({
