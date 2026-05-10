@@ -54,6 +54,24 @@ function formatOrder(order: { orderNo: string | null; partName: string }) {
   return order.orderNo ? `${order.orderNo} / ${order.partName}` : order.partName;
 }
 
+function RecordTypeBadge({ type }: { type: keyof typeof recordTypeLabels }) {
+  const className =
+    type === "completed"
+      ? "border-indigo-200 bg-indigo-50 text-indigo-700"
+      : "border-teal-200 bg-teal-50 text-teal-700";
+
+  return (
+    <span
+      className={[
+        "inline-flex items-center whitespace-nowrap rounded-md border px-2 py-0.5 text-xs font-medium",
+        className,
+      ].join(" ")}
+    >
+      {recordTypeLabels[type]}
+    </span>
+  );
+}
+
 export default async function RecordsPage({
   searchParams,
 }: {
@@ -173,6 +191,7 @@ export default async function RecordsPage({
                       <h2 className="text-base font-semibold text-slate-950">
                         {formatBusinessDateTime(record.recordedAt)}
                       </h2>
+                      <RecordTypeBadge type={record.type} />
                       <StatusBadge
                         status={record.order.status}
                         labels={orderStatusLabels}
@@ -210,7 +229,7 @@ export default async function RecordsPage({
                       <div>
                         <dt className="text-slate-500">数量</dt>
                         <dd className="mt-1 font-medium text-slate-950">
-                          {recordTypeLabels[record.type]} {record.quantity}
+                          {record.quantity}
                         </dd>
                       </div>
                     </dl>
@@ -231,7 +250,7 @@ export default async function RecordsPage({
                       buttonLabel="修改"
                       title="修改记录"
                       buttonIcon="pencil"
-                      buttonClassName="border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                      buttonVariant="secondary"
                     >
                     <form
                       action={updateRecordAction}

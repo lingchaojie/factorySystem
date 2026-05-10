@@ -80,7 +80,8 @@ describe("records page", () => {
       expect(container.querySelector(`#record-2-${field}`)).not.toBeNull();
     }
     expect(screen.getAllByRole("button", { name: "修改" })).toHaveLength(2);
-    expect(screen.getAllByText("加工 5")).toHaveLength(2);
+    expect(screen.getAllByText("加工")).toHaveLength(4);
+    expect(screen.getAllByText("5")).toHaveLength(2);
   });
 });
 

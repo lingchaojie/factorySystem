@@ -7,7 +7,7 @@ type CreateEntityDialogProps = {
   buttonLabel: string;
   title: string;
   buttonIcon?: "plus" | "pencil";
-  buttonClassName?: string;
+  buttonVariant?: "primary" | "secondary";
   children: ReactNode;
 };
 
@@ -15,18 +15,22 @@ export function CreateEntityDialog({
   buttonLabel,
   title,
   buttonIcon = "plus",
-  buttonClassName,
+  buttonVariant = "primary",
   children,
 }: CreateEntityDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const Icon = buttonIcon === "pencil" ? Pencil : Plus;
+  const buttonClassName =
+    buttonVariant === "primary"
+      ? "bg-slate-950 text-white hover:bg-slate-800"
+      : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50";
 
   return (
     <>
       <button
         type="button"
         className={[
-          "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-slate-950 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-800",
+          "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium transition-colors",
           buttonClassName,
         ]
           .filter(Boolean)
