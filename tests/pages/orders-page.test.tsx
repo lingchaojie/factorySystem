@@ -7,9 +7,12 @@ import {
   parseOrderStatusFilters,
 } from "@/app/(dashboard)/orders/filters";
 
-const { authMock, ordersMock, actionsMock } = vi.hoisted(() => ({
+const { authMock, machinesMock, ordersMock, actionsMock } = vi.hoisted(() => ({
   authMock: {
     requireUser: vi.fn(),
+  },
+  machinesMock: {
+    listMachines: vi.fn(),
   },
   ordersMock: {
     listOrders: vi.fn(),
@@ -25,12 +28,14 @@ const { authMock, ordersMock, actionsMock } = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/auth", () => authMock);
+vi.mock("@/server/services/machines", () => machinesMock);
 vi.mock("@/server/services/orders", () => ordersMock);
 vi.mock("@/app/actions/orders", () => actionsMock);
 
 describe("orders page", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    machinesMock.listMachines.mockResolvedValue([]);
     authMock.requireUser.mockResolvedValue({
       id: "user-1",
       workspaceId: "workspace-1",
@@ -99,6 +104,26 @@ describe("orders page", () => {
   });
 
   it("creates orders without a manual order number and accepts unit price", async () => {
+    machinesMock.listMachines.mockResolvedValue([
+      {
+        id: "machine-free",
+        code: "1号机",
+        name: "1号机",
+        currentOrder: null,
+      },
+      {
+        id: "machine-completed",
+        code: "2号机",
+        name: "2号机",
+        currentOrder: { status: "completed" },
+      },
+      {
+        id: "machine-busy",
+        code: "3号机",
+        name: "3号机",
+        currentOrder: { status: "in_progress" },
+      },
+    ]);
     ordersMock.listOrders.mockResolvedValue([
       {
         id: "order-1",
@@ -139,6 +164,14 @@ describe("orders page", () => {
     expect(screen.queryByLabelText("订单号")).not.toBeInTheDocument();
     expect(screen.getByLabelText("计划数量")).not.toBeRequired();
     expect(screen.getByLabelText("单价（元/件）")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "新增订单" }));
+    expect(
+      screen.getByRole("button", { name: "关联机器：全部" }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "关联机器：全部" }));
+    expect(screen.getByText("1号机")).toBeInTheDocument();
+    expect(screen.getByText("2号机")).toBeInTheDocument();
+    expect(screen.queryByText("3号机")).not.toBeInTheDocument();
     expect(screen.getByText("甲方工厂 / 法兰")).toBeInTheDocument();
     expect(screen.getByText("首件加急")).toBeInTheDocument();
     expect(screen.getByText("创建日期 2026年5月10日")).toBeInTheDocument();

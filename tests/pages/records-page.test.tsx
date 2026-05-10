@@ -112,6 +112,16 @@ describe("records page", () => {
       .getByText("订单")
       .closest("div");
     expect(orderBlock).toHaveTextContent("订单：进行中");
+    const detailGrid = firstArticle?.querySelector("dl");
+    expect(detailGrid).toHaveClass("gap-x-8");
+    expect(detailGrid?.className).toContain("minmax(260px,1.6fr)");
+    expect(
+      within(orderBlock as HTMLElement).getByRole("link", { name: "Acme / 法兰" }),
+    ).toHaveClass("break-words");
+    const quantityBlock = within(detailGrid as HTMLElement)
+      .getByText("数量")
+      .closest("div");
+    expect(quantityBlock).toHaveClass("whitespace-nowrap");
   });
 
   it("passes record type, order search, and status filters", async () => {

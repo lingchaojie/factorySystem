@@ -90,6 +90,30 @@ describe("order actions", () => {
     });
   });
 
+  it("passes selected machines when creating an order", async () => {
+    const { createOrderAction } = await import("@/app/actions/orders");
+    ordersMock.createOrder.mockResolvedValue({ id: "order-new" });
+    const form = new FormData();
+    form.set("customerName", "甲方工厂");
+    form.set("partName", "法兰盘");
+    form.append("machineId", "machine-1");
+    form.append("machineId", " ");
+    form.append("machineId", "machine-2");
+    form.append("machineId", "machine-1");
+
+    await createOrderAction(form);
+
+    expect(ordersMock.createOrder).toHaveBeenCalledWith("workspace-1", {
+      customerName: "甲方工厂",
+      partName: "法兰盘",
+      plannedQuantity: null,
+      unitPriceCents: null,
+      dueDate: null,
+      notes: "",
+      machineIds: ["machine-1", "machine-2"],
+    });
+  });
+
   it("rejects non-positive planned quantities when provided", async () => {
     const { createOrderAction } = await import("@/app/actions/orders");
     const form = new FormData();

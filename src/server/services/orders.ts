@@ -2,6 +2,10 @@ import { OrderStatus } from "@prisma/client";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { parsePositiveQuantity, summarizeOrder } from "@/domain/factory";
+import {
+  lockMachineForUpdate,
+  lockOrderForUpdate,
+} from "@/server/services/order-locks";
 import { deleteOrderDrawingDirectory } from "@/server/services/order-drawings";
 
 export type CreateOrderInput = {
@@ -11,6 +15,7 @@ export type CreateOrderInput = {
   unitPriceCents: number | null;
   dueDate: Date | null;
   notes: string;
+  machineIds?: string[];
 };
 
 export type UpdateOrderDetailsInput = CreateOrderInput & {
@@ -67,6 +72,55 @@ function formatOrderNo(prefix: string, sequence: number) {
   return `${prefix}${String(sequence).padStart(4, "0")}`;
 }
 
+function normalizeMachineIds(machineIds: string[] | undefined) {
+  const normalized: string[] = [];
+  const seen = new Set<string>();
+
+  for (const machineId of machineIds ?? []) {
+    const value = machineId.trim();
+    if (!value || seen.has(value)) continue;
+    seen.add(value);
+    normalized.push(value);
+  }
+
+  return normalized;
+}
+
+async function linkMachinesToCreatedOrder(
+  tx: Prisma.TransactionClient,
+  workspaceId: string,
+  orderId: string,
+  machineIds: string[],
+) {
+  for (const machineId of machineIds) {
+    const machine = await lockMachineForUpdate(tx, workspaceId, machineId);
+    if (!machine) {
+      throw new Error("机器不存在");
+    }
+
+    if (machine.currentOrderId) {
+      const currentOrder = await lockOrderForUpdate(
+        tx,
+        workspaceId,
+        machine.currentOrderId,
+      );
+
+      if (!currentOrder || currentOrder.status !== "completed") {
+        throw new Error("机器正在加工其他订单，不能关联");
+      }
+    }
+
+    await tx.machine.update({
+      where: { workspaceId_id: { workspaceId, id: machine.id } },
+      data: {
+        currentOrder: {
+          connect: { workspaceId_id: { workspaceId, id: orderId } },
+        },
+      },
+    });
+  }
+}
+
 export async function createOrder(workspaceId: string, input: CreateOrderInput) {
   if (!input.customerName.trim()) throw new Error("客户名称必填");
   if (!input.partName.trim()) throw new Error("工件名称必填");
@@ -76,20 +130,33 @@ export async function createOrder(workspaceId: string, input: CreateOrderInput) 
 
   const prefix = `ORD-${getOrderDateCode()}-`;
   let sequence = await getNextOrderSequence(workspaceId, prefix);
+  const machineIds = normalizeMachineIds(input.machineIds);
 
   for (let attempt = 0; attempt < 5; attempt += 1) {
     try {
-      return await prisma.order.create({
-        data: {
-          workspaceId,
-          customerName: input.customerName.trim(),
-          orderNo: formatOrderNo(prefix, sequence),
-          partName: input.partName.trim(),
-          plannedQuantity: input.plannedQuantity,
-          unitPriceCents: input.unitPriceCents,
-          dueDate: input.dueDate,
-          notes: input.notes.trim() || null,
-        },
+      return await prisma.$transaction(async (tx) => {
+        const order = await tx.order.create({
+          data: {
+            workspaceId,
+            customerName: input.customerName.trim(),
+            orderNo: formatOrderNo(prefix, sequence),
+            partName: input.partName.trim(),
+            plannedQuantity: input.plannedQuantity,
+            unitPriceCents: input.unitPriceCents,
+            dueDate: input.dueDate,
+            notes: input.notes.trim() || null,
+          },
+        });
+
+        if (machineIds.length === 0) {
+          return order;
+        }
+
+        await linkMachinesToCreatedOrder(tx, workspaceId, order.id, machineIds);
+        return tx.order.update({
+          where: { id: order.id },
+          data: { status: "in_progress", closedAt: null },
+        });
       });
     } catch (error) {
       if (!isUniqueConstraintError(error)) throw error;

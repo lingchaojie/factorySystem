@@ -18,6 +18,7 @@ import {
   formatBusinessDate,
 } from "@/lib/business-time";
 import { requireUser } from "@/lib/auth";
+import { listMachines } from "@/server/services/machines";
 import { listOrders } from "@/server/services/orders";
 import { parseOrderStatusFilters } from "./filters";
 
@@ -73,13 +74,25 @@ export default async function OrdersPage({
     "开始创建日期",
   );
   const createdDateTo = parseDateRange(params.createdDateTo, "结束创建日期");
-  const orders = await listOrders(user.workspaceId, {
-    customerName,
-    query,
-    statuses,
-    createdAtFrom: createdDateFrom?.start,
-    createdAtTo: createdDateTo?.end,
-  });
+  const [orders, machines] = await Promise.all([
+    listOrders(user.workspaceId, {
+      customerName,
+      query,
+      statuses,
+      createdAtFrom: createdDateFrom?.start,
+      createdAtTo: createdDateTo?.end,
+    }),
+    canManageOrders ? listMachines(user.workspaceId, {}) : Promise.resolve([]),
+  ]);
+  const machineOptions = machines
+    .filter(
+      (machine) =>
+        !machine.currentOrder || machine.currentOrder.status === "completed",
+    )
+    .map((machine) => ({
+      value: machine.id,
+      label: machine.code,
+    }));
 
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-6">
@@ -124,6 +137,15 @@ export default async function OrdersPage({
                   step={0.01}
                 />
                 <DateInput label="交期" id="createDueDate" name="dueDate" />
+                {machineOptions.length > 0 ? (
+                  <MultiSelectInput
+                    label="关联机器"
+                    name="machineId"
+                    options={machineOptions}
+                  />
+                ) : (
+                  <p className="text-sm text-slate-500">暂无可关联机器</p>
+                )}
                 <Textarea label="备注" id="createOrderNotes" name="notes" />
                 <SubmitButton>创建订单</SubmitButton>
               </form>

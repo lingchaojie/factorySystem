@@ -368,6 +368,90 @@ describe("factory services", () => {
     ]);
   });
 
+  it("creates an order and links selected available machines", async () => {
+    const workspace = await createWorkspace();
+    const freeMachine = await createMachine(workspace.id, {
+      code: "A1",
+      name: "A1",
+      model: "",
+      location: "",
+      status: "active",
+      notes: "",
+    });
+    const completedMachine = await createMachine(workspace.id, {
+      code: "A2",
+      name: "A2",
+      model: "",
+      location: "",
+      status: "active",
+      notes: "",
+    });
+    const busyMachine = await createMachine(workspace.id, {
+      code: "A3",
+      name: "A3",
+      model: "",
+      location: "",
+      status: "active",
+      notes: "",
+    });
+
+    const completedOrder = await createOrder(workspace.id, {
+      customerName: "旧客户",
+      partName: "已完工件",
+      plannedQuantity: 1,
+      unitPriceCents: null,
+      dueDate: null,
+      notes: "",
+    });
+    await linkMachineToOrder(workspace.id, completedMachine.id, completedOrder.id);
+    await updateOrderStatus(workspace.id, completedOrder.id, "completed");
+
+    const busyOrder = await createOrder(workspace.id, {
+      customerName: "忙碌客户",
+      partName: "加工中",
+      plannedQuantity: 1,
+      unitPriceCents: null,
+      dueDate: null,
+      notes: "",
+    });
+    await linkMachineToOrder(workspace.id, busyMachine.id, busyOrder.id);
+
+    const created = await createOrder(workspace.id, {
+      customerName: "新客户",
+      partName: "新工件",
+      plannedQuantity: 20,
+      unitPriceCents: null,
+      dueDate: null,
+      notes: "",
+      machineIds: [freeMachine.id, completedMachine.id, freeMachine.id],
+    });
+
+    const linkedMachines = await listMachines(workspace.id, {});
+    expect(
+      linkedMachines
+        .filter((machine) => ["A1", "A2"].includes(machine.code))
+        .map((machine) => machine.currentOrderId),
+    ).toEqual([created.id, created.id]);
+    expect(
+      linkedMachines.find((machine) => machine.code === "A3")?.currentOrderId,
+    ).toBe(busyOrder.id);
+
+    const detail = await getOrderWithSummary(workspace.id, created.id);
+    expect(detail.status).toBe("in_progress");
+
+    await expect(
+      createOrder(workspace.id, {
+        customerName: "错误客户",
+        partName: "错误工件",
+        plannedQuantity: 1,
+        unitPriceCents: null,
+        dueDate: null,
+        notes: "",
+        machineIds: [busyMachine.id],
+      }),
+    ).rejects.toThrow("机器正在加工其他订单，不能关联");
+  });
+
   it("replaces existing drawing records and files when uploading again", async () => {
     const workspace = await createWorkspace();
     const storageDir = await mkdtemp(path.join(tmpdir(), "factory-drawings-"));
