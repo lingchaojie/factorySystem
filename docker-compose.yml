@@ -1,0 +1,42 @@
+services:
+  db:
+    image: postgres:16-alpine
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_DB: factory
+      POSTGRES_USER: factory
+      POSTGRES_PASSWORD: factory_password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U factory -d factory"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  web:
+    build:
+      context: .
+    environment:
+      NODE_ENV: production
+      APP_ORIGIN: ${APP_ORIGIN:-http://localhost:3000}
+      DATABASE_URL: postgresql://factory:factory_password@db:5432/factory?schema=public
+      BOOTSTRAP_WORKSPACE_NAME: ${BOOTSTRAP_WORKSPACE_NAME:-CNC Factory}
+      BOOTSTRAP_USERNAME: ${BOOTSTRAP_USERNAME:-admin}
+      BOOTSTRAP_PASSWORD: ${BOOTSTRAP_PASSWORD:-change-me-before-use}
+      SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-factory_session}
+      SESSION_TTL_DAYS: ${SESSION_TTL_DAYS:-30}
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
+      ORDER_DRAWING_STORAGE_DIR: /app/storage/order-drawings
+    ports:
+      - "3000:3000"
+    volumes:
+      - order-drawings-data:/app/storage/order-drawings
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  postgres-data:
+  order-drawings-data:

@@ -1,0 +1,62 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - factory-postgres-data:/var/lib/postgresql/data
+
+  web:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      APP_ORIGIN: ${APP_ORIGIN:?APP_ORIGIN is required}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?schema=public
+      BOOTSTRAP_WORKSPACE_NAME: ${BOOTSTRAP_WORKSPACE_NAME:-CNC Factory}
+      BOOTSTRAP_USERNAME: ${BOOTSTRAP_USERNAME:?BOOTSTRAP_USERNAME is required}
+      BOOTSTRAP_PASSWORD: ${BOOTSTRAP_PASSWORD:?BOOTSTRAP_PASSWORD is required}
+      SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-factory_session}
+      SESSION_TTL_DAYS: ${SESSION_TTL_DAYS:-30}
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
+      ORDER_DRAWING_STORAGE_DIR: /app/storage/order-drawings
+    volumes:
+      - factory-order-drawings-data:/app/storage/order-drawings
+    depends_on:
+      db:
+        condition: service_healthy
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      APP_SITE_ADDRESS: ${APP_SITE_ADDRESS:?APP_SITE_ADDRESS is required}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - factory-caddy-data:/data
+      - factory-caddy-config:/config
+    depends_on:
+      - web
+
+volumes:
+  factory-postgres-data:
+    name: factory-system-postgres-data
+  factory-order-drawings-data:
+    name: factory-system-order-drawings-data
+  factory-caddy-data:
+    name: factory-system-caddy-data
+  factory-caddy-config:
+    name: factory-system-caddy-config

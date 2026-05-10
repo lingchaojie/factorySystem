@@ -1,0 +1,199 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum MachineStatus {
+  active
+  idle
+  maintenance
+  disabled
+}
+
+enum OrderStatus {
+  development_pending
+  processing_pending
+  in_progress
+  completed
+}
+
+enum ProductionRecordType {
+  completed
+  shipped
+}
+
+enum UserRole {
+  manager
+  employee
+}
+
+model Workspace {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users             User[]
+  machines          Machine[]
+  orders            Order[]
+  orderDrawings     OrderDrawing[]
+  productionRecords ProductionRecord[]
+}
+
+model User {
+  id           String   @id @default(cuid())
+  workspaceId  String
+  username     String
+  displayName  String
+  role         UserRole @default(manager)
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  workspace                Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  sessions                 Session[]
+  createdProductionRecords ProductionRecord[] @relation("ProductionRecordCreatedBy")
+  updatedProductionRecords ProductionRecord[] @relation("ProductionRecordUpdatedBy")
+
+  @@unique([username])
+  @@unique([workspaceId, username])
+  @@index([workspaceId])
+}
+
+model PlatformAdmin {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  displayName  String
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  sessions PlatformAdminSession[]
+}
+
+model PlatformAdminSession {
+  id        String   @id @default(cuid())
+  adminId   String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  admin PlatformAdmin @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([adminId])
+  @@index([expiresAt])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Machine {
+  id             String        @id @default(cuid())
+  workspaceId    String
+  code           String
+  name           String
+  model          String?
+  location       String?
+  status         MachineStatus @default(active)
+  notes          String?
+  currentOrderId String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  workspace         Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  currentOrder      Order?             @relation("CurrentMachineOrder", fields: [workspaceId, currentOrderId], references: [workspaceId, id], onDelete: NoAction)
+  productionRecords ProductionRecord[]
+
+  @@unique([workspaceId, code])
+  @@unique([workspaceId, id])
+  @@index([workspaceId])
+  @@index([workspaceId, status])
+  @@index([currentOrderId])
+}
+
+model Order {
+  id              String      @id @default(cuid())
+  workspaceId     String
+  customerName    String
+  orderNo         String
+  partName        String
+  plannedQuantity Int?
+  unitPriceCents  Int?
+  dueDate         DateTime?
+  status          OrderStatus @default(development_pending)
+  notes           String?
+  closedAt        DateTime?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  workspace         Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  currentMachines   Machine[]          @relation("CurrentMachineOrder")
+  drawings          OrderDrawing[]
+  productionRecords ProductionRecord[]
+
+  @@unique([workspaceId, id])
+  @@unique([workspaceId, orderNo])
+  @@index([workspaceId])
+  @@index([workspaceId, status])
+  @@index([workspaceId, customerName])
+  @@index([workspaceId, dueDate])
+}
+
+model OrderDrawing {
+  id           String   @id @default(cuid())
+  workspaceId  String
+  orderId      String
+  originalName String
+  relativePath String
+  storedPath   String
+  sizeBytes    Int
+  mimeType     String?
+  createdAt    DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  order     Order     @relation(fields: [workspaceId, orderId], references: [workspaceId, id], onDelete: Cascade)
+
+  @@unique([workspaceId, id])
+  @@index([workspaceId, orderId])
+}
+
+model ProductionRecord {
+  id              String               @id @default(cuid())
+  workspaceId     String
+  machineId       String
+  orderId         String
+  recordedAt      DateTime
+  type            ProductionRecordType
+  quantity        Int
+  notes           String?
+  createdByUserId String?
+  updatedByUserId String?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  machine       Machine   @relation(fields: [workspaceId, machineId], references: [workspaceId, id], onDelete: Restrict)
+  order         Order     @relation(fields: [workspaceId, orderId], references: [workspaceId, id], onDelete: Restrict)
+  createdByUser User?     @relation("ProductionRecordCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  updatedByUser User?     @relation("ProductionRecordUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, recordedAt])
+  @@index([workspaceId, machineId])
+  @@index([workspaceId, orderId])
+  @@index([createdByUserId])
+  @@index([updatedByUserId])
+}
