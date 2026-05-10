@@ -1,7 +1,11 @@
 import { randomUUID } from "node:crypto";
+import { access, mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db";
 import { createMachine, linkMachineToOrder } from "@/server/services/machines";
+import { replaceOrderDrawings } from "@/server/services/order-drawings";
 import {
   closeOrder,
   createOrder,
@@ -22,13 +26,39 @@ async function createWorkspace() {
   return workspace;
 }
 
+function createDrawingFile(content: string, name: string, type: string) {
+  const bytes = Buffer.from(content);
+  return {
+    name,
+    type,
+    size: bytes.byteLength,
+    arrayBuffer: async () =>
+      bytes.buffer.slice(
+        bytes.byteOffset,
+        bytes.byteOffset + bytes.byteLength,
+      ),
+  } as File;
+}
+
 const workspaceIds: string[] = [];
+const drawingStorageDirs: string[] = [];
+const originalDrawingStorageDir = process.env.ORDER_DRAWING_STORAGE_DIR;
 
 describe("factory services", () => {
   afterEach(async () => {
     await prisma.workspace.deleteMany({
       where: { id: { in: workspaceIds.splice(0) } },
     });
+    await Promise.all(
+      drawingStorageDirs.splice(0).map((dir) =>
+        rm(dir, { recursive: true, force: true }),
+      ),
+    );
+    if (originalDrawingStorageDir === undefined) {
+      delete process.env.ORDER_DRAWING_STORAGE_DIR;
+    } else {
+      process.env.ORDER_DRAWING_STORAGE_DIR = originalDrawingStorageDir;
+    }
   });
 
   it("generates daily order numbers and stores unit prices", async () => {
@@ -56,6 +86,54 @@ describe("factory services", () => {
     expect(first.orderNo).not.toBe(second.orderNo);
     expect(first.unitPriceCents).toBe(1250);
     expect(second.unitPriceCents).toBeNull();
+  });
+
+  it("replaces existing drawing records and files when uploading again", async () => {
+    const workspace = await createWorkspace();
+    const storageDir = await mkdtemp(path.join(tmpdir(), "factory-drawings-"));
+    drawingStorageDirs.push(storageDir);
+    process.env.ORDER_DRAWING_STORAGE_DIR = storageDir;
+    const order = await createOrder(workspace.id, {
+      customerName: "甲方工厂",
+      partName: "法兰盘",
+      plannedQuantity: 100,
+      unitPriceCents: null,
+      dueDate: null,
+      notes: "",
+    });
+
+    const initial = await replaceOrderDrawings(workspace.id, order.id, [
+      createDrawingFile("first", "part-a.step", "model/step"),
+      createDrawingFile("second", "part-b.pdf", "application/pdf"),
+    ]);
+
+    expect(initial).toHaveLength(2);
+    expect(
+      await prisma.orderDrawing.count({
+        where: { workspaceId: workspace.id, orderId: order.id },
+      }),
+    ).toBe(2);
+    expect(
+      await readFile(path.join(storageDir, initial[0].storedPath), "utf8"),
+    ).toBe("first");
+
+    const replacement = await replaceOrderDrawings(workspace.id, order.id, [
+      createDrawingFile("replacement", "replacement.pdf", "application/pdf"),
+    ]);
+
+    const records = await prisma.orderDrawing.findMany({
+      where: { workspaceId: workspace.id, orderId: order.id },
+      orderBy: { createdAt: "asc" },
+    });
+    expect(replacement).toHaveLength(1);
+    expect(records).toHaveLength(1);
+    expect(records[0].relativePath).toBe("replacement.pdf");
+    await expect(
+      access(path.join(storageDir, initial[0].storedPath)),
+    ).rejects.toThrow();
+    expect(
+      await readFile(path.join(storageDir, replacement[0].storedPath), "utf8"),
+    ).toBe("replacement");
   });
 
   it("creates records from a machine and recomputes order summary after deletion", async () => {
