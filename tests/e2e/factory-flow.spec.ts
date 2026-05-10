@@ -37,10 +37,9 @@ async function createOrder(
   await expect(row).toContainText(order.customerName);
   await expect(row).toContainText("12.34");
   await expect(row).toContainText("1,234.00");
-  const rowText = await row.innerText();
-  const orderNo = rowText.match(/ORD-\d{8}-\d{4}/)?.[0];
-  expect(orderNo).toBeTruthy();
-  return orderNo ?? "";
+  const orderName = `${order.customerName} / ${order.partName}`;
+  await expect(row).toContainText(orderName);
+  return orderName;
 }
 
 async function createMachine(
@@ -66,13 +65,13 @@ async function createMachine(
   ).toBeVisible();
 }
 
-async function linkMachineToOrder(page: Page, orderNo: string) {
+async function linkMachineToOrder(page: Page, orderName: string) {
   const form = page
     .locator("form")
     .filter({ has: page.locator('select[name="orderId"]') });
   const orderValue = await form
     .locator("option")
-    .filter({ hasText: orderNo })
+    .filter({ hasText: orderName })
     .getAttribute("value");
   expect(orderValue).toBeTruthy();
   await form.locator('select[name="orderId"]').selectOption(orderValue ?? "");
@@ -81,14 +80,14 @@ async function linkMachineToOrder(page: Page, orderNo: string) {
     page.locator("section").filter({
       has: page.getByRole("heading", { name: "关联订单", exact: true }),
     }).last(),
-  ).toContainText(orderNo);
+  ).toContainText(orderName);
 }
 
-async function expectMachineOrderLink(page: Page, orderNo: string) {
-  await page.getByRole("link", { name: new RegExp(orderNo) }).first().click();
+async function expectMachineOrderLink(page: Page, orderName: string) {
+  await page.getByRole("link", { name: orderName }).first().click();
   await expect(page).toHaveURL(/\/orders\//);
   await expect(
-    page.getByRole("heading", { name: new RegExp(orderNo) }),
+    page.getByRole("heading", { name: orderName }),
   ).toBeVisible();
   await page.goBack();
   await expect(
@@ -120,16 +119,16 @@ async function createProductionRecord(
   await expect(row.filter({ hasText: "出货" })).toContainText(record.shipped);
 }
 
-async function orderRow(page: Page, orderNo: string): Promise<Locator> {
-  await page.goto(`/orders?query=${encodeURIComponent(orderNo)}`);
-  const row = page.locator("tbody tr").filter({ hasText: orderNo });
+async function orderRow(page: Page, orderName: string): Promise<Locator> {
+  await page.goto(`/orders?query=${encodeURIComponent(orderName)}`);
+  const row = page.locator("tbody tr").filter({ hasText: orderName });
   await expect(row).toHaveCount(1);
   return row;
 }
 
 async function expectOrderSummary(
   page: Page,
-  orderNo: string,
+  orderName: string,
   summary: {
     completed: string;
     shipped: string;
@@ -137,7 +136,7 @@ async function expectOrderSummary(
     overPlanned: boolean;
   },
 ) {
-  const row = await orderRow(page, orderNo);
+  const row = await orderRow(page, orderName);
   const cells = row.locator("td");
   await expect(cells.nth(5)).toHaveText(summary.completed);
   await expect(cells.nth(6)).toHaveText(summary.shipped);
@@ -167,13 +166,13 @@ test("factory order, machine, production, and deletion flow updates totals", asy
   const secondRecord = { completed: "50", shipped: "90", notes: `记录2-${suffix}` };
 
   await login(page);
-  const orderNo = await createOrder(page, order);
+  const orderName = await createOrder(page, order);
   await createMachine(page, machine);
-  await linkMachineToOrder(page, orderNo);
-  await expectMachineOrderLink(page, orderNo);
+  await linkMachineToOrder(page, orderName);
+  await expectMachineOrderLink(page, orderName);
   await createProductionRecord(page, firstRecord);
   await createProductionRecord(page, secondRecord);
-  await expectOrderSummary(page, orderNo, {
+  await expectOrderSummary(page, orderName, {
     completed: "110",
     shipped: "110",
     remaining: "0",
@@ -203,7 +202,7 @@ test("factory order, machine, production, and deletion flow updates totals", asy
     await expect(record).toHaveCount(0);
   }
 
-  await expectOrderSummary(page, orderNo, {
+  await expectOrderSummary(page, orderName, {
     completed: "60",
     shipped: "20",
     remaining: "80",

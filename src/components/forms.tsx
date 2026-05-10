@@ -1,10 +1,13 @@
+"use client";
+
 import type {
   ButtonHTMLAttributes,
   InputHTMLAttributes,
   SelectHTMLAttributes,
   TextareaHTMLAttributes,
 } from "react";
-import React from "react";
+import { Check, ChevronDown } from "lucide-react";
+import React, { useMemo, useState } from "react";
 
 type FieldLabelProps = {
   label: string;
@@ -126,36 +129,102 @@ export function MultiSelectInput({
   className,
 }: MultiSelectInputProps) {
   const resolvedId = fieldId(name, id);
-  const selected = new Set(selectedValues);
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [selectedValuesState, setSelectedValuesState] =
+    useState(selectedValues);
+  const selected = useMemo(
+    () => new Set(selectedValuesState),
+    [selectedValuesState],
+  );
+  const selectedLabels = options
+    .filter((option) => selected.has(option.value))
+    .map((option) => option.label);
+  const summary =
+    selectedLabels.length > 0 ? selectedLabels.join("、") : "全部";
+  const filteredOptions = options.filter((option) => {
+    const keyword = search.trim().toLowerCase();
+    if (!keyword) return true;
+    return option.label.toLowerCase().includes(keyword);
+  });
+
+  function toggleOption(value: string) {
+    setSelectedValuesState((current) =>
+      current.includes(value)
+        ? current.filter((item) => item !== value)
+        : [...current, value],
+    );
+  }
 
   return (
-    <fieldset className={className}>
-      <legend className={labelClassName}>{label}</legend>
-      <div className="mt-1 max-h-32 overflow-y-auto rounded-md border border-slate-300 bg-white p-2 shadow-sm">
-        <div className="flex flex-wrap gap-2">
-          {options.map((option) => {
-            const optionId = `${resolvedId}-${option.value}`;
-            return (
-              <label
-                key={option.value}
-                className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 px-2 py-1 text-sm text-slate-700"
-                htmlFor={optionId}
-              >
-                <input
-                  id={optionId}
-                  name={name}
-                  type="checkbox"
-                  value={option.value}
-                  defaultChecked={selected.has(option.value)}
-                  className="h-4 w-4 rounded border-slate-300 text-slate-950 focus:ring-slate-400"
-                />
-                <span>{option.label}</span>
-              </label>
-            );
-          })}
+    <div className={["relative", className].filter(Boolean).join(" ")}>
+      <span className={labelClassName}>{label}</span>
+      {selectedValuesState.map((value) => (
+        <input key={value} type="hidden" name={name} value={value} />
+      ))}
+      <button
+        id={resolvedId}
+        type="button"
+        className="mt-1 flex w-full items-center justify-between gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-left text-sm text-slate-950 shadow-sm outline-none transition hover:bg-slate-50 focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        onClick={() => setOpen((current) => !current)}
+      >
+        <span className="min-w-0 truncate">
+          {label}：{summary}
+        </span>
+        <ChevronDown
+          aria-hidden="true"
+          size={16}
+          className={[
+            "shrink-0 text-slate-500 transition-transform",
+            open ? "rotate-180" : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+        />
+      </button>
+      {open ? (
+        <div className="absolute z-30 mt-2 w-full rounded-md border border-slate-200 bg-white p-2 shadow-xl">
+          <input
+            className="block w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-950 outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+            placeholder={`搜索${label}`}
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+          <div
+            role="listbox"
+            aria-label={label}
+            className="mt-2 max-h-56 overflow-y-auto"
+          >
+            {filteredOptions.length === 0 ? (
+              <p className="px-2 py-3 text-sm text-slate-500">没有匹配项</p>
+            ) : (
+              filteredOptions.map((option) => {
+                const checked = selected.has(option.value);
+                return (
+                  <label
+                    key={option.value}
+                    className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                  >
+                    <input
+                      type="checkbox"
+                      className="sr-only"
+                      checked={checked}
+                      onChange={() => toggleOption(option.value)}
+                    />
+                    <span className="flex size-4 shrink-0 items-center justify-center rounded border border-slate-300">
+                      {checked ? <Check aria-hidden="true" size={14} /> : null}
+                    </span>
+                    <span className="min-w-0 truncate">{option.label}</span>
+                  </label>
+                );
+              })
+            )}
+          </div>
         </div>
-      </div>
-    </fieldset>
+      ) : null}
+    </div>
   );
 }
 

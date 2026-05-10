@@ -63,6 +63,25 @@ export async function updateMachine(
   });
 }
 
+export async function deleteMachine(workspaceId: string, machineId: string) {
+  const machine = await prisma.machine.findUnique({
+    where: { workspaceId_id: { workspaceId, id: machineId } },
+    select: {
+      id: true,
+      _count: { select: { productionRecords: true } },
+    },
+  });
+
+  if (!machine) throw new Error("机器不存在");
+  if (machine._count.productionRecords > 0) {
+    throw new Error("已有生产记录，不能删除机器");
+  }
+
+  return prisma.machine.delete({
+    where: { workspaceId_id: { workspaceId, id: machineId } },
+  });
+}
+
 export async function linkMachineToOrder(
   workspaceId: string,
   machineId: string,
@@ -123,8 +142,8 @@ export async function listMachines(
       status: statuses ? { in: statuses } : undefined,
       OR: filters.query
         ? [
-            { code: { contains: filters.query, mode: "insensitive" } },
-            { name: { contains: filters.query, mode: "insensitive" } },
+            { code: { equals: filters.query, mode: "insensitive" } },
+            { name: { equals: filters.query, mode: "insensitive" } },
           ]
         : undefined,
     },

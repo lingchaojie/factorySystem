@@ -18,7 +18,7 @@ import {
   StatusBadge,
 } from "@/components/status-badge";
 import { businessTodayBounds } from "@/lib/business-time";
-import { requireWorkspaceId } from "@/lib/workspace";
+import { requireUser } from "@/lib/auth";
 import { listMachines } from "@/server/services/machines";
 
 type QueryParamValue = string | string[] | undefined;
@@ -50,8 +50,8 @@ function parseStatuses(value: QueryParamValue): MachineStatus[] | undefined {
   return statuses.length > 0 ? statuses : undefined;
 }
 
-function formatOrder(order: { orderNo: string; partName: string }) {
-  return `${order.orderNo} / ${order.partName}`;
+function formatOrder(order: { customerName: string; partName: string }) {
+  return `${order.customerName} / ${order.partName}`;
 }
 
 export default async function MachinesPage({
@@ -59,11 +59,12 @@ export default async function MachinesPage({
 }: {
   searchParams: Promise<{ query?: string; status?: string | string[] }>;
 }) {
-  const workspaceId = await requireWorkspaceId();
+  const user = await requireUser();
   const params = await searchParams;
   const query = params.query?.trim() ?? "";
   const statuses = parseStatuses(params.status);
-  const machines = await listMachines(workspaceId, { query, statuses });
+  const machines = await listMachines(user.workspaceId, { query, statuses });
+  const canManageMachines = user.role === "manager";
   const { start, end } = businessTodayBounds();
 
   const machinesWithToday = machines.map((machine) => {
@@ -98,20 +99,22 @@ export default async function MachinesPage({
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <p className="text-sm text-slate-500">共 {machines.length} 台</p>
-          <CreateEntityDialog buttonLabel="新增机器" title="新增机器">
-            <form action={createMachineAction} className="grid gap-4">
-              <TextInput label="机器名称" name="code" required />
-              <SelectInput
-                label="状态"
-                id="createMachineStatus"
-                name="status"
-                defaultValue="active"
-                options={statusOptions}
-              />
-              <Textarea label="备注" name="notes" />
-              <SubmitButton>创建机器</SubmitButton>
-            </form>
-          </CreateEntityDialog>
+          {canManageMachines ? (
+            <CreateEntityDialog buttonLabel="新增机器" title="新增机器">
+              <form action={createMachineAction} className="grid gap-4">
+                <TextInput label="机器名称" name="code" required />
+                <SelectInput
+                  label="状态"
+                  id="createMachineStatus"
+                  name="status"
+                  defaultValue="active"
+                  options={statusOptions}
+                />
+                <Textarea label="备注" name="notes" />
+                <SubmitButton>创建机器</SubmitButton>
+              </form>
+            </CreateEntityDialog>
+          ) : null}
         </div>
       </header>
 

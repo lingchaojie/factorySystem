@@ -210,6 +210,16 @@ export async function getOrderDrawingFile(workspaceId: string, drawingId: string
   return { drawing, data };
 }
 
+export async function deleteOrderDrawingDirectory(
+  workspaceId: string,
+  orderId: string,
+) {
+  const root = getStorageRoot();
+  const orderStoredDir = path.posix.join(workspaceId, orderId);
+  const targetDir = assertSafeStoredPath(root, orderStoredDir);
+  await rm(targetDir, { recursive: true, force: true });
+}
+
 function crc32(buffer: Buffer) {
   let crc = 0xffffffff;
   for (const byte of buffer) {

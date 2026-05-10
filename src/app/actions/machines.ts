@@ -5,10 +5,11 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { parseNonNegativeQuantity } from "@/domain/factory";
 import { parseBusinessDateTimeLocal } from "@/lib/business-time";
-import { requireUser } from "@/lib/auth";
+import { requireManager, requireUser } from "@/lib/auth";
 import { requireWorkspaceId } from "@/lib/workspace";
 import {
   createMachine,
+  deleteMachine,
   linkMachineToOrder,
   updateMachine,
 } from "@/server/services/machines";
@@ -44,10 +45,10 @@ function parseRecordedAt(value: FormDataEntryValue | null): Date {
 }
 
 export async function createMachineAction(formData: FormData) {
-  const workspaceId = await requireWorkspaceId();
+  const user = await requireManager();
   const code = getString(formData, "code");
 
-  await createMachine(workspaceId, {
+  await createMachine(user.workspaceId, {
     code,
     name: code.trim(),
     model: "",
@@ -55,6 +56,18 @@ export async function createMachineAction(formData: FormData) {
     status: parseMachineStatus(formData.get("status")),
     notes: getString(formData, "notes"),
   });
+
+  revalidatePath("/machines");
+  redirect("/machines");
+}
+
+export async function deleteMachineAction(formData: FormData) {
+  const user = await requireManager();
+  const machineId = getString(formData, "machineId");
+
+  if (!machineId) throw new Error("机器必填");
+
+  await deleteMachine(user.workspaceId, machineId);
 
   revalidatePath("/machines");
   redirect("/machines");

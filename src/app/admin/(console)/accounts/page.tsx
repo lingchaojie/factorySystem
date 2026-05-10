@@ -1,4 +1,9 @@
-import { createCustomerUserAction } from "@/app/admin/actions";
+import React from "react";
+import {
+  createCustomerUserAction,
+  updateCustomerUserAction,
+} from "@/app/admin/actions";
+import { CreateEntityDialog } from "@/components/create-entity-dialog";
 import {
   SelectInput,
   SubmitButton,
@@ -77,7 +82,9 @@ export default async function AdminAccountsPage() {
                   <th className="px-4 py-3">账号</th>
                   <th className="px-4 py-3">姓名</th>
                   <th className="px-4 py-3">角色</th>
+                  <th className="px-4 py-3">可见密码</th>
                   <th className="px-4 py-3">工厂</th>
+                  <th className="px-4 py-3 text-right">操作</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 bg-white">
@@ -92,8 +99,67 @@ export default async function AdminAccountsPage() {
                     <td className="px-4 py-4 text-slate-950">
                       {account.role}
                     </td>
+                    <td className="px-4 py-4 font-mono text-slate-950">
+                      {account.passwordPlaintext || "未保存，可重置"}
+                    </td>
                     <td className="px-4 py-4 text-slate-600">
                       {account.workspace.name}
+                    </td>
+                    <td className="px-4 py-4 text-right">
+                      <CreateEntityDialog
+                        buttonLabel="编辑账号"
+                        title="编辑客户账号"
+                        buttonIcon="pencil"
+                        buttonVariant="secondary"
+                      >
+                        <form
+                          action={updateCustomerUserAction}
+                          className="grid gap-4"
+                        >
+                          <input
+                            type="hidden"
+                            name="userId"
+                            value={account.id}
+                          />
+                          <SelectInput
+                            label="所属工厂"
+                            name="workspaceId"
+                            defaultValue={account.workspaceId}
+                            options={workspaceOptions}
+                            required
+                          />
+                          <TextInput
+                            label="客户账号"
+                            id={`username-${account.id}`}
+                            name="username"
+                            defaultValue={account.username}
+                            required
+                          />
+                          <TextInput
+                            label="姓名"
+                            id={`displayName-${account.id}`}
+                            name="displayName"
+                            defaultValue={account.displayName}
+                            required
+                          />
+                          <TextInput
+                            label="新密码（留空不修改）"
+                            id={`password-${account.id}`}
+                            name="password"
+                            type="text"
+                            autoComplete="new-password"
+                          />
+                          <SelectInput
+                            label="角色"
+                            id={`role-${account.id}`}
+                            name="role"
+                            defaultValue={account.role}
+                            options={roleOptions}
+                            required
+                          />
+                          <SubmitButton>保存账号</SubmitButton>
+                        </form>
+                      </CreateEntityDialog>
                     </td>
                   </tr>
                 ))}

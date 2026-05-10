@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db";
 import {
   createMachine,
+  deleteMachine,
   linkMachineToOrder,
   listMachines,
   updateMachine,
@@ -16,6 +17,7 @@ import {
 } from "@/server/services/order-drawings";
 import {
   createOrder,
+  deleteOrder,
   getOrderWithSummary,
   listOrders,
   updateOrderStatus,
@@ -26,6 +28,11 @@ import {
   listProductionRecords,
   updateProductionRecord,
 } from "@/server/services/records";
+import {
+  createWorkspaceWithInitialAccount,
+  listCustomerAccounts,
+  updateCustomerUser,
+} from "@/server/services/platform-admin";
 
 async function createWorkspace() {
   const workspace = await prisma.workspace.create({
@@ -119,6 +126,126 @@ describe("factory services", () => {
     expect(updated.notes).toBe("等待换刀");
   });
 
+  it("deletes orders only when they have no linked machines or production records", async () => {
+    const workspace = await createWorkspace();
+    const order = await createOrder(workspace.id, {
+      customerName: "甲方",
+      partName: "法兰",
+      plannedQuantity: 100,
+      unitPriceCents: null,
+      dueDate: null,
+      notes: "",
+    });
+
+    await deleteOrder(workspace.id, order.id);
+
+    await expect(listOrders(workspace.id, {})).resolves.toHaveLength(0);
+  });
+
+  it("rejects order deletion when machines or records still reference it", async () => {
+    const workspace = await createWorkspace();
+    const machine = await createMachine(workspace.id, {
+      code: "1",
+      name: "1号机",
+      model: "",
+      location: "",
+      status: "active",
+      notes: "",
+    });
+    const order = await createOrder(workspace.id, {
+      customerName: "甲方",
+      partName: "法兰",
+      plannedQuantity: 100,
+      unitPriceCents: null,
+      dueDate: null,
+      notes: "",
+    });
+    await linkMachineToOrder(workspace.id, machine.id, order.id);
+
+    await expect(deleteOrder(workspace.id, order.id)).rejects.toThrow(
+      "订单仍有关联机器，不能删除",
+    );
+  });
+
+  it("deletes machines only when they have no production records", async () => {
+    const workspace = await createWorkspace();
+    const machine = await createMachine(workspace.id, {
+      code: "1",
+      name: "1号机",
+      model: "",
+      location: "",
+      status: "active",
+      notes: "",
+    });
+
+    await deleteMachine(workspace.id, machine.id);
+
+    await expect(listMachines(workspace.id)).resolves.toHaveLength(0);
+  });
+
+  it("rejects machine deletion after production records exist", async () => {
+    const workspace = await createWorkspace();
+    const machine = await createMachine(workspace.id, {
+      code: "1",
+      name: "1号机",
+      model: "",
+      location: "",
+      status: "active",
+      notes: "",
+    });
+    const order = await createOrder(workspace.id, {
+      customerName: "甲方",
+      partName: "法兰",
+      plannedQuantity: 100,
+      unitPriceCents: null,
+      dueDate: null,
+      notes: "",
+    });
+    await linkMachineToOrder(workspace.id, machine.id, order.id);
+    await createProductionRecord(workspace.id, {
+      machineId: machine.id,
+      recordedAt: new Date("2026-05-10T08:00:00.000Z"),
+      completedQuantity: 10,
+      shippedQuantity: 0,
+      notes: "",
+    });
+
+    await expect(deleteMachine(workspace.id, machine.id)).rejects.toThrow(
+      "已有生产记录，不能删除机器",
+    );
+  });
+
+  it("stores and updates customer visible passwords for the admin console", async () => {
+    const workspace = await createWorkspaceWithInitialAccount({
+      workspaceName: `Admin Workspace ${randomUUID()}`,
+      username: `factory-${randomUUID()}`,
+      displayName: "王经理",
+      password: "initial-secret",
+      role: "manager",
+    });
+    workspaceIds.push(workspace.id);
+    const user = workspace.users[0];
+
+    let account = (await listCustomerAccounts()).find(
+      (item) => item.id === user.id,
+    );
+    expect(account?.passwordPlaintext).toBe("initial-secret");
+
+    await updateCustomerUser({
+      userId: user.id,
+      workspaceId: workspace.id,
+      username: user.username,
+      displayName: "李四",
+      password: "new-secret",
+      role: "employee",
+    });
+
+    account = (await listCustomerAccounts()).find((item) => item.id === user.id);
+    expect(account?.displayName).toBe("李四");
+    expect(account?.role).toBe("employee");
+    expect(account?.passwordPlaintext).toBe("new-secret");
+  });
+
   it("filters machines, orders, and records with multi-select values", async () => {
     const workspace = await createWorkspace();
     const activeMachine = await createMachine(workspace.id, {
@@ -194,6 +321,16 @@ describe("factory services", () => {
     });
     expect(machines.map((machine) => machine.code)).toEqual(["1", "2"]);
 
+    const exactMachineMatches = await listMachines(workspace.id, {
+      query: "1",
+    });
+    expect(exactMachineMatches.map((machine) => machine.code)).toEqual(["1"]);
+
+    const partialMachineMatches = await listMachines(workspace.id, {
+      query: "号机",
+    });
+    expect(partialMachineMatches).toHaveLength(0);
+
     const orders = await listOrders(workspace.id, {
       statuses: ["in_progress", "completed"],
     });
@@ -201,6 +338,11 @@ describe("factory services", () => {
       [inProgressOrder.id, completedOrder.id].sort(),
     );
     expect(orders.map((order) => order.id)).not.toContain(excludedOrder.id);
+
+    const namedOrders = await listOrders(workspace.id, {
+      query: "甲方 / 法兰",
+    });
+    expect(namedOrders.map((order) => order.id)).toEqual([inProgressOrder.id]);
 
     const records = await listProductionRecords(workspace.id, {
       types: ["completed", "shipped"],
@@ -666,7 +808,7 @@ describe("factory services", () => {
     ).rejects.toThrow("订单已完成，不能修改记录");
   });
 
-  it("filters orders by due date range and includes machine info in order detail records", async () => {
+  it("filters orders by created date range and includes machine info in order detail records", async () => {
     const workspace = await createWorkspace();
     const machine = await createMachine(workspace.id, {
       code: "5",
@@ -684,13 +826,21 @@ describe("factory services", () => {
       dueDate: new Date("2026-05-10T00:00:00.000Z"),
       notes: "",
     });
-    await createOrder(workspace.id, {
+    const laterOrder = await createOrder(workspace.id, {
       customerName: "己方工厂",
       partName: "垫片",
       plannedQuantity: 10,
       unitPriceCents: null,
       dueDate: new Date("2026-05-12T00:00:00.000Z"),
       notes: "",
+    });
+    await prisma.order.update({
+      where: { id: dueOrder.id },
+      data: { createdAt: new Date("2026-05-10T00:00:00.000Z") },
+    });
+    await prisma.order.update({
+      where: { id: laterOrder.id },
+      data: { createdAt: new Date("2026-05-12T00:00:00.000Z") },
     });
 
     await linkMachineToOrder(workspace.id, machine.id, dueOrder.id);
@@ -703,8 +853,8 @@ describe("factory services", () => {
     });
 
     const filtered = await listOrders(workspace.id, {
-      dueDateFrom: new Date("2026-05-09T00:00:00.000Z"),
-      dueDateTo: new Date("2026-05-11T00:00:00.000Z"),
+      createdAtFrom: new Date("2026-05-09T00:00:00.000Z"),
+      createdAtTo: new Date("2026-05-11T00:00:00.000Z"),
     });
     expect(filtered.map((order) => order.orderNo)).toEqual([dueOrder.orderNo]);
 

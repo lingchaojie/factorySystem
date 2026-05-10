@@ -8,6 +8,7 @@ import {
   createCustomerUser,
   createPlatformAdmin,
   createWorkspaceWithInitialAccount,
+  updateCustomerUser,
 } from "@/server/services/platform-admin";
 
 const userRoles = new Set<UserRole>(["manager", "employee"]);
@@ -47,6 +48,24 @@ export async function createCustomerUserAction(formData: FormData) {
   await requirePlatformAdmin();
 
   await createCustomerUser({
+    workspaceId: getString(formData, "workspaceId"),
+    username: getString(formData, "username"),
+    displayName: getString(formData, "displayName"),
+    password: getString(formData, "password"),
+    role: parseUserRole(formData.get("role")),
+  });
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/workspaces");
+  revalidatePath("/admin/accounts");
+  redirect("/admin/accounts");
+}
+
+export async function updateCustomerUserAction(formData: FormData) {
+  await requirePlatformAdmin();
+
+  await updateCustomerUser({
+    userId: getString(formData, "userId"),
     workspaceId: getString(formData, "workspaceId"),
     username: getString(formData, "username"),
     displayName: getString(formData, "displayName"),

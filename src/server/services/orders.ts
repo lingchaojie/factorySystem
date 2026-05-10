@@ -2,6 +2,7 @@ import { OrderStatus } from "@prisma/client";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { parsePositiveQuantity, summarizeOrder } from "@/domain/factory";
+import { deleteOrderDrawingDirectory } from "@/server/services/order-drawings";
 
 export type CreateOrderInput = {
   customerName: string;
@@ -133,6 +134,8 @@ export async function listOrders(
     status?: OrderStatus;
     statuses?: OrderStatus[];
     query?: string;
+    createdAtFrom?: Date;
+    createdAtTo?: Date;
     dueDateFrom?: Date;
     dueDateTo?: Date;
   },
@@ -142,20 +145,23 @@ export async function listOrders(
     : filters.status
       ? [filters.status]
       : undefined;
+  const queryFilter = buildOrderNameQueryFilter(filters.query);
 
   const orders = await prisma.order.findMany({
     where: {
       workspaceId,
+      ...queryFilter,
       status: statuses ? { in: statuses } : undefined,
       customerName: filters.customerName
         ? { contains: filters.customerName, mode: "insensitive" }
         : undefined,
-      OR: filters.query
-        ? [
-            { orderNo: { contains: filters.query, mode: "insensitive" } },
-            { partName: { contains: filters.query, mode: "insensitive" } },
-          ]
-        : undefined,
+      createdAt:
+        filters.createdAtFrom || filters.createdAtTo
+          ? {
+              gte: filters.createdAtFrom,
+              lt: filters.createdAtTo,
+            }
+          : undefined,
       dueDate:
         filters.dueDateFrom || filters.dueDateTo
           ? {
@@ -179,6 +185,33 @@ export async function listOrders(
       })),
     }),
   }));
+}
+
+function buildOrderNameQueryFilter(
+  query: string | undefined,
+): Prisma.OrderWhereInput | undefined {
+  const value = query?.trim();
+  if (!value) return undefined;
+
+  const [customerName, ...partNameParts] = value.split("/");
+  const partName = partNameParts.join("/").trim();
+  const customer = customerName.trim();
+
+  if (customer && partName) {
+    return {
+      AND: [
+        { customerName: { contains: customer, mode: "insensitive" } },
+        { partName: { contains: partName, mode: "insensitive" } },
+      ],
+    };
+  }
+
+  return {
+    OR: [
+      { customerName: { contains: value, mode: "insensitive" } },
+      { partName: { contains: value, mode: "insensitive" } },
+    ],
+  };
 }
 
 export async function updateOrderStatus(
@@ -236,4 +269,32 @@ export async function updateOrderDetails(
         input.status === "completed" ? (order.closedAt ?? new Date()) : null,
     },
   });
+}
+
+export async function deleteOrder(workspaceId: string, orderId: string) {
+  const order = await prisma.order.findFirst({
+    where: { id: orderId, workspaceId },
+    select: {
+      id: true,
+      _count: {
+        select: {
+          currentMachines: true,
+          productionRecords: true,
+        },
+      },
+    },
+  });
+
+  if (!order) throw new Error("订单不存在");
+  if (order._count.currentMachines > 0) {
+    throw new Error("订单仍有关联机器，不能删除");
+  }
+  if (order._count.productionRecords > 0) {
+    throw new Error("已有生产记录，不能删除订单");
+  }
+
+  await prisma.order.delete({
+    where: { id: order.id },
+  });
+  await deleteOrderDrawingDirectory(workspaceId, order.id);
 }

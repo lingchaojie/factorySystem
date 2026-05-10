@@ -56,8 +56,8 @@ const recordTypeOptions: Array<{ value: ProductionRecordType; label: string }> =
   { value: "shipped", label: recordTypeLabels.shipped },
 ];
 
-function formatOrder(order: { orderNo: string | null; partName: string }) {
-  return order.orderNo ? `${order.orderNo} / ${order.partName}` : order.partName;
+function formatOrder(order: { customerName: string; partName: string }) {
+  return `${order.customerName} / ${order.partName}`;
 }
 
 function formatUser(user: { displayName: string; username: string } | null) {

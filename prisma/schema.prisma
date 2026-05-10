@@ -45,14 +45,15 @@ model Workspace {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  workspaceId  String
-  username     String
-  displayName  String
-  role         UserRole @default(manager)
-  passwordHash String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                String   @id @default(cuid())
+  workspaceId       String
+  username          String
+  displayName       String
+  role              UserRole @default(manager)
+  passwordHash      String
+  passwordPlaintext String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   workspace                Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   sessions                 Session[]
@@ -151,6 +152,7 @@ model Order {
   @@index([workspaceId, status])
   @@index([workspaceId, customerName])
   @@index([workspaceId, dueDate])
+  @@index([workspaceId, createdAt])
 }
 
 model OrderDrawing {

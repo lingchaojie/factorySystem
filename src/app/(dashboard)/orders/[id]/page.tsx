@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { Archive, FileText, Folder } from "lucide-react";
 import React from "react";
-import { updateOrderDetailsAction } from "@/app/actions/orders";
+import {
+  deleteOrderAction,
+  updateOrderDetailsAction,
+} from "@/app/actions/orders";
 import { CreateEntityDialog } from "@/components/create-entity-dialog";
 import {
   DateInput,
@@ -24,6 +27,7 @@ import {
 } from "@/lib/business-time";
 import { requireUser } from "@/lib/auth";
 import { getOrderWithSummary } from "@/server/services/orders";
+import { DeleteOrderButton } from "./delete-order-button";
 import { OrderDrawingUpload } from "./order-drawing-upload";
 
 type Drawing = {
@@ -40,8 +44,8 @@ type DrawingFolder = {
   files: Drawing[];
 };
 
-function formatOrderTitle(order: { orderNo: string; partName: string }) {
-  return `${order.orderNo} / ${order.partName}`;
+function formatOrderTitle(order: { customerName: string; partName: string }) {
+  return `${order.customerName} / ${order.partName}`;
 }
 
 function formatUser(user: { displayName: string; username: string } | null) {
@@ -225,7 +229,9 @@ export default async function OrderDetailPage({
             </h1>
             <StatusBadge status={order.status} labels={orderStatusLabels} />
           </div>
-          <p className="mt-2 text-sm text-slate-500">{order.customerName}</p>
+          <p className="mt-2 text-sm text-slate-500">
+            {order.notes || "无备注"}
+          </p>
         </div>
         {canManageOrders ? (
           <div className="flex flex-wrap gap-2">
@@ -234,60 +240,69 @@ export default async function OrderDetailPage({
               title="编辑订单"
               buttonIcon="pencil"
             >
-              <form action={updateOrderDetailsAction} className="grid gap-4">
-                <input type="hidden" name="orderId" value={order.id} />
-                <TextInput
-                  label="客户名称"
-                  id="editCustomerName"
-                  name="customerName"
-                  defaultValue={order.customerName}
-                  required
-                />
-                <TextInput
-                  label="工件名称"
-                  id="editPartName"
-                  name="partName"
-                  defaultValue={order.partName}
-                  required
-                />
-                <NumberInput
-                  label="计划数量"
-                  id="editPlannedQuantity"
-                  name="plannedQuantity"
-                  min={1}
-                  step={1}
-                  defaultValue={order.plannedQuantity ?? ""}
-                />
-                <NumberInput
-                  label="单价（元/件）"
-                  id="editUnitPrice"
-                  name="unitPrice"
-                  min={0}
-                  step={0.01}
-                  defaultValue={formatUnitPriceInput(order.unitPriceCents)}
-                />
-                <DateInput
-                  label="交期"
-                  id="editDueDate"
-                  name="dueDate"
-                  defaultValue={formatDateInputValue(order.dueDate)}
-                />
-                <SelectInput
-                  label="订单状态"
-                  id="editOrderStatus"
-                  name="status"
-                  defaultValue={order.status}
-                  options={orderStatusOptions}
-                  required
-                />
-                <Textarea
-                  label="备注"
-                  id="editOrderNotes"
-                  name="notes"
-                  defaultValue={order.notes ?? ""}
-                />
-                <SubmitButton>保存订单</SubmitButton>
-              </form>
+              <div className="grid gap-4">
+                <form action={updateOrderDetailsAction} className="grid gap-4">
+                  <input type="hidden" name="orderId" value={order.id} />
+                  <TextInput
+                    label="客户名称"
+                    id="editCustomerName"
+                    name="customerName"
+                    defaultValue={order.customerName}
+                    required
+                  />
+                  <TextInput
+                    label="工件名称"
+                    id="editPartName"
+                    name="partName"
+                    defaultValue={order.partName}
+                    required
+                  />
+                  <NumberInput
+                    label="计划数量"
+                    id="editPlannedQuantity"
+                    name="plannedQuantity"
+                    min={1}
+                    step={1}
+                    defaultValue={order.plannedQuantity ?? ""}
+                  />
+                  <NumberInput
+                    label="单价（元/件）"
+                    id="editUnitPrice"
+                    name="unitPrice"
+                    min={0}
+                    step={0.01}
+                    defaultValue={formatUnitPriceInput(order.unitPriceCents)}
+                  />
+                  <DateInput
+                    label="交期"
+                    id="editDueDate"
+                    name="dueDate"
+                    defaultValue={formatDateInputValue(order.dueDate)}
+                  />
+                  <SelectInput
+                    label="订单状态"
+                    id="editOrderStatus"
+                    name="status"
+                    defaultValue={order.status}
+                    options={orderStatusOptions}
+                    required
+                  />
+                  <Textarea
+                    label="备注"
+                    id="editOrderNotes"
+                    name="notes"
+                    defaultValue={order.notes ?? ""}
+                  />
+                  <SubmitButton>保存订单</SubmitButton>
+                </form>
+                <form
+                  action={deleteOrderAction}
+                  className="border-t border-slate-200 pt-4"
+                >
+                  <input type="hidden" name="orderId" value={order.id} />
+                  <DeleteOrderButton />
+                </form>
+              </div>
             </CreateEntityDialog>
           </div>
         ) : null}
@@ -307,9 +322,9 @@ export default async function OrderDetailPage({
             <h2 className="text-base font-semibold text-slate-950">订单信息</h2>
             <dl className="mt-4 grid gap-4 text-sm sm:grid-cols-2">
               <div>
-                <dt className="text-slate-500">订单号</dt>
+                <dt className="text-slate-500">客户名称</dt>
                 <dd className="mt-1 font-medium text-slate-950">
-                  {order.orderNo}
+                  {order.customerName}
                 </dd>
               </div>
               <div>
@@ -325,9 +340,9 @@ export default async function OrderDetailPage({
                 </dd>
               </div>
               <div>
-                <dt className="text-slate-500">创建时间</dt>
+                <dt className="text-slate-500">创建日期</dt>
                 <dd className="mt-1 text-slate-950">
-                  {formatBusinessDateTime(order.createdAt)}
+                  {formatBusinessDate(order.createdAt)}
                 </dd>
               </div>
               {canManageOrders ? (

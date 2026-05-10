@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("next/navigation", () => ({
@@ -107,6 +107,37 @@ describe("shared UI primitives", () => {
       "type",
       "submit",
     );
+  });
+
+  it("renders searchable dropdown multi-select controls", async () => {
+    const { MultiSelectInput } = await import("@/components/forms");
+
+    const { container } = render(
+      <form>
+        <MultiSelectInput
+          label="订单"
+          name="orderId"
+          selectedValues={["order-2"]}
+          options={[
+            { value: "order-1", label: "MO-1 / 法兰" },
+            { value: "order-2", label: "MO-2 / 底座" },
+          ]}
+        />
+      </form>,
+    );
+
+    expect(screen.getByRole("button", { name: "订单：MO-2 / 底座" })).toBeInTheDocument();
+    expect(container.querySelector('input[type="hidden"][name="orderId"]')).toHaveValue("order-2");
+
+    fireEvent.click(screen.getByRole("button", { name: "订单：MO-2 / 底座" }));
+    const searchInput = screen.getByPlaceholderText("搜索订单");
+    searchInput.focus();
+    expect(searchInput).toHaveFocus();
+    fireEvent.change(searchInput, { target: { value: "法兰" } });
+
+    const listbox = screen.getByRole("listbox", { name: "订单" });
+    expect(within(listbox).getByText("MO-1 / 法兰")).toBeInTheDocument();
+    expect(within(listbox).queryByText("MO-2 / 底座")).not.toBeInTheDocument();
   });
 
   it("maps machine and order status labels", async () => {

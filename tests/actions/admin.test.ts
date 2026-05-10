@@ -9,6 +9,7 @@ const { adminAuthMock, platformAdminMock, cacheMock, navigationMock } =
       createCustomerUser: vi.fn(),
       createPlatformAdmin: vi.fn(),
       createWorkspaceWithInitialAccount: vi.fn(),
+      updateCustomerUser: vi.fn(),
     },
     cacheMock: {
       revalidatePath: vi.fn(),
@@ -79,6 +80,32 @@ describe("admin actions", () => {
       password: "secret123",
       role: "employee",
     });
+    expect(cacheMock.revalidatePath).toHaveBeenCalledWith("/admin/accounts");
+    expect(navigationMock.redirect).toHaveBeenCalledWith("/admin/accounts");
+  });
+
+  it("updates an existing customer account and optional visible password", async () => {
+    const { updateCustomerUserAction } = await import("@/app/admin/actions");
+    const form = new FormData();
+    form.set("userId", "user-1");
+    form.set("workspaceId", "workspace-2");
+    form.set("username", "operator002");
+    form.set("displayName", "李四");
+    form.set("password", "new-secret");
+    form.set("role", "manager");
+
+    await updateCustomerUserAction(form);
+
+    expect(platformAdminMock.updateCustomerUser).toHaveBeenCalledWith({
+      userId: "user-1",
+      workspaceId: "workspace-2",
+      username: "operator002",
+      displayName: "李四",
+      password: "new-secret",
+      role: "manager",
+    });
+    expect(cacheMock.revalidatePath).toHaveBeenCalledWith("/admin");
+    expect(cacheMock.revalidatePath).toHaveBeenCalledWith("/admin/workspaces");
     expect(cacheMock.revalidatePath).toHaveBeenCalledWith("/admin/accounts");
     expect(navigationMock.redirect).toHaveBeenCalledWith("/admin/accounts");
   });
