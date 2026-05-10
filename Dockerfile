@@ -1,11 +1,23 @@
 FROM node:22-alpine AS deps
 
-RUN apk add --no-cache openssl
+ARG ALPINE_MIRROR=""
+RUN if [ -n "$ALPINE_MIRROR" ]; then \
+      sed -i "s|https://dl-cdn.alpinelinux.org/alpine|$ALPINE_MIRROR|g" /etc/apk/repositories; \
+    fi \
+    && apk add --no-cache openssl
 
 WORKDIR /app
 
 COPY package.json package-lock.json ./
-RUN npm ci
+ARG NPM_CONFIG_REGISTRY=""
+RUN if [ -n "$NPM_CONFIG_REGISTRY" ]; then \
+      npm config set registry "$NPM_CONFIG_REGISTRY"; \
+    fi \
+    && npm ci \
+      --fetch-retries=5 \
+      --fetch-retry-factor=2 \
+      --fetch-retry-mintimeout=20000 \
+      --fetch-retry-maxtimeout=120000
 
 FROM deps AS build
 
@@ -14,7 +26,11 @@ RUN npm run build
 
 FROM node:22-alpine AS runner
 
-RUN apk add --no-cache openssl
+ARG ALPINE_MIRROR=""
+RUN if [ -n "$ALPINE_MIRROR" ]; then \
+      sed -i "s|https://dl-cdn.alpinelinux.org/alpine|$ALPINE_MIRROR|g" /etc/apk/repositories; \
+    fi \
+    && apk add --no-cache openssl
 
 WORKDIR /app
 
