@@ -84,8 +84,9 @@ describe("records page", () => {
       "workspace-1",
       expect.objectContaining({ type: "completed" }),
     );
-    expect(screen.getByLabelText("加工")).toBeChecked();
-    expect(screen.getByLabelText("出货")).not.toBeChecked();
+    expect(
+      screen.getByRole("button", { name: "记录类型：加工" }),
+    ).toBeInTheDocument();
     expect(screen.queryByLabelText("机器")).not.toBeInTheDocument();
     for (const field of ["recordedAt", "type", "quantity", "notes"]) {
       expect(container.querySelectorAll(`#${field}`)).toHaveLength(0);
@@ -93,9 +94,6 @@ describe("records page", () => {
       expect(container.querySelector(`#record-2-${field}`)).not.toBeNull();
     }
     expect(screen.getAllByRole("button", { name: "修改" })).toHaveLength(2);
-    expect(
-      screen.getByRole("group", { name: "记录类型" }),
-    ).toBeInTheDocument();
     expect(screen.getAllByText("订单：进行中")).toHaveLength(2);
     expect(screen.getAllByText("5")).toHaveLength(2);
     expect(screen.getAllByText("录入人")).toHaveLength(2);
@@ -119,11 +117,13 @@ describe("records page", () => {
       {
         id: "order-1",
         orderNo: "MO-1",
+        customerName: "甲方",
         partName: "法兰",
       },
       {
         id: "order-2",
         orderNo: "MO-2",
+        customerName: "乙方",
         partName: "底座",
       },
     ]);
@@ -147,10 +147,15 @@ describe("records page", () => {
         orderStatuses: ["in_progress", "completed"],
       }),
     );
-    expect(screen.getByLabelText("加工")).toBeChecked();
-    expect(screen.getByLabelText("出货")).toBeChecked();
-    expect(screen.getByLabelText("进行中")).toBeChecked();
-    expect(screen.getByLabelText("完成")).toBeChecked();
+    expect(
+      screen.getByRole("button", { name: "记录类型：加工、出货" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "订单：甲方 / 法兰、乙方 / 底座" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "订单状态：进行中、完成" }),
+    ).toBeInTheDocument();
   });
 });
 

@@ -25,6 +25,15 @@ export type CreatePlatformAdminInput = {
   password: string;
 };
 
+export type UpdateCustomerUserInput = {
+  userId: string;
+  workspaceId: string;
+  username: string;
+  displayName: string;
+  password: string;
+  role: UserRole;
+};
+
 const userRoles = new Set<UserRole>(["manager", "employee"]);
 
 function cleanRequired(value: string, label: string) {
@@ -54,7 +63,21 @@ export async function listAdminDashboard() {
       prisma.user.count(),
       prisma.platformAdmin.count(),
       prisma.workspace.findMany({
-        include: { users: { orderBy: { createdAt: "desc" } } },
+        include: {
+          users: {
+            select: {
+              id: true,
+              workspaceId: true,
+              username: true,
+              displayName: true,
+              role: true,
+              passwordPlaintext: true,
+              createdAt: true,
+              updatedAt: true,
+            },
+            orderBy: { createdAt: "desc" },
+          },
+        },
         orderBy: { createdAt: "desc" },
         take: 8,
       }),
@@ -65,14 +88,38 @@ export async function listAdminDashboard() {
 
 export async function listAdminWorkspaces() {
   return prisma.workspace.findMany({
-    include: { users: { orderBy: { createdAt: "desc" } } },
+    include: {
+      users: {
+        select: {
+          id: true,
+          workspaceId: true,
+          username: true,
+          displayName: true,
+          role: true,
+          passwordPlaintext: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+        orderBy: { createdAt: "desc" },
+      },
+    },
     orderBy: { createdAt: "desc" },
   });
 }
 
 export async function listCustomerAccounts() {
   return prisma.user.findMany({
-    include: { workspace: true },
+    select: {
+      id: true,
+      workspaceId: true,
+      username: true,
+      displayName: true,
+      role: true,
+      passwordPlaintext: true,
+      createdAt: true,
+      updatedAt: true,
+      workspace: true,
+    },
     orderBy: { createdAt: "desc" },
   });
 }
@@ -103,6 +150,7 @@ export async function createWorkspaceWithInitialAccount(
             displayName,
             role: input.role,
             passwordHash,
+            passwordPlaintext: password,
           },
         },
       },
@@ -129,6 +177,37 @@ export async function createCustomerUser(input: CreateCustomerUserInput) {
         displayName,
         role: input.role,
         passwordHash,
+        passwordPlaintext: password,
+      },
+    });
+  } catch (error) {
+    assertUniqueError(error, "账号已存在");
+  }
+}
+
+export async function updateCustomerUser(input: UpdateCustomerUserInput) {
+  validateRole(input.role);
+  const userId = cleanRequired(input.userId, "账号");
+  const workspaceId = cleanRequired(input.workspaceId, "工厂");
+  const username = cleanRequired(input.username, "账号");
+  const displayName = cleanRequired(input.displayName, "姓名");
+  const password = input.password.trim();
+  const passwordData = password
+    ? {
+        passwordHash: await hashPassword(password),
+        passwordPlaintext: password,
+      }
+    : {};
+
+  try {
+    return await prisma.user.update({
+      where: { id: userId },
+      data: {
+        workspaceId,
+        username,
+        displayName,
+        role: input.role,
+        ...passwordData,
       },
     });
   } catch (error) {

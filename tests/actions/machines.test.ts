@@ -7,9 +7,11 @@ const { workspaceMock, authMock, machinesMock, recordsMock, cacheMock, navigatio
     },
     authMock: {
       requireUser: vi.fn(),
+      requireManager: vi.fn(),
     },
     machinesMock: {
       createMachine: vi.fn(),
+      deleteMachine: vi.fn(),
       linkMachineToOrder: vi.fn(),
       updateMachine: vi.fn(),
     },
@@ -41,7 +43,15 @@ describe("machine actions", () => {
       workspaceId: "workspace-1",
       username: "operator",
       displayName: "张三",
-      role: "employee",
+      role: "manager",
+      workspace: { name: "精密加工一厂" },
+    });
+    authMock.requireManager.mockResolvedValue({
+      id: "user-1",
+      workspaceId: "workspace-1",
+      username: "operator",
+      displayName: "张三",
+      role: "manager",
       workspace: { name: "精密加工一厂" },
     });
   });
@@ -95,7 +105,25 @@ describe("machine actions", () => {
     expect(machinesMock.createMachine).not.toHaveBeenCalled();
   });
 
+  it("rejects employee attempts to create machines", async () => {
+    authMock.requireManager.mockRejectedValue(new Error("需要经理权限"));
+    const { createMachineAction } = await import("@/app/actions/machines");
+    const form = new FormData();
+    form.set("code", "1号机");
+
+    await expect(createMachineAction(form)).rejects.toThrow("需要经理权限");
+    expect(machinesMock.createMachine).not.toHaveBeenCalled();
+  });
+
   it("updates machine status and notes from the detail page", async () => {
+    authMock.requireUser.mockResolvedValue({
+      id: "user-2",
+      workspaceId: "workspace-1",
+      username: "employee",
+      displayName: "李四",
+      role: "employee",
+      workspace: { name: "精密加工一厂" },
+    });
     const { updateMachineAction } = await import("@/app/actions/machines");
     const form = new FormData();
     form.set("machineId", "machine-1");
@@ -125,6 +153,31 @@ describe("machine actions", () => {
 
     await expect(updateMachineAction(form)).rejects.toThrow("机器状态无效");
     expect(machinesMock.updateMachine).not.toHaveBeenCalled();
+  });
+
+  it("deletes a machine as manager", async () => {
+    const { deleteMachineAction } = await import("@/app/actions/machines");
+    const form = new FormData();
+    form.set("machineId", "machine-1");
+
+    await deleteMachineAction(form);
+
+    expect(machinesMock.deleteMachine).toHaveBeenCalledWith(
+      "workspace-1",
+      "machine-1",
+    );
+    expect(cacheMock.revalidatePath).toHaveBeenCalledWith("/machines");
+    expect(navigationMock.redirect).toHaveBeenCalledWith("/machines");
+  });
+
+  it("rejects employee attempts to delete machines", async () => {
+    authMock.requireManager.mockRejectedValue(new Error("需要经理权限"));
+    const { deleteMachineAction } = await import("@/app/actions/machines");
+    const form = new FormData();
+    form.set("machineId", "machine-1");
+
+    await expect(deleteMachineAction(form)).rejects.toThrow("需要经理权限");
+    expect(machinesMock.deleteMachine).not.toHaveBeenCalled();
   });
 
   it("creates a record and revalidates dependent machine, order, and record pages", async () => {

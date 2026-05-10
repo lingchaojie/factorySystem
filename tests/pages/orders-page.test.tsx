@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import OrderDetailPage from "@/app/(dashboard)/orders/[id]/page";
 import OrdersPage from "@/app/(dashboard)/orders/page";
@@ -17,6 +17,7 @@ const { authMock, ordersMock, actionsMock } = vi.hoisted(() => ({
   },
   actionsMock: {
     createOrderAction: vi.fn(),
+    deleteOrderAction: vi.fn(),
     updateOrderDetailsAction: vi.fn(),
     updateOrderStatusAction: vi.fn(),
     uploadOrderDrawingsAction: vi.fn(),
@@ -62,9 +63,39 @@ describe("orders page", () => {
         statuses: ["development_pending", "completed"],
       }),
     );
-    expect(screen.getByLabelText("待开发")).toBeChecked();
-    expect(screen.getByLabelText("完成")).toBeChecked();
-    expect(screen.getByLabelText("进行中")).not.toBeChecked();
+    expect(
+      screen.getByRole("button", { name: "状态：待开发、完成" }),
+    ).toBeInTheDocument();
+  });
+
+  it("passes created date filters and uses order name search", async () => {
+    ordersMock.listOrders.mockResolvedValue([]);
+
+    render(
+      await OrdersPage({
+        searchParams: Promise.resolve({
+          query: "甲方工厂 / 法兰",
+          createdDateFrom: "2026-05-10",
+          createdDateTo: "2026-05-11",
+        }),
+      }),
+    );
+
+    expect(ordersMock.listOrders).toHaveBeenCalledWith(
+      "workspace-1",
+      expect.objectContaining({
+        query: "甲方工厂 / 法兰",
+        createdAtFrom: new Date("2026-05-09T16:00:00.000Z"),
+        createdAtTo: new Date("2026-05-11T16:00:00.000Z"),
+      }),
+    );
+    expect(screen.getByPlaceholderText("客户 / 工件")).toHaveValue(
+      "甲方工厂 / 法兰",
+    );
+    expect(screen.getByLabelText("创建日期从")).toHaveValue("2026-05-10");
+    expect(screen.getByLabelText("创建日期至")).toHaveValue("2026-05-11");
+    expect(screen.queryByLabelText("交期从")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("交期至")).not.toBeInTheDocument();
   });
 
   it("creates orders without a manual order number and accepts unit price", async () => {
@@ -74,9 +105,11 @@ describe("orders page", () => {
         orderNo: "ORD-20260510-0001",
         customerName: "甲方工厂",
         partName: "法兰",
+        notes: "首件加急",
         plannedQuantity: 100,
         unitPriceCents: 1234,
         dueDate: null,
+        createdAt: new Date("2026-05-10T00:00:00.000Z"),
         status: "in_progress",
         completedQuantity: 20,
         shippedQuantity: 10,
@@ -106,6 +139,10 @@ describe("orders page", () => {
     expect(screen.queryByLabelText("订单号")).not.toBeInTheDocument();
     expect(screen.getByLabelText("计划数量")).not.toBeRequired();
     expect(screen.getByLabelText("单价（元/件）")).toBeInTheDocument();
+    expect(screen.getByText("甲方工厂 / 法兰")).toBeInTheDocument();
+    expect(screen.getByText("首件加急")).toBeInTheDocument();
+    expect(screen.getByText("创建日期 2026年5月10日")).toBeInTheDocument();
+    expect(screen.queryByText("ORD-20260510-0001")).not.toBeInTheDocument();
     expect(screen.getByText(/12\.34/)).toBeInTheDocument();
     expect(screen.getByText(/1,234\.00/)).toBeInTheDocument();
   });
@@ -117,9 +154,11 @@ describe("orders page", () => {
         orderNo: "ORD-20260510-0001",
         customerName: "甲方工厂",
         partName: "法兰",
+        notes: null,
         plannedQuantity: null,
         unitPriceCents: 1234,
         dueDate: null,
+        createdAt: new Date("2026-05-10T00:00:00.000Z"),
         status: "development_pending",
         completedQuantity: 0,
         shippedQuantity: 0,
@@ -135,7 +174,7 @@ describe("orders page", () => {
       }),
     );
 
-    const row = screen.getByRole("row", { name: /ORD-20260510-0001/ });
+    const row = screen.getByRole("row", { name: /甲方工厂 \/ 法兰/ });
     expect(row).toHaveTextContent("待开发");
     expect(row).toHaveTextContent("-");
   });
@@ -155,9 +194,11 @@ describe("orders page", () => {
         orderNo: "ORD-20260510-0001",
         customerName: "甲方工厂",
         partName: "法兰",
+        notes: null,
         plannedQuantity: 100,
         unitPriceCents: 1234,
         dueDate: null,
+        createdAt: new Date("2026-05-10T00:00:00.000Z"),
         status: "in_progress",
         completedQuantity: 20,
         shippedQuantity: 10,
@@ -226,9 +267,18 @@ describe("orders page", () => {
       screen.getByRole("button", { name: "上传图纸" }),
     ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "修改状态" })).not.toBeInTheDocument();
+    const editButton = screen.getByRole("button", { name: "编辑订单" });
+    expect(editButton).toBeInTheDocument();
+    fireEvent.click(editButton);
     expect(
-      screen.getByRole("button", { name: "编辑订单" }),
+      screen.getByRole("button", { name: "删除订单" }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "甲方工厂 / 法兰" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("ORD-20260510-0001")).not.toBeInTheDocument();
+    expect(screen.queryByText("订单号")).not.toBeInTheDocument();
+    expect(screen.getByText("创建日期")).toBeInTheDocument();
     expect(screen.getByLabelText("客户名称")).toHaveValue("甲方工厂");
     expect(screen.getByLabelText("工件名称")).toHaveValue("法兰");
     expect(screen.getByLabelText("计划数量")).toHaveValue(100);
@@ -285,6 +335,7 @@ describe("orders page", () => {
 
     expect(screen.queryByRole("button", { name: "修改状态" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "编辑订单" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "删除订单" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "上传图纸" })).not.toBeInTheDocument();
     expect(screen.queryByText("单价")).not.toBeInTheDocument();
     expect(screen.queryByText("订单金额")).not.toBeInTheDocument();

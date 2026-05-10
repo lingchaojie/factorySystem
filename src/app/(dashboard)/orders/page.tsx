@@ -43,8 +43,8 @@ function parseDateRange(value: string | undefined, label: string) {
   return range;
 }
 
-function formatOrderTitle(order: { orderNo: string; partName: string }) {
-  return `${order.orderNo} / ${order.partName}`;
+function formatOrderTitle(order: { customerName: string; partName: string }) {
+  return `${order.customerName} / ${order.partName}`;
 }
 
 function formatQuantity(value: number | null) {
@@ -58,8 +58,8 @@ export default async function OrdersPage({
     customerName?: string;
     query?: string;
     status?: string | string[];
-    dueDateFrom?: string;
-    dueDateTo?: string;
+    createdDateFrom?: string;
+    createdDateTo?: string;
   }>;
 }) {
   const user = await requireUser();
@@ -68,14 +68,17 @@ export default async function OrdersPage({
   const customerName = params.customerName?.trim() ?? "";
   const query = params.query?.trim() ?? "";
   const statuses = parseOrderStatusFilters(params.status);
-  const dueDateFrom = parseDateRange(params.dueDateFrom, "开始交期");
-  const dueDateTo = parseDateRange(params.dueDateTo, "结束交期");
+  const createdDateFrom = parseDateRange(
+    params.createdDateFrom,
+    "开始创建日期",
+  );
+  const createdDateTo = parseDateRange(params.createdDateTo, "结束创建日期");
   const orders = await listOrders(user.workspaceId, {
     customerName,
     query,
     statuses,
-    dueDateFrom: dueDateFrom?.start,
-    dueDateTo: dueDateTo?.end,
+    createdAtFrom: createdDateFrom?.start,
+    createdAtTo: createdDateTo?.end,
   });
 
   return (
@@ -143,7 +146,7 @@ export default async function OrdersPage({
           <TextInput
             label="搜索"
             name="query"
-            placeholder="订单号或工件"
+            placeholder="客户 / 工件"
             defaultValue={query}
           />
           <MultiSelectInput
@@ -153,14 +156,14 @@ export default async function OrdersPage({
             options={statusOptions}
           />
           <DateInput
-            label="交期从"
-            name="dueDateFrom"
-            defaultValue={params.dueDateFrom ?? ""}
+            label="创建日期从"
+            name="createdDateFrom"
+            defaultValue={params.createdDateFrom ?? ""}
           />
           <DateInput
-            label="交期至"
-            name="dueDateTo"
-            defaultValue={params.dueDateTo ?? ""}
+            label="创建日期至"
+            name="createdDateTo"
+            defaultValue={params.createdDateTo ?? ""}
           />
           <div className="flex items-end">
             <SubmitButton className="w-full lg:w-auto">筛选</SubmitButton>
@@ -217,13 +220,16 @@ export default async function OrdersPage({
                         {formatOrderTitle(order)}
                       </div>
                       <div className="mt-1 text-slate-600">
-                        {order.customerName}
+                        {order.notes || "无备注"}
                       </div>
                       <div className="mt-1 text-xs text-slate-500">
                         交期{" "}
                         {order.dueDate
                           ? formatBusinessDate(order.dueDate)
                           : "未填写"}
+                      </div>
+                      <div className="mt-1 text-xs text-slate-500">
+                        创建日期 {formatBusinessDate(order.createdAt)}
                       </div>
                     </td>
                     <td className="whitespace-nowrap px-4 py-4">

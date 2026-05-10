@@ -3,6 +3,7 @@ import Link from "next/link";
 import React from "react";
 import {
   createMachineRecordAction,
+  deleteMachineAction,
   linkMachineAction,
   updateMachineAction,
 } from "@/app/actions/machines";
@@ -23,12 +24,13 @@ import {
   formatBusinessDateTime,
   formatDateTimeLocalValue,
 } from "@/lib/business-time";
-import { requireWorkspaceId } from "@/lib/workspace";
+import { requireUser } from "@/lib/auth";
 import { getMachine } from "@/server/services/machines";
 import { listOrders } from "@/server/services/orders";
+import { DeleteMachineButton } from "./delete-machine-button";
 
-function formatOrder(order: { orderNo: string; partName: string }) {
-  return `${order.orderNo} / ${order.partName}`;
+function formatOrder(order: { customerName: string; partName: string }) {
+  return `${order.customerName} / ${order.partName}`;
 }
 
 function formatUser(user: { displayName: string; username: string } | null) {
@@ -53,11 +55,12 @@ export default async function MachineDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const workspaceId = await requireWorkspaceId();
+  const user = await requireUser();
   const [machine, orders] = await Promise.all([
-    getMachine(workspaceId, id),
-    listOrders(workspaceId, {}),
+    getMachine(user.workspaceId, id),
+    listOrders(user.workspaceId, {}),
   ]);
+  const canManageMachines = user.role === "manager";
   const availableOrders = orders.filter((order) => order.status !== "completed");
   const hasCurrentOrder = Boolean(machine.currentOrderId);
   const canRecordCurrentOrder = Boolean(
@@ -94,30 +97,43 @@ export default async function MachineDetailPage({
               <h2 className="text-base font-semibold text-slate-950">
                 机器信息
               </h2>
-              <CreateEntityDialog
-                buttonLabel="编辑机器"
-                title="编辑机器"
-                buttonIcon="pencil"
-                buttonVariant="secondary"
-              >
-                <form action={updateMachineAction} className="grid gap-4">
-                  <input type="hidden" name="machineId" value={machine.id} />
-                  <SelectInput
-                    label="机器状态"
-                    id="editMachineStatus"
-                    name="status"
-                    defaultValue={machine.status}
-                    options={machineStatusOptions}
-                  />
-                  <Textarea
-                    label="机器备注"
-                    id="editMachineNotes"
-                    name="notes"
-                    defaultValue={machine.notes ?? ""}
-                  />
-                  <SubmitButton>保存机器</SubmitButton>
-                </form>
-              </CreateEntityDialog>
+              <div className="flex flex-wrap items-center gap-2">
+                <CreateEntityDialog
+                  buttonLabel="编辑机器"
+                  title="编辑机器"
+                  buttonIcon="pencil"
+                  buttonVariant="secondary"
+                >
+                  <div className="grid gap-4">
+                    <form action={updateMachineAction} className="grid gap-4">
+                      <input type="hidden" name="machineId" value={machine.id} />
+                      <SelectInput
+                        label="机器状态"
+                        id="editMachineStatus"
+                        name="status"
+                        defaultValue={machine.status}
+                        options={machineStatusOptions}
+                      />
+                      <Textarea
+                        label="机器备注"
+                        id="editMachineNotes"
+                        name="notes"
+                        defaultValue={machine.notes ?? ""}
+                      />
+                      <SubmitButton>保存机器</SubmitButton>
+                    </form>
+                    {canManageMachines ? (
+                      <form
+                        action={deleteMachineAction}
+                        className="border-t border-slate-200 pt-4"
+                      >
+                        <input type="hidden" name="machineId" value={machine.id} />
+                        <DeleteMachineButton />
+                      </form>
+                    ) : null}
+                  </div>
+                </CreateEntityDialog>
+              </div>
             </div>
             <dl className="mt-4 grid gap-4 text-sm sm:grid-cols-2">
               <div>

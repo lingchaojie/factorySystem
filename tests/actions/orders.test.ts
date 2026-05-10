@@ -7,6 +7,7 @@ const { authMock, ordersMock, drawingsMock, cacheMock, navigationMock } =
     },
     ordersMock: {
       createOrder: vi.fn(),
+      deleteOrder: vi.fn(),
       updateOrderDetails: vi.fn(),
       updateOrderStatus: vi.fn(),
     },
@@ -196,6 +197,28 @@ describe("order actions", () => {
 
     await expect(updateOrderStatusAction(form)).rejects.toThrow("需要经理权限");
     expect(ordersMock.updateOrderStatus).not.toHaveBeenCalled();
+  });
+
+  it("deletes an order as manager", async () => {
+    const { deleteOrderAction } = await import("@/app/actions/orders");
+    const form = new FormData();
+    form.set("orderId", "order-1");
+
+    await deleteOrderAction(form);
+
+    expect(ordersMock.deleteOrder).toHaveBeenCalledWith("workspace-1", "order-1");
+    expect(cacheMock.revalidatePath).toHaveBeenCalledWith("/orders");
+    expect(navigationMock.redirect).toHaveBeenCalledWith("/orders");
+  });
+
+  it("rejects employee attempts to delete orders", async () => {
+    authMock.requireManager.mockRejectedValue(new Error("需要经理权限"));
+    const { deleteOrderAction } = await import("@/app/actions/orders");
+    const form = new FormData();
+    form.set("orderId", "order-1");
+
+    await expect(deleteOrderAction(form)).rejects.toThrow("需要经理权限");
+    expect(ordersMock.deleteOrder).not.toHaveBeenCalled();
   });
 
   it("rejects invalid manual order statuses before updating", async () => {

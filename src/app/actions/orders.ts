@@ -9,6 +9,7 @@ import { parseBusinessDate } from "@/lib/business-time";
 import { requireManager } from "@/lib/auth";
 import {
   createOrder,
+  deleteOrder,
   updateOrderDetails,
   updateOrderStatus,
 } from "@/server/services/orders";
@@ -110,6 +111,16 @@ export async function updateOrderDetailsAction(formData: FormData) {
   revalidatePath("/orders");
   revalidatePath(`/orders/${orderId}`);
   redirect(`/orders/${orderId}`);
+}
+
+export async function deleteOrderAction(formData: FormData) {
+  const user = await requireManager();
+  const orderId = getOrderId(formData);
+
+  await deleteOrder(user.workspaceId, orderId);
+
+  revalidatePath("/orders");
+  redirect("/orders");
 }
 
 export async function uploadOrderDrawingsAction(formData: FormData) {

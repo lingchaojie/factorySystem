@@ -52,6 +52,7 @@ async function main() {
         displayName: customerDisplayName,
         role: "manager",
         passwordHash: customerPasswordHash,
+        passwordPlaintext: customerPassword,
       },
       create: {
         id: "bootstrap-user",
@@ -60,6 +61,7 @@ async function main() {
         displayName: customerDisplayName,
         role: "manager",
         passwordHash: customerPasswordHash,
+        passwordPlaintext: customerPassword,
       },
     });
   }
