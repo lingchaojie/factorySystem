@@ -21,6 +21,10 @@ import {
   StatusBadge,
 } from "@/components/status-badge";
 import {
+  OrderProgressBars,
+  summarizeProgressRecords,
+} from "@/components/order-progress-bars";
+import {
   formatBusinessDateTime,
   formatDateTimeLocalValue,
 } from "@/lib/business-time";
@@ -84,31 +88,6 @@ function sortProductionRecords<
   });
 
   return sorted;
-}
-
-function getShipmentProgress(order: {
-  status: string;
-  plannedQuantity?: number | null;
-  productionRecords?: Array<{ type: string; quantity: number }>;
-}) {
-  if (order.status !== "in_progress" || !order.plannedQuantity) return null;
-
-  const shippedQuantity =
-    order.productionRecords?.reduce(
-      (total, record) =>
-        record.type === "shipped" ? total + record.quantity : total,
-      0,
-    ) ?? 0;
-  const percent = Math.min(
-    Math.round((shippedQuantity / order.plannedQuantity) * 100),
-    100,
-  );
-
-  return {
-    shippedQuantity,
-    plannedQuantity: order.plannedQuantity,
-    percent,
-  };
 }
 
 function buildRecordSortHref(
@@ -207,8 +186,8 @@ export default async function MachineDetailPage({
     machine.currentOrder && machine.currentOrder.status !== "completed",
   );
   const currentOrderProgress = machine.currentOrder
-    ? getShipmentProgress(machine.currentOrder)
-    : null;
+    ? summarizeProgressRecords(machine.currentOrder.productionRecords)
+    : { completedQuantity: 0, shippedQuantity: 0 };
   const orderOptions = availableOrders.map((order) => ({
     value: order.id,
     label: formatOrder(order),
@@ -378,7 +357,7 @@ export default async function MachineDetailPage({
           <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
             <h2 className="text-base font-semibold text-slate-950">关联订单</h2>
             {machine.currentOrder ? (
-              <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
+              <div className="mt-3 flex flex-wrap items-start gap-3 text-sm">
                 <span className="text-slate-500">当前订单</span>
                 <Link
                   href={`/orders/${machine.currentOrder.id}`}
@@ -390,29 +369,11 @@ export default async function MachineDetailPage({
                   status={machine.currentOrder.status}
                   labels={orderStatusLabels}
                 />
-                {currentOrderProgress ? (
-                  <div className="flex min-w-[180px] items-center gap-2">
-                    <div
-                      aria-label="当前订单出货进度"
-                      aria-valuemax={100}
-                      aria-valuemin={0}
-                      aria-valuenow={currentOrderProgress.percent}
-                      className="h-2 min-w-24 flex-1 overflow-hidden rounded-full bg-slate-100"
-                      role="progressbar"
-                      title={`出货 ${currentOrderProgress.shippedQuantity} / ${currentOrderProgress.plannedQuantity}`}
-                    >
-                      <div
-                        className="h-full rounded-full bg-emerald-500"
-                        style={{ width: `${currentOrderProgress.percent}%` }}
-                      />
-                    </div>
-                    <span className="whitespace-nowrap text-xs font-medium text-emerald-700">
-                      {currentOrderProgress.percent}% 出货{" "}
-                      {currentOrderProgress.shippedQuantity} /{" "}
-                      {currentOrderProgress.plannedQuantity}
-                    </span>
-                  </div>
-                ) : null}
+                <OrderProgressBars
+                  plannedQuantity={machine.currentOrder.plannedQuantity}
+                  completedQuantity={currentOrderProgress.completedQuantity}
+                  shippedQuantity={currentOrderProgress.shippedQuantity}
+                />
               </div>
             ) : null}
             {availableOrders.length === 0 ? (

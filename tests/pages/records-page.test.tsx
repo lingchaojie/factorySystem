@@ -98,6 +98,8 @@ describe("records page", () => {
     }
     expect(screen.getAllByRole("button", { name: "修改" })).toHaveLength(2);
     expect(screen.getAllByText("订单：进行中")).toHaveLength(2);
+    expect(screen.getAllByText("出货量 35 / 100")).toHaveLength(2);
+    expect(screen.getAllByText("加工量 80 / 100")).toHaveLength(2);
     expect(screen.getAllByText("5")).toHaveLength(2);
     expect(screen.getAllByText("录入人")).toHaveLength(2);
     expect(screen.getAllByText("修改人")).toHaveLength(2);
@@ -118,6 +120,16 @@ describe("records page", () => {
     expect(
       within(orderBlock as HTMLElement).getByRole("link", { name: "Acme / 法兰" }),
     ).toHaveClass("break-words");
+    expect(
+      within(orderBlock as HTMLElement).getByRole("progressbar", {
+        name: "出货量进度",
+      }),
+    ).toHaveAttribute("aria-valuenow", "35");
+    expect(
+      within(orderBlock as HTMLElement).getByRole("progressbar", {
+        name: "加工量进度",
+      }),
+    ).toHaveAttribute("aria-valuenow", "80");
     const quantityBlock = within(detailGrid as HTMLElement)
       .getByText("数量")
       .closest("div");
@@ -179,6 +191,11 @@ function buildRecord(id: string) {
       partName: "法兰",
       customerName: "Acme",
       status: "in_progress",
+      plannedQuantity: 100,
+      productionRecords: [
+        { type: "completed", quantity: 80 },
+        { type: "shipped", quantity: 35 },
+      ],
     },
     createdByUser: {
       id: "user-1",

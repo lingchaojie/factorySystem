@@ -14,6 +14,7 @@ import {
   Textarea,
   TextInput,
 } from "@/components/forms";
+import { OrderProgressBars } from "@/components/order-progress-bars";
 import {
   machineStatusLabels,
   orderStatusLabels,
@@ -228,6 +229,11 @@ export default async function OrderDetailPage({
               {formatOrderTitle(order)}
             </h1>
             <StatusBadge status={order.status} labels={orderStatusLabels} />
+            <OrderProgressBars
+              plannedQuantity={order.plannedQuantity}
+              completedQuantity={order.completedQuantity}
+              shippedQuantity={order.shippedQuantity}
+            />
           </div>
           <p className="mt-2 text-sm text-slate-500">
             {order.notes || "无备注"}

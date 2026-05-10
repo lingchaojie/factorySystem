@@ -147,7 +147,14 @@ export async function listMachines(
           ]
         : undefined,
     },
-    include: { currentOrder: true, productionRecords: true },
+    include: {
+      currentOrder: {
+        include: {
+          productionRecords: true,
+        },
+      },
+      productionRecords: true,
+    },
     orderBy: { code: "asc" },
   });
 }

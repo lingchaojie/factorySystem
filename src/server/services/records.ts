@@ -220,7 +220,11 @@ export async function listProductionRecords(
     },
     include: {
       machine: true,
-      order: true,
+      order: {
+        include: {
+          productionRecords: true,
+        },
+      },
       createdByUser: true,
       updatedByUser: true,
     },

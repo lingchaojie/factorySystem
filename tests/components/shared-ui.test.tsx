@@ -163,6 +163,44 @@ describe("shared UI primitives", () => {
     expect(screen.getByText("完成")).toBeInTheDocument();
   });
 
+  it("renders shipped and completed quantity progress bars", async () => {
+    const { OrderProgressBars } = await import("@/components/order-progress-bars");
+
+    render(
+      <OrderProgressBars
+        plannedQuantity={100}
+        shippedQuantity={35}
+        completedQuantity={80}
+      />,
+    );
+
+    expect(screen.getByRole("progressbar", { name: "出货量进度" })).toHaveAttribute(
+      "aria-valuenow",
+      "35",
+    );
+    expect(screen.getByRole("progressbar", { name: "加工量进度" })).toHaveAttribute(
+      "aria-valuenow",
+      "80",
+    );
+    expect(screen.getByText("出货量 35 / 100")).toBeInTheDocument();
+    expect(screen.getByText("加工量 80 / 100")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /出货进度/ })).not.toBeInTheDocument();
+  });
+
+  it("hides order progress when an order has no plan", async () => {
+    const { OrderProgressBars } = await import("@/components/order-progress-bars");
+
+    const { container } = render(
+      <OrderProgressBars
+        plannedQuantity={null}
+        shippedQuantity={35}
+        completedQuantity={80}
+      />,
+    );
+
+    expect(container).toBeEmptyDOMElement();
+  });
+
   it("centers create dialogs in the viewport", async () => {
     const { CreateEntityDialog } = await import(
       "@/components/create-entity-dialog"

@@ -17,6 +17,10 @@ import {
   orderStatusLabels,
   StatusBadge,
 } from "@/components/status-badge";
+import {
+  OrderProgressBars,
+  summarizeProgressRecords,
+} from "@/components/order-progress-bars";
 import { businessTodayBounds } from "@/lib/business-time";
 import { requireUser } from "@/lib/auth";
 import { listMachines } from "@/server/services/machines";
@@ -188,7 +192,7 @@ export default async function MachinesPage({
                     </td>
                     <td className="px-4 py-4">
                       {machine.currentOrder ? (
-                        <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex flex-wrap items-start gap-2">
                           <Link
                             href={`/orders/${machine.currentOrder.id}`}
                             className="font-medium text-slate-950 underline-offset-4 hover:underline"
@@ -198,6 +202,12 @@ export default async function MachinesPage({
                           <StatusBadge
                             status={machine.currentOrder.status}
                             labels={orderStatusLabels}
+                          />
+                          <OrderProgressBars
+                            plannedQuantity={machine.currentOrder.plannedQuantity}
+                            {...summarizeProgressRecords(
+                              machine.currentOrder.productionRecords,
+                            )}
                           />
                         </div>
                       ) : (

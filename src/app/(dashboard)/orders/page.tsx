@@ -11,6 +11,7 @@ import {
   Textarea,
   TextInput,
 } from "@/components/forms";
+import { OrderProgressBars } from "@/components/order-progress-bars";
 import { orderStatusLabels, StatusBadge } from "@/components/status-badge";
 import { formatCnyFromCents, getOrderAmountCents } from "@/domain/money";
 import {
@@ -254,11 +255,18 @@ export default async function OrdersPage({
                         创建日期 {formatBusinessDate(order.createdAt)}
                       </div>
                     </td>
-                    <td className="whitespace-nowrap px-4 py-4">
-                      <StatusBadge
-                        status={order.status}
-                        labels={orderStatusLabels}
-                      />
+                    <td className="px-4 py-4">
+                      <div className="flex flex-wrap items-start gap-2">
+                        <StatusBadge
+                          status={order.status}
+                          labels={orderStatusLabels}
+                        />
+                        <OrderProgressBars
+                          plannedQuantity={order.plannedQuantity}
+                          completedQuantity={order.completedQuantity}
+                          shippedQuantity={order.shippedQuantity}
+                        />
+                      </div>
                     </td>
                     {canManageOrders ? (
                       <>

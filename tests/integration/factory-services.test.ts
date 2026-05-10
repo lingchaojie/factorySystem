@@ -959,5 +959,13 @@ describe("factory services", () => {
     const detail = await getOrderWithSummary(workspace.id, dueOrder.id);
     expect(detail.productionRecords[0].machine.code).toBe("5");
     expect(detail.currentMachines[0].code).toBe("5");
+
+    const records = await listProductionRecords(workspace.id, {});
+    expect(records[0].order.productionRecords).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: "completed", quantity: 6 }),
+        expect.objectContaining({ type: "shipped", quantity: 2 }),
+      ]),
+    );
   });
 });

@@ -61,3 +61,46 @@ describe("production deploy scripts", () => {
     expect(dockerfile).toContain("/etc/apk/repositories");
   });
 });
+
+describe("local maintenance scripts", () => {
+  it("exposes a non-destructive drawing file repair command", async () => {
+    const [packageJson, script] = await Promise.all([
+      readFile("package.json", "utf8"),
+      readFile("scripts/repair-local-drawings.ts", "utf8"),
+    ]);
+    const pkg = JSON.parse(packageJson) as {
+      scripts: Record<string, string>;
+    };
+
+    expect(pkg.scripts["local:repair-drawings"]).toBe(
+      "tsx scripts/repair-local-drawings.ts",
+    );
+    expect(script).toContain("prisma.orderDrawing.findMany");
+    expect(script).toContain("access(filePath)");
+    expect(script).toContain("writeFile(filePath");
+    expect(script).toContain("Missing drawing files repaired");
+    expect(script).not.toContain("rm(");
+  });
+});
+
+describe("production data cleanup scripts", () => {
+  it("clears factory machines and orders without deleting accounts", async () => {
+    const script = await readFile(
+      "scripts/clear-production-factory-data.sh",
+      "utf8",
+    );
+
+    expect(script).toContain("CLEAR_FACTORY_DATA");
+    expect(script).toContain("pg_dump");
+    expect(script).toContain("Stopping web service before clearing factory data");
+    expect(script).toContain('"ProductionRecord"');
+    expect(script).toContain('"OrderDrawing"');
+    expect(script).toContain('"Machine"');
+    expect(script).toContain('"Order"');
+    expect(script).toContain("Clearing uploaded drawing files volume");
+    expect(script).not.toContain('"User"');
+    expect(script).not.toContain('"Workspace"');
+    expect(script).not.toContain('"PlatformAdmin"');
+    expect(script).not.toContain('"Session"');
+  });
+});

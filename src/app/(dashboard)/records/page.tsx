@@ -15,6 +15,10 @@ import {
   Textarea,
   TextInput,
 } from "@/components/forms";
+import {
+  OrderProgressBars,
+  summarizeProgressRecords,
+} from "@/components/order-progress-bars";
 import { orderStatusLabels, StatusBadge } from "@/components/status-badge";
 import {
   formatBusinessDateTime,
@@ -218,6 +222,12 @@ export default async function RecordsPage({
                           <StatusBadge
                             status={record.order.status}
                             labels={recordOrderStatusLabels}
+                          />
+                          <OrderProgressBars
+                            plannedQuantity={record.order.plannedQuantity}
+                            {...summarizeProgressRecords(
+                              record.order.productionRecords,
+                            )}
                           />
                         </dd>
                       </div>

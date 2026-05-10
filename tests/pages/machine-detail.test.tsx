@@ -254,7 +254,7 @@ describe("machine detail page", () => {
     );
   });
 
-  it("shows shipped progress for the current in-progress order", async () => {
+  it("shows shipped and completed progress for the current order regardless of status", async () => {
     workspaceMock.requireWorkspaceId.mockResolvedValue("workspace-1");
     ordersMock.listOrders.mockResolvedValue([]);
     machinesMock.getMachine.mockResolvedValue({
@@ -272,7 +272,7 @@ describe("machine detail page", () => {
         customerName: "甲方工厂",
         partName: "法兰",
         plannedQuantity: 100,
-        status: "in_progress",
+        status: "completed",
         productionRecords: [
           { type: "completed", quantity: 80 },
           { type: "shipped", quantity: 35 },
@@ -287,12 +287,16 @@ describe("machine detail page", () => {
       }),
     );
 
-    const progress = screen.getByRole("progressbar", {
-      name: "当前订单出货进度",
-    });
-    expect(progress).toHaveAttribute("aria-valuenow", "35");
-    expect(progress).toHaveAttribute("title", "出货 35 / 100");
-    expect(screen.getByText("35% 出货 35 / 100")).toBeInTheDocument();
+    expect(screen.getByRole("progressbar", { name: "出货量进度" })).toHaveAttribute(
+      "aria-valuenow",
+      "35",
+    );
+    expect(screen.getByRole("progressbar", { name: "加工量进度" })).toHaveAttribute(
+      "aria-valuenow",
+      "80",
+    );
+    expect(screen.getByText("出货量 35 / 100")).toBeInTheDocument();
+    expect(screen.getByText("加工量 80 / 100")).toBeInTheDocument();
   });
 
   it("allows employees to edit existing machines but hides machine deletion", async () => {

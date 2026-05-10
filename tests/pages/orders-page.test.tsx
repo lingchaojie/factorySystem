@@ -178,6 +178,16 @@ describe("orders page", () => {
     expect(screen.queryByText("ORD-20260510-0001")).not.toBeInTheDocument();
     expect(screen.getByText(/12\.34/)).toBeInTheDocument();
     expect(screen.getByText(/1,234\.00/)).toBeInTheDocument();
+    expect(screen.getByRole("progressbar", { name: "出货量进度" })).toHaveAttribute(
+      "aria-valuenow",
+      "10",
+    );
+    expect(screen.getByRole("progressbar", { name: "加工量进度" })).toHaveAttribute(
+      "aria-valuenow",
+      "20",
+    );
+    expect(screen.getByText("出货量 10 / 100")).toBeInTheDocument();
+    expect(screen.getByText("加工量 20 / 100")).toBeInTheDocument();
   });
 
   it("renders blank optional planned quantities as dashes", async () => {
@@ -210,6 +220,8 @@ describe("orders page", () => {
     const row = screen.getByRole("row", { name: /甲方工厂 \/ 法兰/ });
     expect(row).toHaveTextContent("待开发");
     expect(row).toHaveTextContent("-");
+    expect(screen.queryByRole("progressbar", { name: "出货量进度" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("progressbar", { name: "加工量进度" })).not.toBeInTheDocument();
   });
 
   it("hides order creation and price columns from employee users", async () => {
@@ -317,6 +329,16 @@ describe("orders page", () => {
     expect(screen.getByLabelText("计划数量")).toHaveValue(100);
     expect(screen.getByLabelText("单价（元/件）")).toHaveValue(12.34);
     expect(screen.getByLabelText("订单状态")).toHaveValue("development_pending");
+    expect(screen.getByRole("progressbar", { name: "出货量进度" })).toHaveAttribute(
+      "aria-valuenow",
+      "10",
+    );
+    expect(screen.getByRole("progressbar", { name: "加工量进度" })).toHaveAttribute(
+      "aria-valuenow",
+      "20",
+    );
+    expect(screen.getByText("出货量 10 / 100")).toBeInTheDocument();
+    expect(screen.getByText("加工量 20 / 100")).toBeInTheDocument();
     expect(screen.queryByText("上传文件")).not.toBeInTheDocument();
     expect(screen.queryByText("上传文件夹")).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: /fixture$/ })).toHaveAttribute(
