@@ -80,6 +80,26 @@ Archive uploaded drawings:
 sudo docker run --rm -v factory-system-order-drawings-data:/data -v "$PWD":/backup alpine tar czf /backup/order-drawings-$(date +%F).tgz -C /data .
 ```
 
+## Clear Production Data
+
+The repository includes a guarded production clear script. It creates a database backup first, stops the web service, clears data, and starts services again.
+
+Clear only business data while keeping the bootstrap workspace/user:
+
+```bash
+cd /opt/factory-system/app
+scripts/clear-production-db.sh --confirm CLEAR_PRODUCTION_DB
+```
+
+Fully reset app data, including users/workspaces, then recreate the bootstrap account from `deploy/production/.env.production`:
+
+```bash
+cd /opt/factory-system/app
+scripts/clear-production-db.sh --mode all --confirm CLEAR_PRODUCTION_DB
+```
+
+By default the script also clears uploaded drawing files, because drawing metadata is removed from the database. Add `--keep-drawings` to keep the files volume.
+
 ## Restore Notes
 
 Restore database dumps only after stopping the `web` service:
