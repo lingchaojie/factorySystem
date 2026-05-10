@@ -174,10 +174,18 @@ export default async function OrdersPage({
                   <th className="whitespace-nowrap px-4 py-3">状态</th>
                   <th className="px-4 py-3 text-right">单价</th>
                   <th className="px-4 py-3 text-right">金额</th>
-                  <th className="px-4 py-3 text-right">计划</th>
-                  <th className="px-4 py-3 text-right">加工</th>
-                  <th className="px-4 py-3 text-right">出货</th>
-                  <th className="px-4 py-3 text-right">剩余</th>
+                  <th className="whitespace-nowrap px-4 py-3 text-right">
+                    计划
+                  </th>
+                  <th className="whitespace-nowrap px-4 py-3 text-right">
+                    加工
+                  </th>
+                  <th className="whitespace-nowrap px-4 py-3 text-right">
+                    出货
+                  </th>
+                  <th className="whitespace-nowrap px-4 py-3 text-right">
+                    剩余
+                  </th>
                   <th className="whitespace-nowrap px-4 py-3">提示</th>
                   <th className="whitespace-nowrap px-4 py-3 text-right">
                     操作
@@ -218,16 +226,16 @@ export default async function OrdersPage({
                         ),
                       )}
                     </td>
-                    <td className="px-4 py-4 text-right font-medium text-slate-950">
+                    <td className="whitespace-nowrap px-4 py-4 text-right font-medium text-slate-950">
                       {order.plannedQuantity}
                     </td>
-                    <td className="px-4 py-4 text-right font-medium text-slate-950">
+                    <td className="whitespace-nowrap px-4 py-4 text-right font-medium text-slate-950">
                       {order.completedQuantity}
                     </td>
-                    <td className="px-4 py-4 text-right font-medium text-slate-950">
+                    <td className="whitespace-nowrap px-4 py-4 text-right font-medium text-slate-950">
                       {order.shippedQuantity}
                     </td>
-                    <td className="px-4 py-4 text-right font-medium text-slate-950">
+                    <td className="whitespace-nowrap px-4 py-4 text-right font-medium text-slate-950">
                       {order.remainingQuantity}
                     </td>
                     <td className="px-4 py-4">

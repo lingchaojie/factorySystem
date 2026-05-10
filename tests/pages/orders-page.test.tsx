@@ -60,6 +60,12 @@ describe("orders page", () => {
     ).toBeInTheDocument();
     expect(container.querySelector("dialog")).toBeInTheDocument();
     expect(container.querySelector("aside")).not.toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "加工" })).toHaveClass(
+      "whitespace-nowrap",
+    );
+    expect(screen.getByRole("columnheader", { name: "出货" })).toHaveClass(
+      "whitespace-nowrap",
+    );
     expect(screen.queryByLabelText("订单号")).not.toBeInTheDocument();
     expect(screen.getByLabelText("单价（元/件）")).toBeInTheDocument();
     expect(screen.getByText(/12\.34/)).toBeInTheDocument();

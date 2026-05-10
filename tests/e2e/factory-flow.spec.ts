@@ -152,17 +152,18 @@ async function expectOrderSummary(
 test("factory order, machine, production, and deletion flow updates totals", async ({
   page,
 }, testInfo) => {
-  const suffix = `${testInfo.project.name}-${Date.now()}-${testInfo.workerIndex}`;
+  const projectCode = testInfo.project.name === "mobile-chrome" ? "m" : "d";
+  const suffix = `${projectCode}${Date.now().toString(36).slice(-5)}${testInfo.workerIndex}`;
   const order = {
-    customerName: `E2E Customer ${suffix}`,
-    partName: `E2E Part ${suffix}`,
+    customerName: `客户${suffix}`,
+    partName: `工件${suffix}`,
     unitPrice: "12.34",
   };
   const machine = {
-    code: `E2E-MACHINE-${suffix}`,
+    code: `M${suffix}`,
   };
-  const firstRecord = { completed: "60", shipped: "20", notes: `E2E record 1 ${suffix}` };
-  const secondRecord = { completed: "50", shipped: "90", notes: `E2E record 2 ${suffix}` };
+  const firstRecord = { completed: "60", shipped: "20", notes: `记录1-${suffix}` };
+  const secondRecord = { completed: "50", shipped: "90", notes: `记录2-${suffix}` };
 
   await login(page);
   const orderNo = await createOrder(page, order);

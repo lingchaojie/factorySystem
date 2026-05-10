@@ -50,5 +50,11 @@ describe("machines page", () => {
     expect(screen.queryByLabelText("位置")).not.toBeInTheDocument();
     expect(container.querySelector("aside")).not.toBeInTheDocument();
     expect(container.querySelector("table")).toBeInTheDocument();
+    expect(
+      screen.getByRole("columnheader", { name: "今日加工" }),
+    ).toHaveClass("whitespace-nowrap");
+    expect(
+      screen.getByRole("columnheader", { name: "今日出货" }),
+    ).toHaveClass("whitespace-nowrap");
   });
 });

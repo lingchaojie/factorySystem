@@ -28,7 +28,7 @@ export function CreateEntityDialog({
       </button>
       <dialog
         ref={dialogRef}
-        className="w-[min(92vw,520px)] rounded-lg border border-slate-200 bg-white p-0 text-slate-950 shadow-xl backdrop:bg-slate-950/30"
+        className="fixed left-1/2 top-1/2 max-h-[90vh] w-[min(92vw,520px)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg border border-slate-200 bg-white p-0 text-slate-950 shadow-xl backdrop:bg-slate-950/30"
       >
         <div className="flex items-center justify-between gap-4 border-b border-slate-200 px-5 py-4">
           <h2 className="text-base font-semibold text-slate-950">{title}</h2>

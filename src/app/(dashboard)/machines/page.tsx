@@ -134,8 +134,12 @@ export default async function MachinesPage({
                   <th className="px-4 py-3">机器</th>
                   <th className="whitespace-nowrap px-4 py-3">状态</th>
                   <th className="px-4 py-3">当前订单</th>
-                  <th className="px-4 py-3 text-right">今日加工</th>
-                  <th className="px-4 py-3 text-right">今日出货</th>
+                  <th className="whitespace-nowrap px-4 py-3 text-right">
+                    今日加工
+                  </th>
+                  <th className="whitespace-nowrap px-4 py-3 text-right">
+                    今日出货
+                  </th>
                   <th className="whitespace-nowrap px-4 py-3 text-right">
                     操作
                   </th>
@@ -178,10 +182,10 @@ export default async function MachinesPage({
                         <span className="text-slate-400">未关联订单</span>
                       )}
                     </td>
-                    <td className="px-4 py-4 text-right font-medium text-slate-950">
+                    <td className="whitespace-nowrap px-4 py-4 text-right font-medium text-slate-950">
                       {machine.todayCompletedQuantity}
                     </td>
-                    <td className="px-4 py-4 text-right font-medium text-slate-950">
+                    <td className="whitespace-nowrap px-4 py-4 text-right font-medium text-slate-950">
                       {machine.todayShippedQuantity}
                     </td>
                     <td className="whitespace-nowrap px-4 py-4 text-right">

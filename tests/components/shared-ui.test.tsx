@@ -96,4 +96,24 @@ describe("shared UI primitives", () => {
     expect(screen.getByText("正常")).toBeInTheDocument();
     expect(screen.getByText("已结单")).toBeInTheDocument();
   });
+
+  it("centers create dialogs in the viewport", async () => {
+    const { CreateEntityDialog } = await import(
+      "@/components/create-entity-dialog"
+    );
+    const { container } = render(
+      <CreateEntityDialog buttonLabel="新增机器" title="新增机器">
+        <div>form content</div>
+      </CreateEntityDialog>,
+    );
+
+    expect(screen.getByRole("button", { name: "新增机器" })).toBeInTheDocument();
+    expect(container.querySelector("dialog")).toHaveClass(
+      "fixed",
+      "left-1/2",
+      "top-1/2",
+      "-translate-x-1/2",
+      "-translate-y-1/2",
+    );
+  });
 });
