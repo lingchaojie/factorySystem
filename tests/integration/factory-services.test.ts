@@ -20,6 +20,7 @@ import {
   deleteOrder,
   getOrderWithSummary,
   listOrders,
+  updateOrderDetails,
   updateOrderStatus,
 } from "@/server/services/orders";
 import {
@@ -104,6 +105,47 @@ describe("factory services", () => {
     expect(first.unitPriceCents).toBe(1250);
     expect(second.plannedQuantity).toBeNull();
     expect(second.unitPriceCents).toBeNull();
+  });
+
+  it("tracks order creator and last editor users", async () => {
+    const workspace = await createWorkspace();
+    const user = await prisma.user.create({
+      data: {
+        workspaceId: workspace.id,
+        username: `manager-${randomUUID()}`,
+        displayName: "王经理",
+        role: "manager",
+        passwordHash: "test-password-hash",
+      },
+    });
+
+    const order = await createOrder(workspace.id, {
+      actorUserId: user.id,
+      customerName: "甲方工厂",
+      partName: "法兰盘",
+      plannedQuantity: 100,
+      unitPriceCents: 1250,
+      dueDate: null,
+      notes: "",
+    });
+
+    expect(order.createdByUserId).toBe(user.id);
+    expect(order.updatedByUserId).toBe(user.id);
+
+    await updateOrderDetails(workspace.id, order.id, {
+      actorUserId: user.id,
+      customerName: "甲方工厂",
+      partName: "法兰盘改",
+      plannedQuantity: 120,
+      unitPriceCents: 1300,
+      dueDate: null,
+      status: "in_progress",
+      notes: "",
+    });
+
+    const detail = await getOrderWithSummary(workspace.id, order.id);
+    expect(detail.createdByUser?.displayName).toBe("王经理");
+    expect(detail.updatedByUser?.displayName).toBe("王经理");
   });
 
   it("updates machine status and notes", async () => {

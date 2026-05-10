@@ -59,6 +59,8 @@ model User {
   sessions                 Session[]
   createdProductionRecords ProductionRecord[] @relation("ProductionRecordCreatedBy")
   updatedProductionRecords ProductionRecord[] @relation("ProductionRecordUpdatedBy")
+  createdOrders            Order[]            @relation("OrderCreatedBy")
+  updatedOrders            Order[]            @relation("OrderUpdatedBy")
 
   @@unique([username])
   @@unique([workspaceId, username])
@@ -138,10 +140,14 @@ model Order {
   status          OrderStatus @default(development_pending)
   notes           String?
   closedAt        DateTime?
+  createdByUserId String?
+  updatedByUserId String?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 
   workspace         Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdByUser     User?              @relation("OrderCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  updatedByUser     User?              @relation("OrderUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
   currentMachines   Machine[]          @relation("CurrentMachineOrder")
   drawings          OrderDrawing[]
   productionRecords ProductionRecord[]
@@ -153,6 +159,8 @@ model Order {
   @@index([workspaceId, customerName])
   @@index([workspaceId, dueDate])
   @@index([workspaceId, createdAt])
+  @@index([createdByUserId])
+  @@index([updatedByUserId])
 }
 
 model OrderDrawing {

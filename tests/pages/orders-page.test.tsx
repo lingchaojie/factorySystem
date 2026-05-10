@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import OrderDetailPage from "@/app/(dashboard)/orders/[id]/page";
 import OrdersPage from "@/app/(dashboard)/orders/page";
@@ -280,6 +280,16 @@ describe("orders page", () => {
       closedAt: null,
       createdAt: new Date("2026-05-10T00:00:00.000Z"),
       updatedAt: new Date("2026-05-10T00:00:00.000Z"),
+      createdByUser: {
+        id: "user-1",
+        username: "manager",
+        displayName: "王经理",
+      },
+      updatedByUser: {
+        id: "user-2",
+        username: "planner",
+        displayName: "李计划",
+      },
       completedQuantity: 20,
       shippedQuantity: 10,
       remainingQuantity: 90,
@@ -324,6 +334,10 @@ describe("orders page", () => {
     expect(screen.queryByText("ORD-20260510-0001")).not.toBeInTheDocument();
     expect(screen.queryByText("订单号")).not.toBeInTheDocument();
     expect(screen.getByText("创建日期")).toBeInTheDocument();
+    expect(screen.getByText("创建人")).toBeInTheDocument();
+    expect(screen.getByText("王经理")).toBeInTheDocument();
+    expect(screen.getByText("上次修改人")).toBeInTheDocument();
+    expect(screen.getByText("李计划")).toBeInTheDocument();
     expect(screen.getByLabelText("客户名称")).toHaveValue("甲方工厂");
     expect(screen.getByLabelText("工件名称")).toHaveValue("法兰");
     expect(screen.getByLabelText("计划数量")).toHaveValue(100);
@@ -348,6 +362,78 @@ describe("orders page", () => {
     expect(
       screen.getByRole("link", { name: /fixture\.step/ }),
     ).toHaveAttribute("href", "/api/order-drawings/drawing-1");
+  });
+
+  it("sorts and filters order detail production records by machine", async () => {
+    ordersMock.getOrderWithSummary.mockResolvedValue({
+      id: "order-1",
+      orderNo: "ORD-20260510-0001",
+      customerName: "甲方工厂",
+      partName: "法兰",
+      plannedQuantity: 100,
+      unitPriceCents: 1234,
+      dueDate: null,
+      status: "in_progress",
+      notes: null,
+      closedAt: null,
+      createdAt: new Date("2026-05-10T00:00:00.000Z"),
+      updatedAt: new Date("2026-05-10T00:00:00.000Z"),
+      createdByUser: null,
+      updatedByUser: null,
+      completedQuantity: 20,
+      shippedQuantity: 10,
+      remainingQuantity: 90,
+      isOverPlanned: false,
+      canClose: false,
+      currentMachines: [],
+      productionRecords: [
+        {
+          id: "record-old",
+          recordedAt: new Date("2026-05-10T08:00:00.000Z"),
+          type: "completed",
+          quantity: 10,
+          notes: "旧记录",
+          machineId: "machine-1",
+          machine: { id: "machine-1", code: "1号机", name: "1号机" },
+          createdByUser: null,
+          updatedByUser: null,
+        },
+        {
+          id: "record-new",
+          recordedAt: new Date("2026-05-10T10:00:00.000Z"),
+          type: "shipped",
+          quantity: 5,
+          notes: "新记录",
+          machineId: "machine-2",
+          machine: { id: "machine-2", code: "2号机", name: "2号机" },
+          createdByUser: null,
+          updatedByUser: null,
+        },
+      ],
+      drawings: [],
+    });
+
+    render(
+      await OrderDetailPage({
+        params: Promise.resolve({ id: "order-1" }),
+        searchParams: Promise.resolve({ machineId: "machine-2" }),
+      }),
+    );
+
+    expect(
+      screen.getByRole("link", { name: "记录时间倒序，点击切换为正序" }),
+    ).toHaveAttribute(
+      "href",
+      "/orders/order-1?machineId=machine-2&recordSort=recordedAt&recordDirection=asc",
+    );
+    expect(
+      screen.getByRole("button", { name: "机器：2号机" }),
+    ).toBeInTheDocument();
+    const rows = screen.getAllByRole("row").slice(1);
+    expect(rows).toHaveLength(1);
+    expect(within(rows[0]).getByText("2号机")).toBeInTheDocument();
+    expect(within(rows[0]).getByText("新记录")).toBeInTheDocument();
+    expect(screen.queryByText("旧记录")).not.toBeInTheDocument();
   });
 
   it("hides order price and mutation controls from employee users on detail", async () => {

@@ -57,6 +57,7 @@ describe("order actions", () => {
     await createOrderAction(form);
 
     expect(ordersMock.createOrder).toHaveBeenCalledWith("workspace-1", {
+      actorUserId: "user-1",
       customerName: " 甲方工厂 ",
       partName: " 法兰盘 ",
       plannedQuantity: 25,
@@ -81,6 +82,7 @@ describe("order actions", () => {
     await createOrderAction(form);
 
     expect(ordersMock.createOrder).toHaveBeenCalledWith("workspace-1", {
+      actorUserId: "user-1",
       customerName: "甲方工厂",
       partName: "法兰盘",
       plannedQuantity: null,
@@ -104,6 +106,7 @@ describe("order actions", () => {
     await createOrderAction(form);
 
     expect(ordersMock.createOrder).toHaveBeenCalledWith("workspace-1", {
+      actorUserId: "user-1",
       customerName: "甲方工厂",
       partName: "法兰盘",
       plannedQuantity: null,
@@ -162,6 +165,7 @@ describe("order actions", () => {
       "workspace-1",
       "order-1",
       "completed",
+      "user-1",
     );
     expect(cacheMock.revalidatePath).toHaveBeenCalledWith("/orders");
     expect(cacheMock.revalidatePath).toHaveBeenCalledWith("/orders/order-1");
@@ -186,6 +190,7 @@ describe("order actions", () => {
       "workspace-1",
       "order-1",
       {
+        actorUserId: "user-1",
         customerName: " 甲方新厂 ",
         partName: " 新法兰 ",
         plannedQuantity: 50,

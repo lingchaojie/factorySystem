@@ -78,6 +78,7 @@ export async function createOrderAction(formData: FormData) {
   const machineIds = getMachineIds(formData);
 
   const created = await createOrder(user.workspaceId, {
+    actorUserId: user.id,
     customerName: getString(formData, "customerName"),
     partName: getString(formData, "partName"),
     plannedQuantity: parseOptionalPositiveQuantity(
@@ -100,7 +101,7 @@ export async function updateOrderStatusAction(formData: FormData) {
   const orderId = getOrderId(formData);
   const status = parseOrderStatus(formData.get("status"));
 
-  await updateOrderStatus(user.workspaceId, orderId, status);
+  await updateOrderStatus(user.workspaceId, orderId, status, user.id);
 
   revalidatePath("/orders");
   revalidatePath(`/orders/${orderId}`);
@@ -112,6 +113,7 @@ export async function updateOrderDetailsAction(formData: FormData) {
   const orderId = getOrderId(formData);
 
   await updateOrderDetails(user.workspaceId, orderId, {
+    actorUserId: user.id,
     customerName: getString(formData, "customerName"),
     partName: getString(formData, "partName"),
     plannedQuantity: parseOptionalPositiveQuantity(

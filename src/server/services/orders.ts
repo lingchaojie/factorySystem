@@ -9,6 +9,7 @@ import {
 import { deleteOrderDrawingDirectory } from "@/server/services/order-drawings";
 
 export type CreateOrderInput = {
+  actorUserId?: string;
   customerName: string;
   partName: string;
   plannedQuantity: number | null;
@@ -138,6 +139,8 @@ export async function createOrder(workspaceId: string, input: CreateOrderInput) 
         const order = await tx.order.create({
           data: {
             workspaceId,
+            createdByUserId: input.actorUserId,
+            updatedByUserId: input.actorUserId,
             customerName: input.customerName.trim(),
             orderNo: formatOrderNo(prefix, sequence),
             partName: input.partName.trim(),
@@ -172,6 +175,8 @@ export async function getOrderWithSummary(workspaceId: string, orderId: string) 
     where: { id: orderId, workspaceId },
     include: {
       currentMachines: true,
+      createdByUser: true,
+      updatedByUser: true,
       drawings: { orderBy: { createdAt: "desc" } },
       productionRecords: {
         include: {
@@ -285,6 +290,7 @@ export async function updateOrderStatus(
   workspaceId: string,
   orderId: string,
   status: OrderStatus,
+  actorUserId?: string,
 ) {
   if (!orderStatuses.has(status)) {
     throw new Error("订单状态无效");
@@ -298,6 +304,7 @@ export async function updateOrderStatus(
     where: { id: order.id },
     data: {
       status,
+      updatedByUserId: actorUserId,
       closedAt: status === "completed" ? new Date() : null,
     },
   });
@@ -332,6 +339,7 @@ export async function updateOrderDetails(
       dueDate: input.dueDate,
       status: input.status,
       notes: input.notes.trim() || null,
+      updatedByUserId: input.actorUserId,
       closedAt:
         input.status === "completed" ? (order.closedAt ?? new Date()) : null,
     },

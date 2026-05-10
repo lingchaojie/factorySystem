@@ -8,6 +8,7 @@ import {
 import { CreateEntityDialog } from "@/components/create-entity-dialog";
 import {
   DateInput,
+  MultiSelectInput,
   NumberInput,
   SelectInput,
   SubmitButton,
@@ -49,7 +50,9 @@ function formatOrderTitle(order: { customerName: string; partName: string }) {
   return `${order.customerName} / ${order.partName}`;
 }
 
-function formatUser(user: { displayName: string; username: string } | null) {
+function formatUser(
+  user: { displayName: string; username: string } | null | undefined,
+) {
   return user ? user.displayName || user.username : "-";
 }
 
@@ -70,6 +73,108 @@ const recordTypeLabels = {
   completed: "加工",
   shipped: "出货",
 } as const;
+
+type RecordDirection = "asc" | "desc";
+
+function parseRecordDirection(
+  value: string | string[] | undefined,
+): RecordDirection {
+  return value === "asc" ? "asc" : "desc";
+}
+
+function uniqueValues(
+  value: string | string[] | undefined,
+  allowedValues: Set<string>,
+) {
+  const values = Array.isArray(value) ? value : value ? [value] : [];
+  const selected: string[] = [];
+  const seen = new Set<string>();
+
+  for (const item of values) {
+    const normalized = item.trim();
+    if (!normalized || seen.has(normalized) || !allowedValues.has(normalized)) {
+      continue;
+    }
+    selected.push(normalized);
+    seen.add(normalized);
+  }
+
+  return selected;
+}
+
+function sortProductionRecords<
+  T extends { recordedAt: Date; machine: { code: string } },
+>(records: T[], direction: RecordDirection) {
+  return [...records].sort((a, b) => {
+    const comparison =
+      a.recordedAt.getTime() - b.recordedAt.getTime() ||
+      a.machine.code.localeCompare(b.machine.code, "zh-CN");
+
+    return direction === "asc" ? comparison : -comparison;
+  });
+}
+
+function buildRecordSortHref({
+  orderId,
+  machineIds,
+  currentDirection,
+}: {
+  orderId: string;
+  machineIds: string[];
+  currentDirection: RecordDirection;
+}) {
+  const params = new URLSearchParams();
+  for (const machineId of machineIds) {
+    params.append("machineId", machineId);
+  }
+  params.set("recordSort", "recordedAt");
+  params.set(
+    "recordDirection",
+    currentDirection === "asc" ? "desc" : "asc",
+  );
+  return `/orders/${orderId}?${params.toString()}`;
+}
+
+function SortableRecordTimeHeader({
+  orderId,
+  machineIds,
+  currentDirection,
+}: {
+  orderId: string;
+  machineIds: string[];
+  currentDirection: RecordDirection;
+}) {
+  const nextDirection = currentDirection === "asc" ? "倒序" : "正序";
+
+  return (
+    <Link
+      href={buildRecordSortHref({ orderId, machineIds, currentDirection })}
+      aria-label={`记录时间${currentDirection === "asc" ? "正序" : "倒序"}，点击切换为${nextDirection}`}
+      className="inline-flex items-center gap-1 rounded-sm text-slate-600 transition hover:text-slate-950 focus:outline-none focus:ring-2 focus:ring-slate-300"
+    >
+      <span aria-hidden="true">记录时间</span>
+      <span
+        aria-hidden="true"
+        className="inline-flex flex-col text-[9px] leading-[8px]"
+      >
+        <span
+          className={
+            currentDirection === "asc" ? "text-slate-950" : "text-slate-300"
+          }
+        >
+          ▲
+        </span>
+        <span
+          className={
+            currentDirection === "desc" ? "text-slate-950" : "text-slate-300"
+          }
+        >
+          ▼
+        </span>
+      </span>
+    </Link>
+  );
+}
 
 function formatQuantity(value: number | string | null) {
   return value === null ? "-" : value;
@@ -205,14 +310,48 @@ function DrawingTree({
 
 export default async function OrderDetailPage({
   params,
+  searchParams = Promise.resolve({}),
 }: {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<{
+    machineId?: string | string[];
+    recordSort?: string | string[];
+    recordDirection?: string | string[];
+  }>;
 }) {
   const { id } = await params;
+  const recordParams = await searchParams;
   const user = await requireUser();
   const canManageOrders = user.role === "manager";
   const order = await getOrderWithSummary(user.workspaceId, id);
   const drawingTree = buildDrawingTree(order.drawings);
+  const recordDirection = parseRecordDirection(recordParams.recordDirection);
+  const machineOptions = Array.from(
+    new Map(
+      order.productionRecords.map((record) => [
+        record.machine.id,
+        {
+          value: record.machine.id,
+          label: record.machine.code,
+        },
+      ]),
+    ).values(),
+  ).sort((left, right) => left.label.localeCompare(right.label, "zh-CN"));
+  const selectedMachineIds = uniqueValues(
+    recordParams.machineId,
+    new Set(machineOptions.map((option) => option.value)),
+  );
+  const selectedMachineSet = new Set(selectedMachineIds);
+  const filteredProductionRecords =
+    selectedMachineSet.size > 0
+      ? order.productionRecords.filter((record) =>
+          selectedMachineSet.has(record.machine.id),
+        )
+      : order.productionRecords;
+  const productionRecords = sortProductionRecords(
+    filteredProductionRecords,
+    recordDirection,
+  );
 
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-6">
@@ -351,6 +490,18 @@ export default async function OrderDetailPage({
                   {formatBusinessDate(order.createdAt)}
                 </dd>
               </div>
+              <div>
+                <dt className="text-slate-500">创建人</dt>
+                <dd className="mt-1 text-slate-950">
+                  {formatUser(order.createdByUser)}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-slate-500">上次修改人</dt>
+                <dd className="mt-1 text-slate-950">
+                  {formatUser(order.updatedByUser)}
+                </dd>
+              </div>
               {canManageOrders ? (
                 <>
                   <div>
@@ -435,21 +586,56 @@ export default async function OrderDetailPage({
           </section>
 
           <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
-            <div className="border-b border-slate-200 px-5 py-4">
+            <div className="flex flex-col gap-3 border-b border-slate-200 px-5 py-4 lg:flex-row lg:items-end lg:justify-between">
               <h2 className="text-base font-semibold text-slate-950">
                 生产记录
               </h2>
+              {machineOptions.length > 0 ? (
+                <form
+                  action={`/orders/${order.id}`}
+                  className="grid gap-3 sm:grid-cols-[minmax(180px,260px)_auto]"
+                >
+                  <input type="hidden" name="recordSort" value="recordedAt" />
+                  <input
+                    type="hidden"
+                    name="recordDirection"
+                    value={recordDirection}
+                  />
+                  <MultiSelectInput
+                    label="机器"
+                    id="orderRecordMachineFilter"
+                    name="machineId"
+                    selectedValues={selectedMachineIds}
+                    options={machineOptions}
+                  />
+                  <div className="flex items-end">
+                    <SubmitButton className="w-full sm:w-auto">
+                      筛选
+                    </SubmitButton>
+                  </div>
+                </form>
+              ) : null}
             </div>
             {order.productionRecords.length === 0 ? (
               <div className="p-8 text-center text-sm text-slate-500">
                 当前订单还没有生产记录。
+              </div>
+            ) : productionRecords.length === 0 ? (
+              <div className="p-8 text-center text-sm text-slate-500">
+                当前筛选条件下没有生产记录。
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-slate-200 text-sm">
                   <thead className="bg-slate-50 text-left text-xs font-medium uppercase text-slate-500">
                     <tr>
-                      <th className="px-4 py-3">记录时间</th>
+                      <th className="px-4 py-3">
+                        <SortableRecordTimeHeader
+                          orderId={order.id}
+                          machineIds={selectedMachineIds}
+                          currentDirection={recordDirection}
+                        />
+                      </th>
                       <th className="px-4 py-3">机器</th>
                       <th className="whitespace-nowrap px-4 py-3">类型</th>
                       <th className="whitespace-nowrap px-4 py-3 text-right">
@@ -461,7 +647,7 @@ export default async function OrderDetailPage({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 bg-white">
-                    {order.productionRecords.map((record) => (
+                    {productionRecords.map((record) => (
                       <tr key={record.id}>
                         <td className="whitespace-nowrap px-4 py-4 text-slate-950">
                           {formatBusinessDateTime(record.recordedAt)}
