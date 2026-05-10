@@ -41,6 +41,7 @@ describe("records filters", () => {
       to: ["2026-05-03", "2026-05-04"],
       type: [" shipped ", "completed"],
       orderId: [" order-1 ", "order-2", ""],
+      orderQuery: [" 甲方 / 法兰 ", "乙方 / 底座"],
       customerName: [" Acme ", "Other"],
       status: ["completed", "in_progress"],
     });
@@ -49,6 +50,7 @@ describe("records filters", () => {
     expect(filters.recordTypes).toEqual(["shipped", "completed"]);
     expect(filters.orderId).toBe("order-1");
     expect(filters.orderIds).toEqual(["order-1", "order-2"]);
+    expect(filters.orderQuery).toBe("甲方 / 法兰");
     expect(filters.customerName).toBe("Acme");
     expect(filters.orderStatus).toBe("completed");
     expect(filters.orderStatuses).toEqual(["completed", "in_progress"]);
@@ -80,6 +82,7 @@ describe("records page", () => {
     );
 
     expect(machinesMock.listMachines).not.toHaveBeenCalled();
+    expect(ordersMock.listOrders).not.toHaveBeenCalled();
     expect(recordsMock.listProductionRecords).toHaveBeenCalledWith(
       "workspace-1",
       expect.objectContaining({ type: "completed" }),
@@ -111,29 +114,15 @@ describe("records page", () => {
     expect(orderBlock).toHaveTextContent("订单：进行中");
   });
 
-  it("passes multiple record type, order, and status filters", async () => {
+  it("passes record type, order search, and status filters", async () => {
     workspaceMock.requireWorkspaceId.mockResolvedValue("workspace-1");
-    ordersMock.listOrders.mockResolvedValue([
-      {
-        id: "order-1",
-        orderNo: "MO-1",
-        customerName: "甲方",
-        partName: "法兰",
-      },
-      {
-        id: "order-2",
-        orderNo: "MO-2",
-        customerName: "乙方",
-        partName: "底座",
-      },
-    ]);
     recordsMock.listProductionRecords.mockResolvedValue([]);
 
     render(
       await RecordsPage({
         searchParams: Promise.resolve({
           type: ["completed", "shipped"],
-          orderId: ["order-1", "order-2"],
+          orderQuery: "甲方 / 法兰",
           status: ["in_progress", "completed"],
         }),
       }),
@@ -143,16 +132,15 @@ describe("records page", () => {
       "workspace-1",
       expect.objectContaining({
         types: ["completed", "shipped"],
-        orderIds: ["order-1", "order-2"],
+        orderQuery: "甲方 / 法兰",
         orderStatuses: ["in_progress", "completed"],
       }),
     );
     expect(
       screen.getByRole("button", { name: "记录类型：加工、出货" }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "订单：甲方 / 法兰、乙方 / 底座" }),
-    ).toBeInTheDocument();
+    expect(screen.getByLabelText("订单")).toHaveValue("甲方 / 法兰");
+    expect(screen.queryByRole("button", { name: /订单：/ })).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "订单状态：进行中、完成" }),
     ).toBeInTheDocument();

@@ -1,4 +1,4 @@
-import { OrderStatus, ProductionRecordType } from "@prisma/client";
+import { OrderStatus, Prisma, ProductionRecordType } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import {
   validateMachineRecordInput,
@@ -169,6 +169,7 @@ export async function listProductionRecords(
     types?: ProductionRecordType[];
     orderId?: string;
     orderIds?: string[];
+    orderQuery?: string;
     customerName?: string;
     orderStatus?: OrderStatus;
     orderStatuses?: OrderStatus[];
@@ -191,21 +192,27 @@ export async function listProductionRecords(
     : filters.orderStatus
       ? [filters.orderStatus]
       : undefined;
+  const orderFilters: Prisma.OrderWhereInput[] = [];
+
+  if (filters.customerName) {
+    orderFilters.push({
+      customerName: { contains: filters.customerName, mode: "insensitive" },
+    });
+  }
+  if (orderStatuses) {
+    orderFilters.push({ status: { in: orderStatuses } });
+  }
+  const orderQueryFilter = buildOrderNameQueryFilter(filters.orderQuery);
+  if (orderQueryFilter) {
+    orderFilters.push(orderQueryFilter);
+  }
 
   return prisma.productionRecord.findMany({
     where: {
       workspaceId,
       type: types ? { in: types } : undefined,
       orderId: orderIds ? { in: orderIds } : undefined,
-      order:
-        filters.customerName || orderStatuses
-          ? {
-              customerName: filters.customerName
-                ? { contains: filters.customerName, mode: "insensitive" }
-                : undefined,
-              status: orderStatuses ? { in: orderStatuses } : undefined,
-            }
-          : undefined,
+      order: orderFilters.length > 0 ? { AND: orderFilters } : undefined,
       recordedAt: {
         gte: filters.from,
         lt: filters.to,
@@ -219,4 +226,31 @@ export async function listProductionRecords(
     },
     orderBy: { recordedAt: "desc" },
   });
+}
+
+function buildOrderNameQueryFilter(
+  query: string | undefined,
+): Prisma.OrderWhereInput | undefined {
+  const value = query?.trim();
+  if (!value) return undefined;
+
+  const [customerName, ...partNameParts] = value.split("/");
+  const customer = customerName.trim();
+  const partName = partNameParts.join("/").trim();
+
+  if (customer && partName) {
+    return {
+      AND: [
+        { customerName: { contains: customer, mode: "insensitive" } },
+        { partName: { contains: partName, mode: "insensitive" } },
+      ],
+    };
+  }
+
+  return {
+    OR: [
+      { customerName: { contains: value, mode: "insensitive" } },
+      { partName: { contains: value, mode: "insensitive" } },
+    ],
+  };
 }
