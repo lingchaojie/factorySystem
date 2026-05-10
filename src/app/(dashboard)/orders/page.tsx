@@ -135,15 +135,17 @@ export default async function OrdersPage({
                 <thead className="bg-slate-50 text-left text-xs font-medium uppercase text-slate-500">
                   <tr>
                     <th className="px-4 py-3">订单</th>
-                    <th className="px-4 py-3">状态</th>
+                    <th className="whitespace-nowrap px-4 py-3">状态</th>
                     <th className="px-4 py-3 text-right">单价</th>
                     <th className="px-4 py-3 text-right">金额</th>
                     <th className="px-4 py-3 text-right">计划</th>
                     <th className="px-4 py-3 text-right">加工</th>
                     <th className="px-4 py-3 text-right">出货</th>
                     <th className="px-4 py-3 text-right">剩余</th>
-                    <th className="px-4 py-3">提示</th>
-                    <th className="px-4 py-3 text-right">操作</th>
+                    <th className="whitespace-nowrap px-4 py-3">提示</th>
+                    <th className="whitespace-nowrap px-4 py-3 text-right">
+                      操作
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 bg-white">
@@ -163,7 +165,7 @@ export default async function OrdersPage({
                             : "未填写"}
                         </div>
                       </td>
-                      <td className="px-4 py-4">
+                      <td className="whitespace-nowrap px-4 py-4">
                         <StatusBadge
                           status={order.status}
                           labels={orderStatusLabels}
@@ -193,7 +195,7 @@ export default async function OrdersPage({
                         {order.remainingQuantity}
                       </td>
                       <td className="px-4 py-4">
-                        <div className="flex flex-col gap-1">
+                        <div className="flex flex-wrap items-center gap-2">
                           {order.isOverPlanned ? (
                             <span className="text-xs font-medium text-amber-700">
                               超出计划
@@ -209,10 +211,10 @@ export default async function OrdersPage({
                           ) : null}
                         </div>
                       </td>
-                      <td className="px-4 py-4 text-right">
+                      <td className="whitespace-nowrap px-4 py-4 text-right">
                         <Link
                           href={`/orders/${order.id}`}
-                          className="inline-flex rounded-md border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                          className="inline-flex whitespace-nowrap rounded-md border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
                         >
                           详情
                         </Link>

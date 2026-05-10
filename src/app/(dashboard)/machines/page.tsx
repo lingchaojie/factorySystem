@@ -115,11 +115,13 @@ export default async function MachinesPage({
                 <thead className="bg-slate-50 text-left text-xs font-medium uppercase text-slate-500">
                   <tr>
                     <th className="px-4 py-3">机器</th>
-                    <th className="px-4 py-3">状态</th>
+                    <th className="whitespace-nowrap px-4 py-3">状态</th>
                     <th className="px-4 py-3">当前订单</th>
                     <th className="px-4 py-3 text-right">今日加工</th>
                     <th className="px-4 py-3 text-right">今日出货</th>
-                    <th className="px-4 py-3 text-right">操作</th>
+                    <th className="whitespace-nowrap px-4 py-3 text-right">
+                      操作
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 bg-white">
@@ -136,7 +138,7 @@ export default async function MachinesPage({
                             .join(" / ") || "未填写型号和位置"}
                         </div>
                       </td>
-                      <td className="px-4 py-4">
+                      <td className="whitespace-nowrap px-4 py-4">
                         <StatusBadge
                           status={machine.status}
                           labels={machineStatusLabels}
@@ -144,7 +146,7 @@ export default async function MachinesPage({
                       </td>
                       <td className="px-4 py-4">
                         {machine.currentOrder ? (
-                          <div className="space-y-1">
+                          <div className="flex flex-wrap items-center gap-2">
                             <Link
                               href={`/orders/${machine.currentOrder.id}`}
                               className="font-medium text-slate-950 underline-offset-4 hover:underline"
@@ -166,10 +168,10 @@ export default async function MachinesPage({
                       <td className="px-4 py-4 text-right font-medium text-slate-950">
                         {machine.todayShippedQuantity}
                       </td>
-                      <td className="px-4 py-4 text-right">
+                      <td className="whitespace-nowrap px-4 py-4 text-right">
                         <Link
                           href={`/machines/${machine.id}`}
-                          className="inline-flex rounded-md border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                          className="inline-flex whitespace-nowrap rounded-md border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
                         >
                           详情
                         </Link>

@@ -37,7 +37,7 @@ export function StatusBadge<TStatus extends Status>({
   return (
     <span
       className={[
-        "inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium",
+        "inline-flex items-center whitespace-nowrap rounded-md border px-2 py-0.5 text-xs font-medium",
         statusClassNames[status],
         className,
       ]
