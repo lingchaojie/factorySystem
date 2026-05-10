@@ -156,7 +156,11 @@ export async function getMachine(workspaceId: string, machineId: string) {
   return prisma.machine.findFirstOrThrow({
     where: { id: machineId, workspaceId },
     include: {
-      currentOrder: true,
+      currentOrder: {
+        include: {
+          productionRecords: true,
+        },
+      },
       productionRecords: {
         include: {
           order: true,

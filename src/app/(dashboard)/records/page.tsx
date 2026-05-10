@@ -188,30 +188,30 @@ export default async function RecordsPage({
                       </h2>
                       <RecordTypeBadge type={record.type} />
                     </div>
-                    <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-6">
-                      <div>
+                    <dl className="mt-3 grid gap-x-8 gap-y-3 text-sm sm:grid-cols-2 lg:grid-cols-[minmax(96px,0.7fr)_minmax(120px,0.9fr)_minmax(260px,1.6fr)_80px_minmax(96px,0.7fr)_minmax(96px,0.7fr)]">
+                      <div className="min-w-0">
                         <dt className="text-slate-500">机器</dt>
                         <dd className="mt-1 font-medium text-slate-950">
                           <Link
                             href={`/machines/${record.machineId}`}
-                            className="hover:text-slate-600"
+                            className="break-words hover:text-slate-600"
                           >
                             {record.machine.code}
                           </Link>
                         </dd>
                       </div>
-                      <div>
+                      <div className="min-w-0">
                         <dt className="text-slate-500">客户</dt>
-                        <dd className="mt-1 font-medium text-slate-950">
+                        <dd className="mt-1 break-words font-medium text-slate-950">
                           {record.order.customerName}
                         </dd>
                       </div>
-                      <div>
+                      <div className="min-w-0">
                         <dt className="text-slate-500">订单</dt>
                         <dd className="mt-1 flex flex-col items-start gap-1 font-medium text-slate-950">
                           <Link
                             href={`/orders/${record.orderId}`}
-                            className="hover:text-slate-600"
+                            className="break-words hover:text-slate-600"
                           >
                             {formatOrder(record.order)}
                           </Link>
@@ -221,21 +221,21 @@ export default async function RecordsPage({
                           />
                         </dd>
                       </div>
-                      <div>
+                      <div className="whitespace-nowrap">
                         <dt className="text-slate-500">数量</dt>
                         <dd className="mt-1 font-medium text-slate-950">
                           {record.quantity}
                         </dd>
                       </div>
-                      <div>
+                      <div className="min-w-0">
                         <dt className="text-slate-500">录入人</dt>
-                        <dd className="mt-1 font-medium text-slate-950">
+                        <dd className="mt-1 break-words font-medium text-slate-950">
                           {formatUser(record.createdByUser)}
                         </dd>
                       </div>
-                      <div>
+                      <div className="min-w-0">
                         <dt className="text-slate-500">修改人</dt>
-                        <dd className="mt-1 font-medium text-slate-950">
+                        <dd className="mt-1 break-words font-medium text-slate-950">
                           {formatUser(record.updatedByUser)}
                         </dd>
                       </div>

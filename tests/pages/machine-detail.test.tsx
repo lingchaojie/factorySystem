@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import MachineDetailPage from "@/app/(dashboard)/machines/[id]/page";
 
@@ -113,6 +113,186 @@ describe("machine detail page", () => {
     expect(screen.getByRole("columnheader", { name: "修改人" })).toBeInTheDocument();
     expect(screen.getByText("张三")).toBeInTheDocument();
     expect(screen.getByText("李四")).toBeInTheDocument();
+  });
+
+  it("sorts production records by record time by default", async () => {
+    workspaceMock.requireWorkspaceId.mockResolvedValue("workspace-1");
+    ordersMock.listOrders.mockResolvedValue([]);
+    machinesMock.getMachine.mockResolvedValue({
+      id: "machine-1",
+      code: "CNC-1",
+      name: "一号机",
+      model: null,
+      location: null,
+      notes: null,
+      status: "active",
+      currentOrderId: null,
+      currentOrder: null,
+      productionRecords: [
+        {
+          id: "record-old",
+          recordedAt: new Date("2026-05-10T08:00:00.000Z"),
+          type: "completed",
+          quantity: 10,
+          notes: null,
+          order: {
+            id: "order-b",
+            orderNo: "MO-2",
+            customerName: "乙方工厂",
+            partName: "底座",
+          },
+          createdByUser: null,
+          updatedByUser: null,
+        },
+        {
+          id: "record-new",
+          recordedAt: new Date("2026-05-10T10:00:00.000Z"),
+          type: "shipped",
+          quantity: 5,
+          notes: null,
+          order: {
+            id: "order-a",
+            orderNo: "MO-1",
+            customerName: "甲方工厂",
+            partName: "法兰",
+          },
+          createdByUser: null,
+          updatedByUser: null,
+        },
+      ],
+    });
+
+    render(
+      await MachineDetailPage({
+        params: Promise.resolve({ id: "machine-1" }),
+        searchParams: Promise.resolve({}),
+      }),
+    );
+
+    const rows = screen.getAllByRole("row").slice(1);
+    expect(within(rows[0]).getByText("甲方工厂 / 法兰")).toBeInTheDocument();
+    expect(within(rows[1]).getByText("乙方工厂 / 底座")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "记录时间倒序，点击切换为正序" }),
+    ).toHaveAttribute(
+      "href",
+      "/machines/machine-1?recordSort=recordedAt&recordDirection=asc",
+    );
+    expect(
+      screen.getByRole("link", { name: "订单排序，点击切换为正序" }),
+    ).toHaveAttribute(
+      "href",
+      "/machines/machine-1?recordSort=order&recordDirection=asc",
+    );
+  });
+
+  it("sorts production records by order name from query params", async () => {
+    workspaceMock.requireWorkspaceId.mockResolvedValue("workspace-1");
+    ordersMock.listOrders.mockResolvedValue([]);
+    machinesMock.getMachine.mockResolvedValue({
+      id: "machine-1",
+      code: "CNC-1",
+      name: "一号机",
+      model: null,
+      location: null,
+      notes: null,
+      status: "active",
+      currentOrderId: null,
+      currentOrder: null,
+      productionRecords: [
+        {
+          id: "record-b",
+          recordedAt: new Date("2026-05-10T10:00:00.000Z"),
+          type: "completed",
+          quantity: 10,
+          notes: null,
+          order: {
+            id: "order-b",
+            orderNo: "MO-2",
+            customerName: "乙方工厂",
+            partName: "底座",
+          },
+          createdByUser: null,
+          updatedByUser: null,
+        },
+        {
+          id: "record-a",
+          recordedAt: new Date("2026-05-10T08:00:00.000Z"),
+          type: "shipped",
+          quantity: 5,
+          notes: null,
+          order: {
+            id: "order-a",
+            orderNo: "MO-1",
+            customerName: "甲方工厂",
+            partName: "法兰",
+          },
+          createdByUser: null,
+          updatedByUser: null,
+        },
+      ],
+    });
+
+    render(
+      await MachineDetailPage({
+        params: Promise.resolve({ id: "machine-1" }),
+        searchParams: Promise.resolve({
+          recordSort: "order",
+          recordDirection: "asc",
+        }),
+      }),
+    );
+
+    const rows = screen.getAllByRole("row").slice(1);
+    expect(within(rows[0]).getByText("甲方工厂 / 法兰")).toBeInTheDocument();
+    expect(within(rows[1]).getByText("乙方工厂 / 底座")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "订单正序，点击切换为倒序" }),
+    ).toHaveAttribute(
+      "href",
+      "/machines/machine-1?recordSort=order&recordDirection=desc",
+    );
+  });
+
+  it("shows shipped progress for the current in-progress order", async () => {
+    workspaceMock.requireWorkspaceId.mockResolvedValue("workspace-1");
+    ordersMock.listOrders.mockResolvedValue([]);
+    machinesMock.getMachine.mockResolvedValue({
+      id: "machine-1",
+      code: "CNC-1",
+      name: "一号机",
+      model: null,
+      location: null,
+      notes: null,
+      status: "active",
+      currentOrderId: "order-1",
+      currentOrder: {
+        id: "order-1",
+        orderNo: "MO-1",
+        customerName: "甲方工厂",
+        partName: "法兰",
+        plannedQuantity: 100,
+        status: "in_progress",
+        productionRecords: [
+          { type: "completed", quantity: 80 },
+          { type: "shipped", quantity: 35 },
+        ],
+      },
+      productionRecords: [],
+    });
+
+    render(
+      await MachineDetailPage({
+        params: Promise.resolve({ id: "machine-1" }),
+      }),
+    );
+
+    const progress = screen.getByRole("progressbar", {
+      name: "当前订单出货进度",
+    });
+    expect(progress).toHaveAttribute("aria-valuenow", "35");
+    expect(progress).toHaveAttribute("title", "出货 35 / 100");
+    expect(screen.getByText("35% 出货 35 / 100")).toBeInTheDocument();
   });
 
   it("allows employees to edit existing machines but hides machine deletion", async () => {

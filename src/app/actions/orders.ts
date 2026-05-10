@@ -42,6 +42,20 @@ function getOrderId(formData: FormData): string {
   return orderId;
 }
 
+function getMachineIds(formData: FormData): string[] {
+  const machineIds: string[] = [];
+  const seen = new Set<string>();
+
+  for (const value of formData.getAll("machineId")) {
+    const machineId = String(value ?? "").trim();
+    if (!machineId || seen.has(machineId)) continue;
+    seen.add(machineId);
+    machineIds.push(machineId);
+  }
+
+  return machineIds;
+}
+
 function parseOrderStatus(value: FormDataEntryValue | null): OrderStatus {
   const status = String(value ?? "");
   if (!orderStatuses.has(status as OrderStatus)) {
@@ -61,6 +75,7 @@ function isUploadedFile(value: FormDataEntryValue): value is File {
 
 export async function createOrderAction(formData: FormData) {
   const user = await requireManager();
+  const machineIds = getMachineIds(formData);
 
   const created = await createOrder(user.workspaceId, {
     customerName: getString(formData, "customerName"),
@@ -72,6 +87,7 @@ export async function createOrderAction(formData: FormData) {
     unitPriceCents: parseOptionalYuanToCents(getString(formData, "unitPrice")),
     dueDate: parseOptionalDueDate(formData.get("dueDate")),
     notes: getString(formData, "notes"),
+    ...(machineIds.length > 0 ? { machineIds } : {}),
   });
 
   revalidatePath("/orders");

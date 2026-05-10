@@ -49,23 +49,166 @@ const machineStatusOptions: Array<{ value: MachineStatus; label: string }> = [
   { value: "disabled", label: machineStatusLabels.disabled },
 ];
 
+type RecordSort = "recordedAt" | "order";
+type RecordDirection = "asc" | "desc";
+
+function parseRecordSort(value: string | string[] | undefined): RecordSort {
+  return value === "order" ? "order" : "recordedAt";
+}
+
+function parseRecordDirection(
+  value: string | string[] | undefined,
+): RecordDirection {
+  return value === "asc" ? "asc" : "desc";
+}
+
+function compareOrders(
+  a: { customerName: string; partName: string },
+  b: { customerName: string; partName: string },
+) {
+  return formatOrder(a).localeCompare(formatOrder(b), "zh-CN");
+}
+
+function sortProductionRecords<
+  T extends { recordedAt: Date; order: { customerName: string; partName: string } },
+>(records: T[], sort: RecordSort, direction: RecordDirection) {
+  const sorted = [...records].sort((a, b) => {
+    const comparison =
+      sort === "order"
+        ? compareOrders(a.order, b.order) ||
+          b.recordedAt.getTime() - a.recordedAt.getTime()
+        : a.recordedAt.getTime() - b.recordedAt.getTime() ||
+          compareOrders(a.order, b.order);
+
+    return direction === "asc" ? comparison : -comparison;
+  });
+
+  return sorted;
+}
+
+function getShipmentProgress(order: {
+  status: string;
+  plannedQuantity?: number | null;
+  productionRecords?: Array<{ type: string; quantity: number }>;
+}) {
+  if (order.status !== "in_progress" || !order.plannedQuantity) return null;
+
+  const shippedQuantity =
+    order.productionRecords?.reduce(
+      (total, record) =>
+        record.type === "shipped" ? total + record.quantity : total,
+      0,
+    ) ?? 0;
+  const percent = Math.min(
+    Math.round((shippedQuantity / order.plannedQuantity) * 100),
+    100,
+  );
+
+  return {
+    shippedQuantity,
+    plannedQuantity: order.plannedQuantity,
+    percent,
+  };
+}
+
+function buildRecordSortHref(
+  machineId: string,
+  sort: RecordSort,
+  currentSort: RecordSort,
+  currentDirection: RecordDirection,
+) {
+  const nextDirection =
+    sort === currentSort && currentDirection === "asc" ? "desc" : "asc";
+  return `/machines/${machineId}?recordSort=${sort}&recordDirection=${nextDirection}`;
+}
+
+function SortableRecordHeader({
+  machineId,
+  label,
+  sort,
+  currentSort,
+  currentDirection,
+}: {
+  machineId: string;
+  label: string;
+  sort: RecordSort;
+  currentSort: RecordSort;
+  currentDirection: RecordDirection;
+}) {
+  const active = sort === currentSort;
+  const nextDirection =
+    active && currentDirection === "asc" ? "倒序" : "正序";
+  const ariaLabel = active
+    ? `${label}${currentDirection === "asc" ? "正序" : "倒序"}，点击切换为${nextDirection}`
+    : `${label}排序，点击切换为正序`;
+
+  return (
+    <Link
+      href={buildRecordSortHref(machineId, sort, currentSort, currentDirection)}
+      aria-label={ariaLabel}
+      className="inline-flex items-center gap-1 rounded-sm text-slate-600 transition hover:text-slate-950 focus:outline-none focus:ring-2 focus:ring-slate-300"
+    >
+      <span aria-hidden="true">{label}</span>
+      <span
+        aria-hidden="true"
+        className="inline-flex flex-col text-[9px] leading-[8px]"
+      >
+        <span
+          className={
+            active && currentDirection === "asc"
+              ? "text-slate-950"
+              : "text-slate-300"
+          }
+        >
+          ▲
+        </span>
+        <span
+          className={
+            active && currentDirection === "desc"
+              ? "text-slate-950"
+              : "text-slate-300"
+          }
+        >
+          ▼
+        </span>
+      </span>
+    </Link>
+  );
+}
+
 export default async function MachineDetailPage({
   params,
+  searchParams = Promise.resolve({}),
 }: {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<{
+    recordSort?: string | string[];
+    recordDirection?: string | string[];
+  }>;
 }) {
   const { id } = await params;
+  const sortParams = await searchParams;
   const user = await requireUser();
   const [machine, orders] = await Promise.all([
     getMachine(user.workspaceId, id),
     listOrders(user.workspaceId, {}),
   ]);
+  const recordSort = parseRecordSort(sortParams.recordSort);
+  const recordDirection = parseRecordDirection(sortParams.recordDirection);
+  const productionRecords = sortProductionRecords(
+    machine.productionRecords,
+    recordSort,
+    recordDirection,
+  );
   const canManageMachines = user.role === "manager";
   const availableOrders = orders.filter((order) => order.status !== "completed");
   const hasCurrentOrder = Boolean(machine.currentOrderId);
   const canRecordCurrentOrder = Boolean(
     machine.currentOrder && machine.currentOrder.status !== "completed",
   );
+  const currentOrderProgress = machine.currentOrder
+    ? getShipmentProgress(machine.currentOrder)
+    : null;
   const orderOptions = availableOrders.map((order) => ({
     value: order.id,
     label: formatOrder(order),
@@ -157,7 +300,7 @@ export default async function MachineDetailPage({
                 生产记录
               </h2>
             </div>
-            {machine.productionRecords.length === 0 ? (
+            {productionRecords.length === 0 ? (
               <div className="p-8 text-center text-sm text-slate-500">
                 当前机器还没有生产记录。
               </div>
@@ -166,8 +309,24 @@ export default async function MachineDetailPage({
                 <table className="min-w-full divide-y divide-slate-200 text-sm">
                   <thead className="bg-slate-50 text-left text-xs font-medium uppercase text-slate-500">
                     <tr>
-                      <th className="px-4 py-3">记录时间</th>
-                      <th className="px-4 py-3">订单</th>
+                      <th className="px-4 py-3">
+                        <SortableRecordHeader
+                          machineId={machine.id}
+                          label="记录时间"
+                          sort="recordedAt"
+                          currentSort={recordSort}
+                          currentDirection={recordDirection}
+                        />
+                      </th>
+                      <th className="px-4 py-3">
+                        <SortableRecordHeader
+                          machineId={machine.id}
+                          label="订单"
+                          sort="order"
+                          currentSort={recordSort}
+                          currentDirection={recordDirection}
+                        />
+                      </th>
                       <th className="whitespace-nowrap px-4 py-3">类型</th>
                       <th className="whitespace-nowrap px-4 py-3 text-right">
                         数量
@@ -178,7 +337,7 @@ export default async function MachineDetailPage({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 bg-white">
-                    {machine.productionRecords.map((record) => (
+                    {productionRecords.map((record) => (
                       <tr key={record.id}>
                         <td className="whitespace-nowrap px-4 py-4 text-slate-950">
                           {formatBusinessDateTime(record.recordedAt)}
@@ -219,7 +378,7 @@ export default async function MachineDetailPage({
           <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
             <h2 className="text-base font-semibold text-slate-950">关联订单</h2>
             {machine.currentOrder ? (
-              <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+              <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
                 <span className="text-slate-500">当前订单</span>
                 <Link
                   href={`/orders/${machine.currentOrder.id}`}
@@ -231,6 +390,29 @@ export default async function MachineDetailPage({
                   status={machine.currentOrder.status}
                   labels={orderStatusLabels}
                 />
+                {currentOrderProgress ? (
+                  <div className="flex min-w-[180px] items-center gap-2">
+                    <div
+                      aria-label="当前订单出货进度"
+                      aria-valuemax={100}
+                      aria-valuemin={0}
+                      aria-valuenow={currentOrderProgress.percent}
+                      className="h-2 min-w-24 flex-1 overflow-hidden rounded-full bg-slate-100"
+                      role="progressbar"
+                      title={`出货 ${currentOrderProgress.shippedQuantity} / ${currentOrderProgress.plannedQuantity}`}
+                    >
+                      <div
+                        className="h-full rounded-full bg-emerald-500"
+                        style={{ width: `${currentOrderProgress.percent}%` }}
+                      />
+                    </div>
+                    <span className="whitespace-nowrap text-xs font-medium text-emerald-700">
+                      {currentOrderProgress.percent}% 出货{" "}
+                      {currentOrderProgress.shippedQuantity} /{" "}
+                      {currentOrderProgress.plannedQuantity}
+                    </span>
+                  </div>
+                ) : null}
               </div>
             ) : null}
             {availableOrders.length === 0 ? (
