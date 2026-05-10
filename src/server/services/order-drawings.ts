@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
+import type { OrderDrawing } from "@prisma/client";
 import { prisma } from "@/lib/db";
 
 export const MAX_DRAWING_FILES = 200;
@@ -59,6 +60,19 @@ function normalizeRelativePath(file: UploadedDrawing) {
   if (segments.length === 0) {
     throw new Error("图纸文件名无效");
   }
+  return segments.join("/");
+}
+
+function normalizeArchivePrefix(prefix: string | null | undefined) {
+  if (!prefix?.trim()) return "";
+  const rawPath = prefix.trim();
+  if (path.isAbsolute(rawPath) || rawPath.includes("..")) {
+    throw new Error("图纸目录无效");
+  }
+  const segments = rawPath
+    .split(/[\\/]+/)
+    .filter(Boolean)
+    .map(sanitizePathSegment);
   return segments.join("/");
 }
 
@@ -190,4 +204,144 @@ export async function getOrderDrawingFile(workspaceId: string, drawingId: string
   const filePath = assertSafeStoredPath(root, drawing.storedPath);
   const data = await readFile(filePath);
   return { drawing, data };
+}
+
+function crc32(buffer: Buffer) {
+  let crc = 0xffffffff;
+  for (const byte of buffer) {
+    crc ^= byte;
+    for (let bit = 0; bit < 8; bit += 1) {
+      crc = crc & 1 ? (crc >>> 1) ^ 0xedb88320 : crc >>> 1;
+    }
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function dosDateTime(date: Date) {
+  const year = Math.max(1980, date.getFullYear());
+  const month = date.getMonth() + 1;
+  const day = date.getDate();
+  const hours = date.getHours();
+  const minutes = date.getMinutes();
+  const seconds = Math.floor(date.getSeconds() / 2);
+
+  return {
+    time: (hours << 11) | (minutes << 5) | seconds,
+    date: ((year - 1980) << 9) | (month << 5) | day,
+  };
+}
+
+function zipEntryName(name: string) {
+  return Buffer.from(name.replace(/\\/g, "/"), "utf8");
+}
+
+function buildStoredZip(
+  entries: Array<{ name: string; data: Buffer; date: Date }>,
+) {
+  const localParts: Buffer[] = [];
+  const centralParts: Buffer[] = [];
+  let offset = 0;
+
+  for (const entry of entries) {
+    const name = zipEntryName(entry.name);
+    const checksum = crc32(entry.data);
+    const { time, date } = dosDateTime(entry.date);
+
+    const localHeader = Buffer.alloc(30);
+    localHeader.writeUInt32LE(0x04034b50, 0);
+    localHeader.writeUInt16LE(20, 4);
+    localHeader.writeUInt16LE(0, 6);
+    localHeader.writeUInt16LE(0, 8);
+    localHeader.writeUInt16LE(time, 10);
+    localHeader.writeUInt16LE(date, 12);
+    localHeader.writeUInt32LE(checksum, 14);
+    localHeader.writeUInt32LE(entry.data.byteLength, 18);
+    localHeader.writeUInt32LE(entry.data.byteLength, 22);
+    localHeader.writeUInt16LE(name.byteLength, 26);
+    localHeader.writeUInt16LE(0, 28);
+    localParts.push(localHeader, name, entry.data);
+
+    const centralHeader = Buffer.alloc(46);
+    centralHeader.writeUInt32LE(0x02014b50, 0);
+    centralHeader.writeUInt16LE(20, 4);
+    centralHeader.writeUInt16LE(20, 6);
+    centralHeader.writeUInt16LE(0, 8);
+    centralHeader.writeUInt16LE(0, 10);
+    centralHeader.writeUInt16LE(time, 12);
+    centralHeader.writeUInt16LE(date, 14);
+    centralHeader.writeUInt32LE(checksum, 16);
+    centralHeader.writeUInt32LE(entry.data.byteLength, 20);
+    centralHeader.writeUInt32LE(entry.data.byteLength, 24);
+    centralHeader.writeUInt16LE(name.byteLength, 28);
+    centralHeader.writeUInt16LE(0, 30);
+    centralHeader.writeUInt16LE(0, 32);
+    centralHeader.writeUInt16LE(0, 34);
+    centralHeader.writeUInt16LE(0, 36);
+    centralHeader.writeUInt32LE(0, 38);
+    centralHeader.writeUInt32LE(offset, 42);
+    centralParts.push(centralHeader, name);
+
+    offset += localHeader.byteLength + name.byteLength + entry.data.byteLength;
+  }
+
+  const centralDirectory = Buffer.concat(centralParts);
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0);
+  end.writeUInt16LE(0, 4);
+  end.writeUInt16LE(0, 6);
+  end.writeUInt16LE(entries.length, 8);
+  end.writeUInt16LE(entries.length, 10);
+  end.writeUInt32LE(centralDirectory.byteLength, 12);
+  end.writeUInt32LE(offset, 16);
+  end.writeUInt16LE(0, 20);
+
+  return Buffer.concat([...localParts, centralDirectory, end]);
+}
+
+function archiveFilename(prefix: string) {
+  const name = prefix ? path.posix.basename(prefix) : "order-drawings";
+  return `${sanitizePathSegment(name)}.zip`;
+}
+
+function isInArchivePrefix(drawing: OrderDrawing, prefix: string) {
+  if (!prefix) return true;
+  return drawing.relativePath.startsWith(`${prefix}/`);
+}
+
+export async function getOrderDrawingArchive(
+  workspaceId: string,
+  orderId: string,
+  prefix: string | null | undefined = "",
+) {
+  await prisma.order.findFirstOrThrow({
+    where: { id: orderId, workspaceId },
+    select: { id: true },
+  });
+
+  const normalizedPrefix = normalizeArchivePrefix(prefix);
+  const drawings = (
+    await prisma.orderDrawing.findMany({
+      where: { workspaceId, orderId },
+      orderBy: { relativePath: "asc" },
+    })
+  ).filter((drawing) => isInArchivePrefix(drawing, normalizedPrefix));
+
+  if (drawings.length === 0) {
+    throw new Error("图纸文件不存在");
+  }
+
+  const root = getStorageRoot();
+  const entries = await Promise.all(
+    drawings.map(async (drawing) => ({
+      name: drawing.relativePath,
+      data: await readFile(assertSafeStoredPath(root, drawing.storedPath)),
+      date: drawing.createdAt,
+    })),
+  );
+
+  return {
+    filename: archiveFilename(normalizedPrefix),
+    mimeType: "application/zip",
+    data: buildStoredZip(entries),
+  };
 }

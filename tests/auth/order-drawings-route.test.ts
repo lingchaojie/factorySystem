@@ -6,6 +6,7 @@ const { sessionMock, drawingsMock } = vi.hoisted(() => ({
   },
   drawingsMock: {
     getOrderDrawingFile: vi.fn(),
+    getOrderDrawingArchive: vi.fn(),
   },
 }));
 
@@ -68,6 +69,56 @@ describe("order drawing download route", () => {
     expect(drawingsMock.getOrderDrawingFile).toHaveBeenCalledWith(
       "workspace-1",
       "drawing-1",
+    );
+  });
+
+  it("rejects unauthenticated archive downloads", async () => {
+    sessionMock.readSessionUser.mockResolvedValue(null);
+    const { GET } = await import("@/app/api/order-drawings/archive/route");
+
+    const response = await GET(
+      new Request(
+        "http://factory.test/api/order-drawings/archive?orderId=order-1&prefix=fixture",
+      ),
+    );
+
+    expect(response.status).toBe(401);
+    expect(drawingsMock.getOrderDrawingArchive).not.toHaveBeenCalled();
+  });
+
+  it("returns drawing folder archives for the current workspace", async () => {
+    sessionMock.readSessionUser.mockResolvedValue({
+      id: "user-1",
+      workspaceId: "workspace-1",
+      username: "operator",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    drawingsMock.getOrderDrawingArchive.mockResolvedValue({
+      filename: "fixture.zip",
+      mimeType: "application/zip",
+      data: Buffer.from("zip-bytes"),
+    });
+    const { GET } = await import("@/app/api/order-drawings/archive/route");
+
+    const response = await GET(
+      new Request(
+        "http://factory.test/api/order-drawings/archive?orderId=order-1&prefix=fixture",
+      ),
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("application/zip");
+    expect(response.headers.get("content-disposition")).toContain(
+      "fixture.zip",
+    );
+    expect(Buffer.from(await response.arrayBuffer()).toString("utf8")).toBe(
+      "zip-bytes",
+    );
+    expect(drawingsMock.getOrderDrawingArchive).toHaveBeenCalledWith(
+      "workspace-1",
+      "order-1",
+      "fixture",
     );
   });
 });

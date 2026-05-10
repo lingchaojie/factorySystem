@@ -87,8 +87,8 @@ describe("orders page", () => {
         {
           id: "drawing-1",
           originalName: "fixture.step",
-          relativePath: "fixture.step",
-          storedPath: "workspace-1/order-1/fixture.step",
+          relativePath: "fixture/fixture.step",
+          storedPath: "workspace-1/order-1/fixture/fixture.step",
           sizeBytes: 1024,
           mimeType: "model/step",
           createdAt: new Date("2026-05-10T01:00:00.000Z"),
@@ -104,6 +104,15 @@ describe("orders page", () => {
 
     expect(screen.getByText("图纸文件")).toBeInTheDocument();
     expect(screen.getByText("重新上传会覆盖原有图纸")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "上传图纸" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("上传文件")).not.toBeInTheDocument();
+    expect(screen.queryByText("上传文件夹")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /fixture$/ })).toHaveAttribute(
+      "href",
+      "/api/order-drawings/archive?orderId=order-1&prefix=fixture",
+    );
     expect(
       screen.getByRole("link", { name: /fixture\.step/ }),
     ).toHaveAttribute("href", "/api/order-drawings/drawing-1");

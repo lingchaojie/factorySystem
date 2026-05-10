@@ -5,7 +5,10 @@ import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db";
 import { createMachine, linkMachineToOrder } from "@/server/services/machines";
-import { replaceOrderDrawings } from "@/server/services/order-drawings";
+import {
+  getOrderDrawingArchive,
+  replaceOrderDrawings,
+} from "@/server/services/order-drawings";
 import {
   closeOrder,
   createOrder,
@@ -134,6 +137,41 @@ describe("factory services", () => {
     expect(
       await readFile(path.join(storageDir, replacement[0].storedPath), "utf8"),
     ).toBe("replacement");
+  });
+
+  it("builds a zip archive for a drawing folder prefix", async () => {
+    const workspace = await createWorkspace();
+    const storageDir = await mkdtemp(path.join(tmpdir(), "factory-drawings-"));
+    drawingStorageDirs.push(storageDir);
+    process.env.ORDER_DRAWING_STORAGE_DIR = storageDir;
+    const order = await createOrder(workspace.id, {
+      customerName: "甲方工厂",
+      partName: "法兰盘",
+      plannedQuantity: 100,
+      unitPriceCents: null,
+      dueDate: null,
+      notes: "",
+    });
+
+    await replaceOrderDrawings(workspace.id, order.id, [
+      createDrawingFile("step", "fixture/a.step", "model/step"),
+      createDrawingFile("pdf", "fixture/docs/a.pdf", "application/pdf"),
+      createDrawingFile("other", "other/b.step", "model/step"),
+    ]);
+
+    const archive = await getOrderDrawingArchive(
+      workspace.id,
+      order.id,
+      "fixture",
+    );
+    const archiveText = archive.data.toString("latin1");
+
+    expect(archive.filename).toBe("fixture.zip");
+    expect(archive.mimeType).toBe("application/zip");
+    expect(archive.data.subarray(0, 2).toString()).toBe("PK");
+    expect(archiveText).toContain("fixture/a.step");
+    expect(archiveText).toContain("fixture/docs/a.pdf");
+    expect(archiveText).not.toContain("other/b.step");
   });
 
   it("creates records from a machine and recomputes order summary after deletion", async () => {
