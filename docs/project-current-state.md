@@ -147,6 +147,7 @@ SESSION_COOKIE_SECURE=false
 ```
 
 腾讯云安全组需要放行 `18080/tcp`，访问地址是 `http://服务器公网IP:18080/login`。
+这次端口隔离的背景、涉及文件和后续拆分部署时的调整方式记录在 `docs/deployment/production-port-isolation.md`。
 
 数据库迁移由容器入口自动执行：
 

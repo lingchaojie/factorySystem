@@ -14,6 +14,7 @@ This guide deploys Factory System to one Tencent Cloud Linux CVM with Docker Com
 
 The production database port is not exposed publicly.
 The default Factory System production stack publishes Caddy on host port `18080` so it can run on the same server as another app using `80/443`.
+The rationale and future rollback paths are recorded in [Production Port Isolation Decision](production-port-isolation.md).
 
 ## First Deploy
 
