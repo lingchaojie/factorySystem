@@ -80,20 +80,23 @@ print_checkout() {
 }
 
 verify_http() {
-  local site_address app_origin
+  local site_address app_origin http_port healthcheck_url
   site_address="$(read_env_value APP_SITE_ADDRESS)"
   app_origin="$(read_env_value APP_ORIGIN)"
+  http_port="$(read_env_value APP_HTTP_PORT)"
+  http_port="${http_port:-18080}"
+  healthcheck_url="http://127.0.0.1:${http_port}/login"
 
   [[ -n "$site_address" ]] || die "APP_SITE_ADDRESS is missing in $ENV_FILE"
 
   echo "Waiting for application HTTP response..."
   for _ in $(seq 1 60); do
     if [[ "$site_address" == ":80" ]]; then
-      if curl -fsSI http://127.0.0.1/login >/dev/null 2>&1; then
-        echo "Deployment URL: ${app_origin:-http://127.0.0.1}"
+      if curl -fsSI "$healthcheck_url" >/dev/null 2>&1; then
+        echo "Deployment URL: ${app_origin:-http://127.0.0.1:${http_port}}"
         return
       fi
-    elif curl -fsSI -H "Host: ${site_address}" http://127.0.0.1/login >/dev/null 2>&1; then
+    elif curl -fsSI -H "Host: ${site_address}" "$healthcheck_url" >/dev/null 2>&1; then
       echo "Deployment URL: ${app_origin:-$site_address}"
       return
     fi

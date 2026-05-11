@@ -28,13 +28,23 @@ describe("production deploy scripts", () => {
     expect(prodScript).toContain("compose build web");
     expect(prodScript).toContain("compose up -d --force-recreate web caddy");
     expect(prodScript).not.toContain("git -C \"$ROOT_DIR\" fetch");
+    expect(prodScript).toContain("APP_HTTP_PORT");
+    expect(prodScript).toContain("http://127.0.0.1:${http_port}/login");
 
+    expect(productionCompose).toContain("name: factory-system");
     expect(productionCompose).toContain(
       "ADMIN_SESSION_COOKIE_NAME: ${ADMIN_SESSION_COOKIE_NAME:-factory_admin_session}",
     );
+    expect(productionCompose).toContain('"${APP_HTTP_PORT:-18080}:80"');
+    expect(productionCompose).toContain('"${APP_HTTPS_PORT:-18443}:443"');
+    expect(productionEnvExample).toContain("APP_SITE_ADDRESS=:80");
+    expect(productionEnvExample).toContain("APP_ORIGIN=http://YOUR_SERVER_IP:18080");
+    expect(productionEnvExample).toContain("APP_HTTP_PORT=18080");
+    expect(productionEnvExample).toContain("APP_HTTPS_PORT=18443");
     expect(productionEnvExample).toContain(
       "ADMIN_SESSION_COOKIE_NAME=factory_admin_session",
     );
+    expect(productionEnvExample).toContain("SESSION_COOKIE_SECURE=false");
   });
 
   it("keeps a single current-checkout production deploy entrypoint", async () => {
@@ -59,6 +69,8 @@ describe("production deploy scripts", () => {
     expect(serverDeploy).toContain("compose up -d --force-recreate web caddy");
     expect(serverDeploy).toContain("git -C \"$ROOT_DIR\" rev-parse --short HEAD");
     expect(serverDeploy).toContain("docker compose version");
+    expect(serverDeploy).toContain("APP_HTTP_PORT");
+    expect(serverDeploy).toContain("http://127.0.0.1:${http_port}/login");
     expect(serverDeploy).not.toContain("DEPLOY_BRANCH");
     expect(serverDeploy).not.toContain("git -C \"$ROOT_DIR\" fetch");
     expect(serverDeploy).not.toContain("git -C \"$ROOT_DIR\" checkout");

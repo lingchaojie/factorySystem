@@ -34,6 +34,8 @@ scripts/deploy-production.sh
 
 The deploy script uses the current checkout, reads `deploy/production/.env.production`, rebuilds the `web` image, and starts `db/web/caddy`. See [Tencent CVM deployment](docs/deployment/tencent-cvm.md) for first deploy, redeploy, logs, backup, and clear-database commands.
 
+For bare-IP production deployments, Factory System defaults to host port `18080` to avoid conflicts with other apps on `80/443`. Configure `APP_ORIGIN=http://SERVER_IP:18080` and open `http://SERVER_IP:18080/login`.
+
 ## Useful Commands
 
 ```bash

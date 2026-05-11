@@ -8,11 +8,12 @@ This guide deploys Factory System to one Tencent Cloud Linux CVM with Docker Com
 - Docker Engine with Docker Compose v2 installed.
 - Security group inbound rules:
   - `22/tcp` for SSH
-  - `80/tcp` for HTTP
-  - `443/tcp` for HTTPS
+  - `18080/tcp` for bare-IP Factory System HTTP access
+  - `80/tcp` and `443/tcp` only if Factory System owns the normal HTTP/HTTPS ports
 - For domain-based HTTPS, create a DNS A record pointing the domain to the CVM public IP before deployment.
 
 The production database port is not exposed publicly.
+The default Factory System production stack publishes Caddy on host port `18080` so it can run on the same server as another app using `80/443`.
 
 ## First Deploy
 
@@ -30,17 +31,25 @@ For public-IP HTTP deploys, use this shape:
 
 ```env
 APP_SITE_ADDRESS=:80
-APP_ORIGIN=http://1.2.3.4
+APP_ORIGIN=http://1.2.3.4:18080
+APP_HTTP_PORT=18080
+APP_HTTPS_PORT=18443
 SESSION_COOKIE_SECURE=false
 ```
+
+Open `http://1.2.3.4:18080/login` after deployment.
 
 For domain HTTPS deploys, use this shape after DNS points to the CVM:
 
 ```env
 APP_SITE_ADDRESS=factory.example.com
 APP_ORIGIN=https://factory.example.com
+APP_HTTP_PORT=80
+APP_HTTPS_PORT=443
 SESSION_COOKIE_SECURE=true
 ```
+
+Only use the domain HTTPS shape when Factory System is allowed to bind host ports `80` and `443`. If another app already owns those ports on the same server, keep Factory System on `18080` or put both apps behind one shared reverse proxy.
 
 Set `POSTGRES_PASSWORD` and `PLATFORM_ADMIN_PASSWORD` to strong private values. `PLATFORM_ADMIN_USERNAME`, `PLATFORM_ADMIN_DISPLAY_NAME`, and `PLATFORM_ADMIN_PASSWORD` create or update the `/admin` platform operator account when the web container starts.
 

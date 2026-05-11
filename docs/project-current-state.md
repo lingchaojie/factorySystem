@@ -136,6 +136,18 @@ scripts/deploy-production.sh
 
 该文件不会提交到 git。重复部署会保留已有 `.env.production`，不会重置生产密码。
 
+无域名、同机部署多个项目时，FactorySystem 生产入口默认让出 `80/443`，使用宿主机 `18080`：
+
+```env
+APP_SITE_ADDRESS=:80
+APP_ORIGIN=http://服务器公网IP:18080
+APP_HTTP_PORT=18080
+APP_HTTPS_PORT=18443
+SESSION_COOKIE_SECURE=false
+```
+
+腾讯云安全组需要放行 `18080/tcp`，访问地址是 `http://服务器公网IP:18080/login`。
+
 数据库迁移由容器入口自动执行：
 
 ```bash
