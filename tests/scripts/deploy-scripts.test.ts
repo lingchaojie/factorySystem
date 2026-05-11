@@ -3,6 +3,40 @@ import { constants } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 describe("production deploy scripts", () => {
+  it("exposes FA-style dev and prod deployment entrypoints", async () => {
+    const [
+      devScript,
+      prodScript,
+      envExample,
+      productionCompose,
+      productionEnvExample,
+    ] = await Promise.all([
+        readFile("deploy/dev.sh", "utf8"),
+        readFile("deploy/prod.sh", "utf8"),
+        readFile(".env.example", "utf8"),
+        readFile("deploy/production/docker-compose.yml", "utf8"),
+        readFile("deploy/production/.env.production.example", "utf8"),
+      ]);
+
+    expect(devScript).toContain("Starts Factory System for local WSL development without Docker");
+    expect(devScript).toContain("npm run db:seed");
+    expect(devScript).toContain("npm run dev -- --port \"$APP_PORT\"");
+    expect(devScript).not.toContain("docker compose up");
+    expect(envExample).toContain("localhost:5432");
+
+    expect(prodScript).toContain("Rebuilds the production web image from the current checkout");
+    expect(prodScript).toContain("compose build web");
+    expect(prodScript).toContain("compose up -d --force-recreate web caddy");
+    expect(prodScript).not.toContain("git -C \"$ROOT_DIR\" fetch");
+
+    expect(productionCompose).toContain(
+      "ADMIN_SESSION_COOKIE_NAME: ${ADMIN_SESSION_COOKIE_NAME:-factory_admin_session}",
+    );
+    expect(productionEnvExample).toContain(
+      "ADMIN_SESSION_COOKIE_NAME=factory_admin_session",
+    );
+  });
+
   it("keeps a single current-checkout production deploy entrypoint", async () => {
     await expect(access("scripts/deploy-tencent.sh", constants.F_OK)).rejects.toThrow();
 
