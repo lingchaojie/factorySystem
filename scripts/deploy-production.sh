@@ -52,6 +52,25 @@ compose() {
   docker_cmd compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" "$@"
 }
 
+stop_legacy_factory_project() {
+  local legacy_project="production"
+  local legacy_workdir="$ROOT_DIR/deploy/production"
+  local legacy_container_ids
+
+  legacy_container_ids="$(
+    docker_cmd ps -q \
+      --filter "label=com.docker.compose.project=${legacy_project}" \
+      --filter "label=com.docker.compose.project.working_dir=${legacy_workdir}"
+  )"
+
+  if [[ -z "$legacy_container_ids" ]]; then
+    return
+  fi
+
+  echo "Stopping legacy FactorySystem compose project: ${legacy_project}"
+  docker_cmd compose -p "$legacy_project" --env-file "$ENV_FILE" -f "$COMPOSE_FILE" down
+}
+
 read_env_value() {
   local key="$1"
   awk -v key="$key" '
@@ -113,6 +132,8 @@ print_checkout
 
 echo "Validating production compose configuration..."
 compose config >/dev/null
+
+stop_legacy_factory_project
 
 echo "Starting production database..."
 compose up -d db

@@ -30,6 +30,9 @@ describe("production deploy scripts", () => {
     expect(prodScript).not.toContain("git -C \"$ROOT_DIR\" fetch");
     expect(prodScript).toContain("APP_HTTP_PORT");
     expect(prodScript).toContain("http://127.0.0.1:${http_port}/login");
+    expect(prodScript).toContain("stop_legacy_factory_project");
+    expect(prodScript).toContain("com.docker.compose.project.working_dir");
+    expect(prodScript).toContain("-p \"$legacy_project\"");
 
     expect(productionCompose).toContain("name: factory-system");
     expect(productionCompose).toContain(
@@ -71,6 +74,9 @@ describe("production deploy scripts", () => {
     expect(serverDeploy).toContain("docker compose version");
     expect(serverDeploy).toContain("APP_HTTP_PORT");
     expect(serverDeploy).toContain("http://127.0.0.1:${http_port}/login");
+    expect(serverDeploy).toContain("stop_legacy_factory_project");
+    expect(serverDeploy).toContain("com.docker.compose.project.working_dir");
+    expect(serverDeploy).toContain("-p \"$legacy_project\"");
     expect(serverDeploy).not.toContain("DEPLOY_BRANCH");
     expect(serverDeploy).not.toContain("git -C \"$ROOT_DIR\" fetch");
     expect(serverDeploy).not.toContain("git -C \"$ROOT_DIR\" checkout");

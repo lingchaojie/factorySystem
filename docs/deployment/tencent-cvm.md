@@ -60,6 +60,7 @@ scripts/deploy-production.sh
 ```
 
 The script uses the current checkout, validates `deploy/production/.env.production`, starts the database, rebuilds the `web` image, starts `web/caddy`, and checks `/login`.
+On the first deploy after upgrading from the older `production-*` compose project, the script stops only the legacy Factory System project whose compose working directory is this repository's `deploy/production` directory.
 
 ## Redeploy
 
