@@ -168,7 +168,7 @@ describe("factory services", () => {
     expect(updated.notes).toBe("等待换刀");
   });
 
-  it("deletes orders only when they have no linked machines or production records", async () => {
+  it("deletes orders without linked machines or production records", async () => {
     const workspace = await createWorkspace();
     const order = await createOrder(workspace.id, {
       customerName: "甲方",
@@ -184,7 +184,7 @@ describe("factory services", () => {
     await expect(listOrders(workspace.id, {})).resolves.toHaveLength(0);
   });
 
-  it("rejects order deletion when machines or records still reference it", async () => {
+  it("deletes orders with linked machines and production records", async () => {
     const workspace = await createWorkspace();
     const machine = await createMachine(workspace.id, {
       code: "1",
@@ -203,10 +203,28 @@ describe("factory services", () => {
       notes: "",
     });
     await linkMachineToOrder(workspace.id, machine.id, order.id);
+    await createProductionRecord(workspace.id, {
+      machineId: machine.id,
+      recordedAt: new Date("2026-05-10T00:00:00.000Z"),
+      completedQuantity: 5,
+      shippedQuantity: 2,
+      notes: "首件",
+    });
 
-    await expect(deleteOrder(workspace.id, order.id)).rejects.toThrow(
-      "订单仍有关联机器，不能删除",
-    );
+    await deleteOrder(workspace.id, order.id);
+
+    await expect(listOrders(workspace.id, {})).resolves.toHaveLength(0);
+    await expect(
+      prisma.productionRecord.count({
+        where: { workspaceId: workspace.id, orderId: order.id },
+      }),
+    ).resolves.toBe(0);
+    await expect(
+      prisma.machine.findUniqueOrThrow({
+        where: { workspaceId_id: { workspaceId: workspace.id, id: machine.id } },
+        select: { currentOrderId: true },
+      }),
+    ).resolves.toEqual({ currentOrderId: null });
   });
 
   it("deletes machines only when they have no production records", async () => {

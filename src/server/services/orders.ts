@@ -347,29 +347,27 @@ export async function updateOrderDetails(
 }
 
 export async function deleteOrder(workspaceId: string, orderId: string) {
-  const order = await prisma.order.findFirst({
-    where: { id: orderId, workspaceId },
-    select: {
-      id: true,
-      _count: {
-        select: {
-          currentMachines: true,
-          productionRecords: true,
-        },
-      },
-    },
+  const order = await prisma.$transaction(async (tx) => {
+    const order = await tx.order.findFirst({
+      where: { id: orderId, workspaceId },
+      select: { id: true },
+    });
+
+    if (!order) throw new Error("订单不存在");
+
+    await tx.machine.updateMany({
+      where: { workspaceId, currentOrderId: order.id },
+      data: { currentOrderId: null },
+    });
+    await tx.productionRecord.deleteMany({
+      where: { workspaceId, orderId: order.id },
+    });
+    await tx.order.delete({
+      where: { workspaceId_id: { workspaceId, id: order.id } },
+    });
+
+    return order;
   });
 
-  if (!order) throw new Error("订单不存在");
-  if (order._count.currentMachines > 0) {
-    throw new Error("订单仍有关联机器，不能删除");
-  }
-  if (order._count.productionRecords > 0) {
-    throw new Error("已有生产记录，不能删除订单");
-  }
-
-  await prisma.order.delete({
-    where: { id: order.id },
-  });
   await deleteOrderDrawingDirectory(workspaceId, order.id);
 }
