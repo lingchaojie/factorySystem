@@ -475,7 +475,7 @@ export default async function OrderDetailPage({
         <Metric label="加工数量" value={order.completedQuantity} />
         <Metric label="出货数量" value={order.shippedQuantity} />
         <Metric label="剩余数量" value={order.remainingQuantity} />
-        <Metric label="当前机器" value={order.currentMachines.length} />
+        <Metric label="做过机器" value={workedMachines.length} />
       </dl>
 
       <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
@@ -697,33 +697,37 @@ export default async function OrderDetailPage({
         </div>
 
         <aside className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-base font-semibold text-slate-950">当前机器</h2>
-          {order.currentMachines.length === 0 ? (
-            <p className="mt-3 text-sm text-slate-500">
-              当前没有机器关联到此订单。
-            </p>
-          ) : (
-            <div className="mt-4 divide-y divide-slate-100">
-              {order.currentMachines.map((machine) => (
-                <div key={machine.id} className="py-3 first:pt-0 last:pb-0">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <Link
-                        href={`/machines/${machine.id}`}
-                        className="font-medium text-slate-950 hover:text-slate-700"
-                      >
-                        {machine.code}
-                      </Link>
+          <section aria-label="当前关联机器">
+            <h2 className="text-base font-semibold text-slate-950">
+              当前关联机器
+            </h2>
+            {order.currentMachines.length === 0 ? (
+              <p className="mt-3 text-sm text-slate-500">
+                当前没有机器关联到此订单。
+              </p>
+            ) : (
+              <div className="mt-4 divide-y divide-slate-100">
+                {order.currentMachines.map((machine) => (
+                  <div key={machine.id} className="py-3 first:pt-0 last:pb-0">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <Link
+                          href={`/machines/${machine.id}`}
+                          className="font-medium text-slate-950 hover:text-slate-700"
+                        >
+                          {machine.code}
+                        </Link>
+                      </div>
+                      <StatusBadge
+                        status={machine.status}
+                        labels={machineStatusLabels}
+                      />
                     </div>
-                    <StatusBadge
-                      status={machine.status}
-                      labels={machineStatusLabels}
-                    />
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            )}
+          </section>
           <section
             aria-label="做过此订单的机器"
             className="mt-5 border-t border-slate-200 pt-5"

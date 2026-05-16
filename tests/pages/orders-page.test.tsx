@@ -465,7 +465,11 @@ describe("orders page", () => {
       remainingQuantity: null,
       isOverPlanned: false,
       canClose: false,
-      currentMachines: [],
+      currentMachines: [
+        { id: "machine-1", code: "1号机", name: "1号机", status: "active" },
+        { id: "machine-2", code: "2号机", name: "2号机", status: "active" },
+        { id: "machine-3", code: "3号机", name: "3号机", status: "active" },
+      ],
       productionRecords: [
         {
           id: "record-1",
@@ -512,6 +516,14 @@ describe("orders page", () => {
 
     expect(screen.getByText("出货量 10 / -")).toBeInTheDocument();
     expect(screen.getByText("加工量 20 / -")).toBeInTheDocument();
+    expect(screen.getByText("做过机器")).toBeInTheDocument();
+    expect(screen.queryByText("当前机器")).not.toBeInTheDocument();
+    const currentMachines = screen.getByRole("region", {
+      name: "当前关联机器",
+    });
+    expect(within(currentMachines).getByRole("link", { name: "1号机" })).toBeInTheDocument();
+    expect(within(currentMachines).getByRole("link", { name: "2号机" })).toBeInTheDocument();
+    expect(within(currentMachines).getByRole("link", { name: "3号机" })).toBeInTheDocument();
     const workedMachines = screen.getByRole("region", {
       name: "做过此订单的机器",
     });
