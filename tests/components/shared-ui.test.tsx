@@ -187,10 +187,10 @@ describe("shared UI primitives", () => {
     expect(screen.queryByRole("button", { name: /出货进度/ })).not.toBeInTheDocument();
   });
 
-  it("hides order progress when an order has no plan", async () => {
+  it("renders order progress bars with dash plan text when an order has no plan", async () => {
     const { OrderProgressBars } = await import("@/components/order-progress-bars");
 
-    const { container } = render(
+    render(
       <OrderProgressBars
         plannedQuantity={null}
         shippedQuantity={35}
@@ -198,7 +198,16 @@ describe("shared UI primitives", () => {
       />,
     );
 
-    expect(container).toBeEmptyDOMElement();
+    expect(screen.getByRole("progressbar", { name: "出货量进度" })).toHaveAttribute(
+      "aria-valuenow",
+      "0",
+    );
+    expect(screen.getByRole("progressbar", { name: "加工量进度" })).toHaveAttribute(
+      "aria-valuenow",
+      "0",
+    );
+    expect(screen.getByText("出货量 35 / -")).toBeInTheDocument();
+    expect(screen.getByText("加工量 80 / -")).toBeInTheDocument();
   });
 
   it("centers create dialogs in the viewport", async () => {

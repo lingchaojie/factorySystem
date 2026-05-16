@@ -220,8 +220,16 @@ describe("orders page", () => {
     const row = screen.getByRole("row", { name: /甲方工厂 \/ 法兰/ });
     expect(row).toHaveTextContent("待开发");
     expect(row).toHaveTextContent("-");
-    expect(screen.queryByRole("progressbar", { name: "出货量进度" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("progressbar", { name: "加工量进度" })).not.toBeInTheDocument();
+    expect(screen.getByRole("progressbar", { name: "出货量进度" })).toHaveAttribute(
+      "aria-valuenow",
+      "0",
+    );
+    expect(screen.getByRole("progressbar", { name: "加工量进度" })).toHaveAttribute(
+      "aria-valuenow",
+      "0",
+    );
+    expect(screen.getByText("出货量 0 / -")).toBeInTheDocument();
+    expect(screen.getByText("加工量 0 / -")).toBeInTheDocument();
   });
 
   it("hides order creation and price columns from employee users", async () => {
@@ -434,6 +442,90 @@ describe("orders page", () => {
     expect(within(rows[0]).getByText("2号机")).toBeInTheDocument();
     expect(within(rows[0]).getByText("新记录")).toBeInTheDocument();
     expect(screen.queryByText("旧记录")).not.toBeInTheDocument();
+  });
+
+  it("shows the machines that have worked on an order detail", async () => {
+    ordersMock.getOrderWithSummary.mockResolvedValue({
+      id: "order-1",
+      orderNo: "ORD-20260510-0001",
+      customerName: "甲方工厂",
+      partName: "法兰",
+      plannedQuantity: null,
+      unitPriceCents: 1234,
+      dueDate: null,
+      status: "in_progress",
+      notes: null,
+      closedAt: null,
+      createdAt: new Date("2026-05-10T00:00:00.000Z"),
+      updatedAt: new Date("2026-05-10T00:00:00.000Z"),
+      createdByUser: null,
+      updatedByUser: null,
+      completedQuantity: 20,
+      shippedQuantity: 10,
+      remainingQuantity: null,
+      isOverPlanned: false,
+      canClose: false,
+      currentMachines: [],
+      productionRecords: [
+        {
+          id: "record-1",
+          recordedAt: new Date("2026-05-10T08:00:00.000Z"),
+          type: "completed",
+          quantity: 10,
+          notes: "旧记录",
+          machineId: "machine-2",
+          machine: { id: "machine-2", code: "2号机", name: "2号机" },
+          createdByUser: null,
+          updatedByUser: null,
+        },
+        {
+          id: "record-2",
+          recordedAt: new Date("2026-05-10T10:00:00.000Z"),
+          type: "shipped",
+          quantity: 5,
+          notes: "新记录",
+          machineId: "machine-1",
+          machine: { id: "machine-1", code: "1号机", name: "1号机" },
+          createdByUser: null,
+          updatedByUser: null,
+        },
+        {
+          id: "record-3",
+          recordedAt: new Date("2026-05-10T11:00:00.000Z"),
+          type: "completed",
+          quantity: 10,
+          notes: "重复机器",
+          machineId: "machine-1",
+          machine: { id: "machine-1", code: "1号机", name: "1号机" },
+          createdByUser: null,
+          updatedByUser: null,
+        },
+      ],
+      drawings: [],
+    });
+
+    render(
+      await OrderDetailPage({
+        params: Promise.resolve({ id: "order-1" }),
+      }),
+    );
+
+    expect(screen.getByText("出货量 10 / -")).toBeInTheDocument();
+    expect(screen.getByText("加工量 20 / -")).toBeInTheDocument();
+    const workedMachines = screen.getByRole("region", {
+      name: "做过此订单的机器",
+    });
+    expect(within(workedMachines).getByRole("link", { name: "1号机" })).toHaveAttribute(
+      "href",
+      "/machines/machine-1",
+    );
+    expect(within(workedMachines).getByRole("link", { name: "2号机" })).toHaveAttribute(
+      "href",
+      "/machines/machine-2",
+    );
+    expect(within(workedMachines).getAllByRole("link")).toHaveLength(2);
+    expect(within(workedMachines).queryByText("旧记录")).not.toBeInTheDocument();
+    expect(within(workedMachines).queryByText("新记录")).not.toBeInTheDocument();
   });
 
   it("hides order price and mutation controls from employee users on detail", async () => {

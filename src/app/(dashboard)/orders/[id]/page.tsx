@@ -176,6 +176,22 @@ function SortableRecordTimeHeader({
   );
 }
 
+function uniqueWorkedMachines<
+  T extends { machine: { id: string; code: string } },
+>(records: T[]) {
+  return Array.from(
+    new Map(
+      records.map((record) => [
+        record.machine.id,
+        {
+          id: record.machine.id,
+          code: record.machine.code,
+        },
+      ]),
+    ).values(),
+  ).sort((left, right) => left.code.localeCompare(right.code, "zh-CN"));
+}
+
 function formatQuantity(value: number | string | null) {
   return value === null ? "-" : value;
 }
@@ -352,6 +368,7 @@ export default async function OrderDetailPage({
     filteredProductionRecords,
     recordDirection,
   );
+  const workedMachines = uniqueWorkedMachines(order.productionRecords);
 
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-6">
@@ -707,6 +724,31 @@ export default async function OrderDetailPage({
               ))}
             </div>
           )}
+          <section
+            aria-label="做过此订单的机器"
+            className="mt-5 border-t border-slate-200 pt-5"
+          >
+            <h2 className="text-base font-semibold text-slate-950">
+              做过此订单的机器
+            </h2>
+            {workedMachines.length === 0 ? (
+              <p className="mt-3 text-sm text-slate-500">
+                还没有机器加工过此订单。
+              </p>
+            ) : (
+              <div className="mt-4 flex flex-wrap gap-2">
+                {workedMachines.map((machine) => (
+                  <Link
+                    key={machine.id}
+                    href={`/machines/${machine.id}`}
+                    className="inline-flex items-center rounded-md border border-slate-200 px-2.5 py-1 text-sm font-medium text-slate-950 transition hover:bg-slate-50"
+                  >
+                    {machine.code}
+                  </Link>
+                ))}
+              </div>
+            )}
+          </section>
         </aside>
       </section>
     </div>

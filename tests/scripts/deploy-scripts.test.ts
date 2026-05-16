@@ -22,7 +22,7 @@ describe("production deploy scripts", () => {
     expect(devScript).toContain("npm run db:seed");
     expect(devScript).toContain("npm run dev -- --port \"$APP_PORT\"");
     expect(devScript).not.toContain("docker compose up");
-    expect(envExample).toContain("localhost:5432");
+    expect(envExample).toContain("localhost:5433");
 
     expect(prodScript).toContain("Rebuilds the production web image from the current checkout");
     expect(prodScript).toContain("compose build web");

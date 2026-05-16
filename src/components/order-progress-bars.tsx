@@ -24,10 +24,12 @@ function ProgressRow({
 }: {
   label: string;
   value: number;
-  plannedQuantity: number;
+  plannedQuantity: number | null;
   tone: "green" | "blue";
 }) {
-  const percent = clampPercent(value, plannedQuantity);
+  const hasPlan = plannedQuantity !== null && plannedQuantity > 0;
+  const percent = hasPlan ? clampPercent(value, plannedQuantity) : 0;
+  const plannedText = hasPlan ? plannedQuantity : "-";
   const barColor = tone === "green" ? "bg-emerald-500" : "bg-sky-500";
   const textColor = tone === "green" ? "text-emerald-700" : "text-sky-700";
 
@@ -47,7 +49,7 @@ function ProgressRow({
         />
       </div>
       <span className={`whitespace-nowrap text-[11px] leading-4 ${textColor}`}>
-        {label} {value} / {plannedQuantity}
+        {label} {value} / {plannedText}
       </span>
     </div>
   );
@@ -74,8 +76,6 @@ export function OrderProgressBars({
   shippedQuantity,
   className = "",
 }: OrderProgressBarsProps) {
-  if (!plannedQuantity || plannedQuantity <= 0) return null;
-
   const completed = Math.max(completedQuantity, 0);
   const shipped = Math.max(shippedQuantity, 0);
 
