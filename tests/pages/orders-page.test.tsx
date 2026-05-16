@@ -516,7 +516,7 @@ describe("orders page", () => {
 
     expect(screen.getByText("出货量 10 / -")).toBeInTheDocument();
     expect(screen.getByText("加工量 20 / -")).toBeInTheDocument();
-    expect(screen.getByText("做过机器")).toBeInTheDocument();
+    expect(screen.queryByText("做过机器")).not.toBeInTheDocument();
     expect(screen.queryByText("当前机器")).not.toBeInTheDocument();
     const currentMachines = screen.getByRole("region", {
       name: "当前关联机器",

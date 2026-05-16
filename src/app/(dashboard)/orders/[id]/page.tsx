@@ -470,12 +470,11 @@ export default async function OrderDetailPage({
         ) : null}
       </header>
 
-      <dl className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <dl className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Metric label="计划数量" value={order.plannedQuantity} />
         <Metric label="加工数量" value={order.completedQuantity} />
         <Metric label="出货数量" value={order.shippedQuantity} />
         <Metric label="剩余数量" value={order.remainingQuantity} />
-        <Metric label="做过机器" value={workedMachines.length} />
       </dl>
 
       <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
