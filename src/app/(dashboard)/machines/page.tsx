@@ -192,16 +192,18 @@ export default async function MachinesPage({
                     </td>
                     <td className="px-4 py-4">
                       {machine.currentOrder ? (
-                        <div className="flex flex-wrap items-start gap-2">
+                        <div className="flex items-start gap-2">
                           <Link
                             href={`/orders/${machine.currentOrder.id}`}
-                            className="font-medium text-slate-950 underline-offset-4 hover:underline"
+                            title={formatOrder(machine.currentOrder)}
+                            className="block w-36 shrink-0 truncate font-medium text-slate-950 underline-offset-4 hover:underline"
                           >
                             {formatOrder(machine.currentOrder)}
                           </Link>
                           <StatusBadge
                             status={machine.currentOrder.status}
                             labels={orderStatusLabels}
+                            className="w-16 shrink-0 justify-center"
                           />
                           <OrderProgressBars
                             plannedQuantity={machine.currentOrder.plannedQuantity}
