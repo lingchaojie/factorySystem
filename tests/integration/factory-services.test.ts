@@ -21,6 +21,7 @@ import {
   getOrderWithSummary,
   listOrders,
   updateOrderDetails,
+  updateOrderNotes,
   updateOrderStatus,
 } from "@/server/services/orders";
 import {
@@ -140,12 +141,46 @@ describe("factory services", () => {
       unitPriceCents: 1300,
       dueDate: null,
       status: "in_progress",
-      notes: "",
     });
 
     const detail = await getOrderWithSummary(workspace.id, order.id);
     expect(detail.createdByUser?.displayName).toBe("王经理");
     expect(detail.updatedByUser?.displayName).toBe("王经理");
+  });
+
+  it("updates only the order notes and trims empty values to null", async () => {
+    const workspace = await createWorkspace();
+    const user = await prisma.user.create({
+      data: {
+        workspaceId: workspace.id,
+        username: `manager-${randomUUID()}`,
+        displayName: "王经理",
+        role: "manager",
+        passwordHash: "test-password-hash",
+      },
+    });
+
+    const order = await createOrder(workspace.id, {
+      actorUserId: user.id,
+      customerName: "甲方工厂",
+      partName: "法兰盘",
+      plannedQuantity: 100,
+      unitPriceCents: 1250,
+      dueDate: null,
+      notes: "",
+    });
+
+    const updated = await updateOrderNotes(
+      workspace.id,
+      order.id,
+      "  交期提前  ",
+      user.id,
+    );
+    expect(updated.notes).toBe("交期提前");
+    expect(updated.updatedByUserId).toBe(user.id);
+
+    const cleared = await updateOrderNotes(workspace.id, order.id, "   ", user.id);
+    expect(cleared.notes).toBeNull();
   });
 
   it("updates machine status and notes", async () => {

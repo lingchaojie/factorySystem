@@ -4,6 +4,7 @@ import React from "react";
 import {
   deleteOrderAction,
   updateOrderDetailsAction,
+  updateOrderNotesAction,
 } from "@/app/actions/orders";
 import { CreateEntityDialog } from "@/components/create-entity-dialog";
 import {
@@ -449,12 +450,6 @@ export default async function OrderDetailPage({
                     options={orderStatusOptions}
                     required
                   />
-                  <Textarea
-                    label="备注"
-                    id="editOrderNotes"
-                    name="notes"
-                    defaultValue={order.notes ?? ""}
-                  />
                   <SubmitButton>保存订单</SubmitButton>
                 </form>
                 <form
@@ -601,6 +596,32 @@ export default async function OrderDetailPage({
             {canManageOrders ? <OrderDrawingUpload orderId={order.id} /> : null}
           </section>
 
+          <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <h2 className="text-base font-semibold text-slate-950">订单备注</h2>
+            {canManageOrders ? (
+              <form
+                action={updateOrderNotesAction}
+                className="mt-4 grid gap-3"
+              >
+                <input type="hidden" name="orderId" value={order.id} />
+                <Textarea
+                  label="备注"
+                  id="orderNotes"
+                  name="notes"
+                  defaultValue={order.notes ?? ""}
+                  placeholder="填写订单备注"
+                />
+                <div>
+                  <SubmitButton>保存备注</SubmitButton>
+                </div>
+              </form>
+            ) : (
+              <p className="mt-4 whitespace-pre-wrap text-sm text-slate-950">
+                {order.notes || "无备注"}
+              </p>
+            )}
+          </section>
+
           <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
             <div className="flex flex-col gap-3 border-b border-slate-200 px-5 py-4 lg:flex-row lg:items-end lg:justify-between">
               <h2 className="text-base font-semibold text-slate-950">
@@ -712,7 +733,7 @@ export default async function OrderDetailPage({
                       <div>
                         <Link
                           href={`/machines/${machine.id}`}
-                          className="font-medium text-slate-950 hover:text-slate-700"
+                          className="font-medium text-slate-950 underline-offset-4 hover:underline"
                         >
                           {machine.code}
                         </Link>

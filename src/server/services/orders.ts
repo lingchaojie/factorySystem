@@ -19,7 +19,7 @@ export type CreateOrderInput = {
   machineIds?: string[];
 };
 
-export type UpdateOrderDetailsInput = CreateOrderInput & {
+export type UpdateOrderDetailsInput = Omit<CreateOrderInput, "notes"> & {
   status: OrderStatus;
 };
 
@@ -338,10 +338,29 @@ export async function updateOrderDetails(
       unitPriceCents: input.unitPriceCents,
       dueDate: input.dueDate,
       status: input.status,
-      notes: input.notes.trim() || null,
       updatedByUserId: input.actorUserId,
       closedAt:
         input.status === "completed" ? (order.closedAt ?? new Date()) : null,
+    },
+  });
+}
+
+export async function updateOrderNotes(
+  workspaceId: string,
+  orderId: string,
+  notes: string,
+  actorUserId?: string,
+) {
+  const order = await prisma.order.findFirstOrThrow({
+    where: { id: orderId, workspaceId },
+    select: { id: true },
+  });
+
+  return prisma.order.update({
+    where: { id: order.id },
+    data: {
+      notes: notes.trim() || null,
+      updatedByUserId: actorUserId,
     },
   });
 }

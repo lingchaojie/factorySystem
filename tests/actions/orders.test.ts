@@ -9,6 +9,7 @@ const { authMock, ordersMock, drawingsMock, cacheMock, navigationMock } =
       createOrder: vi.fn(),
       deleteOrder: vi.fn(),
       updateOrderDetails: vi.fn(),
+      updateOrderNotes: vi.fn(),
       updateOrderStatus: vi.fn(),
     },
     drawingsMock: {
@@ -182,7 +183,6 @@ describe("order actions", () => {
     form.set("unitPrice", "18.88");
     form.set("dueDate", "2026-05-12");
     form.set("status", "completed");
-    form.set("notes", " 改价 ");
 
     await updateOrderDetailsAction(form);
 
@@ -197,12 +197,41 @@ describe("order actions", () => {
         unitPriceCents: 1888,
         dueDate: new Date("2026-05-11T16:00:00.000Z"),
         status: "completed",
-        notes: " 改价 ",
       },
     );
     expect(cacheMock.revalidatePath).toHaveBeenCalledWith("/orders");
     expect(cacheMock.revalidatePath).toHaveBeenCalledWith("/orders/order-1");
     expect(navigationMock.redirect).toHaveBeenCalledWith("/orders/order-1");
+  });
+
+  it("updates only the order notes and revalidates the detail", async () => {
+    const { updateOrderNotesAction } = await import("@/app/actions/orders");
+    const form = new FormData();
+    form.set("orderId", "order-1");
+    form.set("notes", " 改价说明 ");
+
+    await updateOrderNotesAction(form);
+
+    expect(ordersMock.updateOrderNotes).toHaveBeenCalledWith(
+      "workspace-1",
+      "order-1",
+      " 改价说明 ",
+      "user-1",
+    );
+    expect(cacheMock.revalidatePath).toHaveBeenCalledWith("/orders");
+    expect(cacheMock.revalidatePath).toHaveBeenCalledWith("/orders/order-1");
+    expect(navigationMock.redirect).toHaveBeenCalledWith("/orders/order-1");
+  });
+
+  it("rejects employee attempts to update order notes", async () => {
+    authMock.requireManager.mockRejectedValue(new Error("需要经理权限"));
+    const { updateOrderNotesAction } = await import("@/app/actions/orders");
+    const form = new FormData();
+    form.set("orderId", "order-1");
+    form.set("notes", "改价说明");
+
+    await expect(updateOrderNotesAction(form)).rejects.toThrow("需要经理权限");
+    expect(ordersMock.updateOrderNotes).not.toHaveBeenCalled();
   });
 
   it("rejects employee attempts to update order details", async () => {

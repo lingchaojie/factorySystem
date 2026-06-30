@@ -11,6 +11,7 @@ import {
   createOrder,
   deleteOrder,
   updateOrderDetails,
+  updateOrderNotes,
   updateOrderStatus,
 } from "@/server/services/orders";
 import { replaceOrderDrawings } from "@/server/services/order-drawings";
@@ -123,8 +124,23 @@ export async function updateOrderDetailsAction(formData: FormData) {
     unitPriceCents: parseOptionalYuanToCents(getString(formData, "unitPrice")),
     dueDate: parseOptionalDueDate(formData.get("dueDate")),
     status: parseOrderStatus(formData.get("status")),
-    notes: getString(formData, "notes"),
   });
+
+  revalidatePath("/orders");
+  revalidatePath(`/orders/${orderId}`);
+  redirect(`/orders/${orderId}`);
+}
+
+export async function updateOrderNotesAction(formData: FormData) {
+  const user = await requireManager();
+  const orderId = getOrderId(formData);
+
+  await updateOrderNotes(
+    user.workspaceId,
+    orderId,
+    getString(formData, "notes"),
+    user.id,
+  );
 
   revalidatePath("/orders");
   revalidatePath(`/orders/${orderId}`);

@@ -22,6 +22,7 @@ const { authMock, machinesMock, ordersMock, actionsMock } = vi.hoisted(() => ({
     createOrderAction: vi.fn(),
     deleteOrderAction: vi.fn(),
     updateOrderDetailsAction: vi.fn(),
+    updateOrderNotesAction: vi.fn(),
     updateOrderStatusAction: vi.fn(),
     uploadOrderDrawingsAction: vi.fn(),
   },
