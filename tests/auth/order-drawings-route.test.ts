@@ -63,6 +63,9 @@ describe("order drawing download route", () => {
     expect(response.headers.get("content-disposition")).toContain(
       "fixture.step",
     );
+    expect(response.headers.get("content-disposition")).toContain(
+      "attachment",
+    );
     expect(Buffer.from(await response.arrayBuffer()).toString("utf8")).toBe(
       "hello",
     );
@@ -70,6 +73,76 @@ describe("order drawing download route", () => {
       "workspace-1",
       "drawing-1",
     );
+  });
+
+  it("returns approved images inline for authenticated previews", async () => {
+    sessionMock.readSessionUser.mockResolvedValue({
+      id: "user-1",
+      workspaceId: "workspace-1",
+      username: "operator",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    drawingsMock.getOrderDrawingFile.mockResolvedValue({
+      drawing: {
+        id: "drawing-1",
+        originalName: "fixture.png",
+        relativePath: "fixture.png",
+        storedPath: "workspace-1/order-1/fixture.png",
+        sizeBytes: 5,
+        mimeType: "image/png",
+        createdAt: new Date(),
+      },
+      data: Buffer.from("image"),
+    });
+    const { GET } = await import("@/app/api/order-drawings/[id]/route");
+
+    const response = await GET(
+      new Request(
+        "http://factory.test/api/order-drawings/drawing-1?preview=1",
+      ),
+      { params: Promise.resolve({ id: "drawing-1" }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("image/png");
+    expect(response.headers.get("content-disposition")).toContain("inline");
+    expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(response.headers.get("cache-control")).toBe(
+      "private, max-age=3600",
+    );
+  });
+
+  it("rejects non-image inline previews while keeping downloads available", async () => {
+    sessionMock.readSessionUser.mockResolvedValue({
+      id: "user-1",
+      workspaceId: "workspace-1",
+      username: "operator",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    drawingsMock.getOrderDrawingFile.mockResolvedValue({
+      drawing: {
+        id: "drawing-1",
+        originalName: "fixture.step",
+        relativePath: "fixture.step",
+        storedPath: "workspace-1/order-1/fixture.step",
+        sizeBytes: 5,
+        mimeType: "model/step",
+        createdAt: new Date(),
+      },
+      data: Buffer.from("model"),
+    });
+    const { GET } = await import("@/app/api/order-drawings/[id]/route");
+
+    const response = await GET(
+      new Request(
+        "http://factory.test/api/order-drawings/drawing-1?preview=1",
+      ),
+      { params: Promise.resolve({ id: "drawing-1" }) },
+    );
+
+    expect(response.status).toBe(415);
   });
 
   it("rejects unauthenticated archive downloads", async () => {
