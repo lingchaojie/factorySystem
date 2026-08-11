@@ -1,7 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { workspaceMock, authMock, machinesMock, recordsMock, cacheMock, navigationMock } =
-  vi.hoisted(() => ({
+const {
+  workspaceMock,
+  authMock,
+  machinesMock,
+  recordsMock,
+  cacheMock,
+  navigationMock,
+} = vi.hoisted(() => ({
     workspaceMock: {
       requireWorkspaceId: vi.fn(),
     },
@@ -13,6 +19,7 @@ const { workspaceMock, authMock, machinesMock, recordsMock, cacheMock, navigatio
       createMachine: vi.fn(),
       deleteMachine: vi.fn(),
       linkMachineToOrder: vi.fn(),
+      unlinkMachineFromOrder: vi.fn(),
       updateMachine: vi.fn(),
     },
     recordsMock: {
@@ -180,11 +187,58 @@ describe("machine actions", () => {
     expect(machinesMock.deleteMachine).not.toHaveBeenCalled();
   });
 
+  it("links a machine to an order and revalidates both sides", async () => {
+    const { linkMachineAction } = await import("@/app/actions/machines");
+    const form = new FormData();
+    form.set("machineId", "machine-1");
+    form.set("orderId", "order-2");
+
+    await linkMachineAction(form);
+
+    expect(machinesMock.linkMachineToOrder).toHaveBeenCalledWith(
+      "workspace-1",
+      "machine-1",
+      "order-2",
+    );
+    expect(cacheMock.revalidatePath).toHaveBeenCalledWith("/machines");
+    expect(cacheMock.revalidatePath).toHaveBeenCalledWith(
+      "/machines/machine-1",
+    );
+    expect(cacheMock.revalidatePath).toHaveBeenCalledWith("/orders");
+    expect(cacheMock.revalidatePath).toHaveBeenCalledWith("/orders/order-2");
+    expect(navigationMock.redirect).toHaveBeenCalledWith(
+      "/machines/machine-1?orderId=order-2",
+    );
+  });
+
+  it("unlinks one order from a machine and revalidates both sides", async () => {
+    const { unlinkMachineAction } = await import("@/app/actions/machines");
+    const form = new FormData();
+    form.set("machineId", "machine-1");
+    form.set("orderId", "order-2");
+
+    await unlinkMachineAction(form);
+
+    expect(machinesMock.unlinkMachineFromOrder).toHaveBeenCalledWith(
+      "workspace-1",
+      "machine-1",
+      "order-2",
+    );
+    expect(cacheMock.revalidatePath).toHaveBeenCalledWith("/machines");
+    expect(cacheMock.revalidatePath).toHaveBeenCalledWith(
+      "/machines/machine-1",
+    );
+    expect(cacheMock.revalidatePath).toHaveBeenCalledWith("/orders");
+    expect(cacheMock.revalidatePath).toHaveBeenCalledWith("/orders/order-2");
+    expect(navigationMock.redirect).toHaveBeenCalledWith("/machines/machine-1");
+  });
+
   it("creates a record and revalidates dependent machine, order, and record pages", async () => {
     vi.stubEnv("TZ", "UTC");
     const { createMachineRecordAction } = await import("@/app/actions/machines");
     const form = new FormData();
     form.set("machineId", "machine-1");
+    form.set("orderId", "order-2");
     form.set("recordedAt", "2026-05-10T08:30");
     form.set("completedQuantity", "12");
     form.set("shippedQuantity", "4");
@@ -196,6 +250,7 @@ describe("machine actions", () => {
       "workspace-1",
       {
         machineId: "machine-1",
+        orderId: "order-2",
         recordedAt: new Date("2026-05-10T00:30:00.000Z"),
         completedQuantity: 12,
         shippedQuantity: 4,
@@ -206,7 +261,20 @@ describe("machine actions", () => {
     expect(cacheMock.revalidatePath).toHaveBeenCalledWith("/machines");
     expect(cacheMock.revalidatePath).toHaveBeenCalledWith("/machines/machine-1");
     expect(cacheMock.revalidatePath).toHaveBeenCalledWith("/orders");
+    expect(cacheMock.revalidatePath).toHaveBeenCalledWith("/orders/order-2");
     expect(cacheMock.revalidatePath).toHaveBeenCalledWith("/records");
-    expect(navigationMock.redirect).toHaveBeenCalledWith("/machines/machine-1");
+    expect(navigationMock.redirect).toHaveBeenCalledWith(
+      "/machines/machine-1?orderId=order-2",
+    );
+  });
+
+  it("rejects record creation without a selected order", async () => {
+    const { createMachineRecordAction } = await import("@/app/actions/machines");
+    const form = new FormData();
+    form.set("machineId", "machine-1");
+    form.set("completedQuantity", "1");
+
+    await expect(createMachineRecordAction(form)).rejects.toThrow("订单必填");
+    expect(recordsMock.createProductionRecord).not.toHaveBeenCalled();
   });
 });

@@ -11,6 +11,7 @@ import {
   createMachine,
   deleteMachine,
   linkMachineToOrder,
+  unlinkMachineFromOrder,
   updateMachine,
 } from "@/server/services/machines";
 import { createProductionRecord } from "@/server/services/records";
@@ -42,6 +43,13 @@ function parseRecordedAt(value: FormDataEntryValue | null): Date {
     throw new Error("记录时间无效");
   }
   return recordedAt;
+}
+
+function revalidateMachineOrderAssignment(machineId: string, orderId: string) {
+  revalidatePath("/machines");
+  revalidatePath(`/machines/${machineId}`);
+  revalidatePath("/orders");
+  revalidatePath(`/orders/${orderId}`);
 }
 
 export async function createMachineAction(formData: FormData) {
@@ -99,19 +107,35 @@ export async function linkMachineAction(formData: FormData) {
 
   await linkMachineToOrder(workspaceId, machineId, orderId);
 
-  revalidatePath("/machines");
-  revalidatePath(`/machines/${machineId}`);
+  revalidateMachineOrderAssignment(machineId, orderId);
+  redirect(`/machines/${machineId}?orderId=${encodeURIComponent(orderId)}`);
+}
+
+export async function unlinkMachineAction(formData: FormData) {
+  const workspaceId = await requireWorkspaceId();
+  const machineId = getString(formData, "machineId");
+  const orderId = getString(formData, "orderId");
+
+  if (!machineId) throw new Error("机器必填");
+  if (!orderId) throw new Error("订单必填");
+
+  await unlinkMachineFromOrder(workspaceId, machineId, orderId);
+
+  revalidateMachineOrderAssignment(machineId, orderId);
   redirect(`/machines/${machineId}`);
 }
 
 export async function createMachineRecordAction(formData: FormData) {
   const user = await requireUser();
   const machineId = getString(formData, "machineId");
+  const orderId = getString(formData, "orderId");
 
   if (!machineId) throw new Error("机器必填");
+  if (!orderId) throw new Error("订单必填");
 
   await createProductionRecord(user.workspaceId, {
     machineId,
+    orderId,
     recordedAt: parseRecordedAt(formData.get("recordedAt")),
     completedQuantity: parseNonNegativeQuantity(
       getString(formData, "completedQuantity") || "0",
@@ -128,6 +152,7 @@ export async function createMachineRecordAction(formData: FormData) {
   revalidatePath("/machines");
   revalidatePath(`/machines/${machineId}`);
   revalidatePath("/orders");
+  revalidatePath(`/orders/${orderId}`);
   revalidatePath("/records");
-  redirect(`/machines/${machineId}`);
+  redirect(`/machines/${machineId}?orderId=${encodeURIComponent(orderId)}`);
 }
