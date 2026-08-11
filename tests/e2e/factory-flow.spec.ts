@@ -321,3 +321,56 @@ test("previews and switches uploaded order images", async ({ page }, testInfo) =
     page.getByRole("link", { name: "下载 front.png" }),
   ).toHaveAttribute("href", /^\/api\/order-drawings\/[^?]+$/);
 });
+
+test("manages machines from an order detail", async ({ page }, testInfo) => {
+  const suffix = `om${Date.now().toString(36).slice(-5)}${testInfo.workerIndex}`;
+  const firstMachineCode = `OA${suffix}`;
+  const secondMachineCode = `OB${suffix}`;
+
+  await login(page);
+  const orderName = await createOrder(page, {
+    customerName: `订单关联客户${suffix}`,
+    partName: `订单关联工件${suffix}`,
+    unitPrice: "12.34",
+  });
+  await createMachine(page, { code: firstMachineCode });
+  await createMachine(page, { code: secondMachineCode });
+
+  const row = await orderRow(page, orderName);
+  await row.getByRole("link", { name: "详情" }).click();
+  const assignmentRegion = page.getByRole("region", { name: "关联机器" });
+  const machineSelect = assignmentRegion.getByLabel("可关联机器");
+
+  await machineSelect.selectOption({ label: firstMachineCode });
+  await assignmentRegion.getByRole("button", { name: "保存关联" }).click();
+  await expect(
+    assignmentRegion.getByRole("link", { name: firstMachineCode }),
+  ).toBeVisible();
+
+  page.once("dialog", (dialog) => dialog.accept());
+  await assignmentRegion.getByRole("button", { name: "解除关联" }).click();
+  await expect(
+    assignmentRegion.getByRole("link", { name: firstMachineCode }),
+  ).toHaveCount(0);
+
+  await assignmentRegion
+    .getByLabel("可关联机器")
+    .selectOption({ label: secondMachineCode });
+  await assignmentRegion.getByRole("button", { name: "保存关联" }).click();
+  await assignmentRegion
+    .getByRole("link", { name: secondMachineCode })
+    .click();
+
+  await expect(
+    page.getByRole("heading", { name: secondMachineCode }),
+  ).toBeVisible();
+  const orderAssignmentSection = page
+    .locator("section")
+    .filter({
+      has: page.getByRole("heading", { name: "关联订单", exact: true }),
+    })
+    .last();
+  await expect(
+    orderAssignmentSection.getByRole("link", { name: orderName }),
+  ).toBeVisible();
+});
