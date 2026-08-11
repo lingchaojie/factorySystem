@@ -37,11 +37,12 @@ model Workspace {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users             User[]
-  machines          Machine[]
-  orders            Order[]
-  orderDrawings     OrderDrawing[]
-  productionRecords ProductionRecord[]
+  users                   User[]
+  machines                Machine[]
+  orders                  Order[]
+  machineOrderAssignments MachineOrderAssignment[]
+  orderDrawings           OrderDrawing[]
+  productionRecords       ProductionRecord[]
 }
 
 model User {
@@ -105,27 +106,25 @@ model Session {
 }
 
 model Machine {
-  id             String        @id @default(cuid())
-  workspaceId    String
-  code           String
-  name           String
-  model          String?
-  location       String?
-  status         MachineStatus @default(active)
-  notes          String?
-  currentOrderId String?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  id          String        @id @default(cuid())
+  workspaceId String
+  code        String
+  name        String
+  model       String?
+  location    String?
+  status      MachineStatus @default(active)
+  notes       String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
 
-  workspace         Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  currentOrder      Order?             @relation("CurrentMachineOrder", fields: [workspaceId, currentOrderId], references: [workspaceId, id], onDelete: NoAction)
+  workspace         Workspace                @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  orderAssignments  MachineOrderAssignment[]
   productionRecords ProductionRecord[]
 
   @@unique([workspaceId, code])
   @@unique([workspaceId, id])
   @@index([workspaceId])
   @@index([workspaceId, status])
-  @@index([currentOrderId])
 }
 
 model Order {
@@ -145,12 +144,12 @@ model Order {
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 
-  workspace         Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  createdByUser     User?              @relation("OrderCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
-  updatedByUser     User?              @relation("OrderUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
-  currentMachines   Machine[]          @relation("CurrentMachineOrder")
-  drawings          OrderDrawing[]
-  productionRecords ProductionRecord[]
+  workspace          Workspace                @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdByUser      User?                    @relation("OrderCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  updatedByUser      User?                    @relation("OrderUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  machineAssignments MachineOrderAssignment[]
+  drawings           OrderDrawing[]
+  productionRecords  ProductionRecord[]
 
   @@unique([workspaceId, id])
   @@unique([workspaceId, orderNo])
@@ -161,6 +160,21 @@ model Order {
   @@index([workspaceId, createdAt])
   @@index([createdByUserId])
   @@index([updatedByUserId])
+}
+
+model MachineOrderAssignment {
+  workspaceId String
+  machineId   String
+  orderId     String
+  createdAt   DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  machine   Machine   @relation(fields: [workspaceId, machineId], references: [workspaceId, id], onDelete: Cascade)
+  order     Order     @relation(fields: [workspaceId, orderId], references: [workspaceId, id], onDelete: Cascade)
+
+  @@id([workspaceId, machineId, orderId])
+  @@index([workspaceId, machineId])
+  @@index([workspaceId, orderId])
 }
 
 model OrderDrawing {
