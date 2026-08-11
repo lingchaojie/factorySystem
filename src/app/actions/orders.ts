@@ -8,6 +8,10 @@ import { parseOptionalYuanToCents } from "@/domain/money";
 import { parseBusinessDate } from "@/lib/business-time";
 import { requireManager } from "@/lib/auth";
 import {
+  linkMachineToOrder,
+  unlinkMachineFromOrder,
+} from "@/server/services/machines";
+import {
   createOrder,
   deleteOrder,
   updateOrderDetails,
@@ -43,6 +47,12 @@ function getOrderId(formData: FormData): string {
   return orderId;
 }
 
+function getMachineId(formData: FormData): string {
+  const machineId = getString(formData, "machineId").trim();
+  if (!machineId) throw new Error("机器必填");
+  return machineId;
+}
+
 function getMachineIds(formData: FormData): string[] {
   const machineIds: string[] = [];
   const seen = new Set<string>();
@@ -72,6 +82,13 @@ function isUploadedFile(value: FormDataEntryValue): value is File {
     "name" in value &&
     "size" in value
   );
+}
+
+function revalidateOrderMachineAssignment(orderId: string, machineId: string) {
+  revalidatePath("/machines");
+  revalidatePath(`/machines/${machineId}`);
+  revalidatePath("/orders");
+  revalidatePath(`/orders/${orderId}`);
 }
 
 export async function createOrderAction(formData: FormData) {
@@ -106,6 +123,28 @@ export async function updateOrderStatusAction(formData: FormData) {
 
   revalidatePath("/orders");
   revalidatePath(`/orders/${orderId}`);
+  redirect(`/orders/${orderId}`);
+}
+
+export async function linkOrderMachineAction(formData: FormData) {
+  const user = await requireManager();
+  const orderId = getOrderId(formData);
+  const machineId = getMachineId(formData);
+
+  await linkMachineToOrder(user.workspaceId, machineId, orderId);
+
+  revalidateOrderMachineAssignment(orderId, machineId);
+  redirect(`/orders/${orderId}`);
+}
+
+export async function unlinkOrderMachineAction(formData: FormData) {
+  const user = await requireManager();
+  const orderId = getOrderId(formData);
+  const machineId = getMachineId(formData);
+
+  await unlinkMachineFromOrder(user.workspaceId, machineId, orderId);
+
+  revalidateOrderMachineAssignment(orderId, machineId);
   redirect(`/orders/${orderId}`);
 }
 

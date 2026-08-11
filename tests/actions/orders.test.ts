@@ -1,7 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { authMock, ordersMock, drawingsMock, cacheMock, navigationMock } =
-  vi.hoisted(() => ({
+const {
+  authMock,
+  ordersMock,
+  machinesMock,
+  drawingsMock,
+  cacheMock,
+  navigationMock,
+} = vi.hoisted(() => ({
     authMock: {
       requireManager: vi.fn(),
     },
@@ -11,6 +17,10 @@ const { authMock, ordersMock, drawingsMock, cacheMock, navigationMock } =
       updateOrderDetails: vi.fn(),
       updateOrderNotes: vi.fn(),
       updateOrderStatus: vi.fn(),
+    },
+    machinesMock: {
+      linkMachineToOrder: vi.fn(),
+      unlinkMachineFromOrder: vi.fn(),
     },
     drawingsMock: {
       replaceOrderDrawings: vi.fn(),
@@ -25,6 +35,7 @@ const { authMock, ordersMock, drawingsMock, cacheMock, navigationMock } =
 
 vi.mock("@/lib/auth", () => authMock);
 vi.mock("@/server/services/orders", () => ordersMock);
+vi.mock("@/server/services/machines", () => machinesMock);
 vi.mock("@/server/services/order-drawings", () => drawingsMock);
 vi.mock("next/cache", () => cacheMock);
 vi.mock("next/navigation", () => navigationMock);
@@ -138,6 +149,76 @@ describe("order actions", () => {
 
     await expect(createOrderAction(form)).rejects.toThrow("需要经理权限");
     expect(ordersMock.createOrder).not.toHaveBeenCalled();
+  });
+
+  it("links a machine from an order and returns to the order detail", async () => {
+    const { linkOrderMachineAction } = await import("@/app/actions/orders");
+    const form = new FormData();
+    form.set("orderId", "order-1");
+    form.set("machineId", "machine-2");
+
+    await linkOrderMachineAction(form);
+
+    expect(machinesMock.linkMachineToOrder).toHaveBeenCalledWith(
+      "workspace-1",
+      "machine-2",
+      "order-1",
+    );
+    expect(cacheMock.revalidatePath).toHaveBeenCalledWith("/machines");
+    expect(cacheMock.revalidatePath).toHaveBeenCalledWith(
+      "/machines/machine-2",
+    );
+    expect(cacheMock.revalidatePath).toHaveBeenCalledWith("/orders");
+    expect(cacheMock.revalidatePath).toHaveBeenCalledWith("/orders/order-1");
+    expect(navigationMock.redirect).toHaveBeenCalledWith("/orders/order-1");
+  });
+
+  it("unlinks a machine from an order and returns to the order detail", async () => {
+    const { unlinkOrderMachineAction } = await import("@/app/actions/orders");
+    const form = new FormData();
+    form.set("orderId", "order-1");
+    form.set("machineId", "machine-2");
+
+    await unlinkOrderMachineAction(form);
+
+    expect(machinesMock.unlinkMachineFromOrder).toHaveBeenCalledWith(
+      "workspace-1",
+      "machine-2",
+      "order-1",
+    );
+    expect(cacheMock.revalidatePath).toHaveBeenCalledWith("/machines");
+    expect(cacheMock.revalidatePath).toHaveBeenCalledWith(
+      "/machines/machine-2",
+    );
+    expect(cacheMock.revalidatePath).toHaveBeenCalledWith("/orders");
+    expect(cacheMock.revalidatePath).toHaveBeenCalledWith("/orders/order-1");
+    expect(navigationMock.redirect).toHaveBeenCalledWith("/orders/order-1");
+  });
+
+  it.each([
+    ["linkOrderMachineAction", "linkMachineToOrder"],
+    ["unlinkOrderMachineAction", "unlinkMachineFromOrder"],
+  ] as const)(
+    "rejects employee access through %s",
+    async (actionName, serviceName) => {
+      authMock.requireManager.mockRejectedValue(new Error("需要经理权限"));
+      const actions = await import("@/app/actions/orders");
+      const form = new FormData();
+      form.set("orderId", "order-1");
+      form.set("machineId", "machine-2");
+
+      await expect(actions[actionName](form)).rejects.toThrow("需要经理权限");
+      expect(machinesMock[serviceName]).not.toHaveBeenCalled();
+    },
+  );
+
+  it("rejects an empty machine when linking from an order", async () => {
+    const { linkOrderMachineAction } = await import("@/app/actions/orders");
+    const form = new FormData();
+    form.set("orderId", "order-1");
+
+    await expect(linkOrderMachineAction(form)).rejects.toThrow("机器必填");
+    expect(machinesMock.linkMachineToOrder).not.toHaveBeenCalled();
   });
 
   it("rejects unit prices with more than two decimals", async () => {
