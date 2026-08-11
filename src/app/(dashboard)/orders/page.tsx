@@ -85,15 +85,10 @@ export default async function OrdersPage({
     }),
     canManageOrders ? listMachines(user.workspaceId, {}) : Promise.resolve([]),
   ]);
-  const machineOptions = machines
-    .filter(
-      (machine) =>
-        !machine.currentOrder || machine.currentOrder.status === "completed",
-    )
-    .map((machine) => ({
-      value: machine.id,
-      label: machine.code,
-    }));
+  const machineOptions = machines.map((machine) => ({
+    value: machine.id,
+    label: machine.code,
+  }));
 
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-6">

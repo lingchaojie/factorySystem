@@ -1,9 +1,7 @@
 import { MachineStatus } from "@prisma/client";
 import Link from "next/link";
 import React from "react";
-import {
-  createMachineAction,
-} from "@/app/actions/machines";
+import { createMachineAction } from "@/app/actions/machines";
 import { CreateEntityDialog } from "@/components/create-entity-dialog";
 import {
   MultiSelectInput,
@@ -12,15 +10,7 @@ import {
   Textarea,
   TextInput,
 } from "@/components/forms";
-import {
-  machineStatusLabels,
-  orderStatusLabels,
-  StatusBadge,
-} from "@/components/status-badge";
-import {
-  OrderProgressBars,
-  summarizeProgressRecords,
-} from "@/components/order-progress-bars";
+import { machineStatusLabels, StatusBadge } from "@/components/status-badge";
 import { businessTodayBounds } from "@/lib/business-time";
 import { requireUser } from "@/lib/auth";
 import { listMachines } from "@/server/services/machines";
@@ -98,7 +88,7 @@ export default async function MachinesPage({
             机器
           </h1>
           <p className="mt-1 text-sm text-slate-500">
-            查看机器状态、当前订单和今日产出。
+            查看机器状态、关联订单和今日产出。
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -149,7 +139,7 @@ export default async function MachinesPage({
               暂无机器
             </h2>
             <p className="mt-2 text-sm text-slate-500">
-              新增机器后，这里会显示当前订单和今日加工、出货数量。
+              新增机器后，这里会显示关联订单和今日加工、出货数量。
             </p>
           </div>
         ) : (
@@ -159,7 +149,7 @@ export default async function MachinesPage({
                 <tr>
                   <th className="px-4 py-3">机器</th>
                   <th className="whitespace-nowrap px-4 py-3">状态</th>
-                  <th className="px-4 py-3">当前订单</th>
+                  <th className="px-4 py-3">关联订单</th>
                   <th className="whitespace-nowrap px-4 py-3 text-right">
                     今日加工
                   </th>
@@ -191,26 +181,25 @@ export default async function MachinesPage({
                       />
                     </td>
                     <td className="px-4 py-4">
-                      {machine.currentOrder ? (
-                        <div className="flex items-start gap-2">
-                          <Link
-                            href={`/orders/${machine.currentOrder.id}`}
-                            title={formatOrder(machine.currentOrder)}
-                            className="block w-36 shrink-0 truncate font-medium text-slate-950 underline-offset-4 hover:underline"
-                          >
-                            {formatOrder(machine.currentOrder)}
-                          </Link>
-                          <StatusBadge
-                            status={machine.currentOrder.status}
-                            labels={orderStatusLabels}
-                            className="w-16 shrink-0 justify-center"
-                          />
-                          <OrderProgressBars
-                            plannedQuantity={machine.currentOrder.plannedQuantity}
-                            {...summarizeProgressRecords(
-                              machine.currentOrder.productionRecords,
-                            )}
-                          />
+                      {machine.orderAssignments.length > 0 ? (
+                        <div className="grid min-w-48 gap-1.5">
+                          {machine.orderAssignments
+                            .slice(0, 2)
+                            .map((assignment) => (
+                              <Link
+                                key={assignment.orderId}
+                                href={`/orders/${assignment.order.id}`}
+                                title={formatOrder(assignment.order)}
+                                className="block max-w-56 truncate font-medium text-slate-950 underline-offset-4 hover:underline"
+                              >
+                                {formatOrder(assignment.order)}
+                              </Link>
+                            ))}
+                          {machine.orderAssignments.length > 2 ? (
+                            <span className="text-xs text-slate-500">
+                              另有 {machine.orderAssignments.length - 2} 个
+                            </span>
+                          ) : null}
                         </div>
                       ) : (
                         <span className="text-slate-400">未关联订单</span>

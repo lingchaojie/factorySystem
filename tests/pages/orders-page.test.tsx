@@ -110,19 +110,24 @@ describe("orders page", () => {
         id: "machine-free",
         code: "1号机",
         name: "1号机",
-        currentOrder: null,
+        orderAssignments: [],
       },
       {
         id: "machine-completed",
         code: "2号机",
         name: "2号机",
-        currentOrder: { status: "completed" },
+        orderAssignments: [],
       },
       {
         id: "machine-busy",
         code: "3号机",
         name: "3号机",
-        currentOrder: { status: "in_progress" },
+        orderAssignments: [
+          {
+            orderId: "order-existing",
+            order: { id: "order-existing", status: "in_progress" },
+          },
+        ],
       },
     ]);
     ordersMock.listOrders.mockResolvedValue([
@@ -172,7 +177,7 @@ describe("orders page", () => {
     fireEvent.click(screen.getByRole("button", { name: "关联机器：全部" }));
     expect(screen.getByText("1号机")).toBeInTheDocument();
     expect(screen.getByText("2号机")).toBeInTheDocument();
-    expect(screen.queryByText("3号机")).not.toBeInTheDocument();
+    expect(screen.getByText("3号机")).toBeInTheDocument();
     expect(screen.getByText("甲方工厂 / 法兰")).toBeInTheDocument();
     expect(screen.getByText("首件加急")).toBeInTheDocument();
     expect(screen.getByText("创建日期 2026年5月10日")).toBeInTheDocument();
@@ -304,7 +309,7 @@ describe("orders page", () => {
       remainingQuantity: 90,
       isOverPlanned: false,
       canClose: false,
-      currentMachines: [],
+      machineAssignments: [],
       productionRecords: [],
       drawings: [
         {
@@ -394,7 +399,7 @@ describe("orders page", () => {
       remainingQuantity: 90,
       isOverPlanned: false,
       canClose: false,
-      currentMachines: [],
+      machineAssignments: [],
       productionRecords: [
         {
           id: "record-old",
@@ -454,7 +459,7 @@ describe("orders page", () => {
       plannedQuantity: null,
       unitPriceCents: 1234,
       dueDate: null,
-      status: "in_progress",
+      status: "completed",
       notes: null,
       closedAt: null,
       createdAt: new Date("2026-05-10T00:00:00.000Z"),
@@ -466,10 +471,16 @@ describe("orders page", () => {
       remainingQuantity: null,
       isOverPlanned: false,
       canClose: false,
-      currentMachines: [
-        { id: "machine-1", code: "1号机", name: "1号机", status: "active" },
-        { id: "machine-2", code: "2号机", name: "2号机", status: "active" },
-        { id: "machine-3", code: "3号机", name: "3号机", status: "active" },
+      machineAssignments: [
+        {
+          machine: { id: "machine-1", code: "1号机", name: "1号机", status: "active" },
+        },
+        {
+          machine: { id: "machine-2", code: "2号机", name: "2号机", status: "active" },
+        },
+        {
+          machine: { id: "machine-3", code: "3号机", name: "3号机", status: "active" },
+        },
       ],
       productionRecords: [
         {
@@ -519,12 +530,12 @@ describe("orders page", () => {
     expect(screen.getByText("加工量 20 / -")).toBeInTheDocument();
     expect(screen.queryByText("做过机器")).not.toBeInTheDocument();
     expect(screen.queryByText("当前机器")).not.toBeInTheDocument();
-    const currentMachines = screen.getByRole("region", {
-      name: "当前关联机器",
+    const associatedMachines = screen.getByRole("region", {
+      name: "关联机器",
     });
-    expect(within(currentMachines).getByRole("link", { name: "1号机" })).toBeInTheDocument();
-    expect(within(currentMachines).getByRole("link", { name: "2号机" })).toBeInTheDocument();
-    expect(within(currentMachines).getByRole("link", { name: "3号机" })).toBeInTheDocument();
+    expect(within(associatedMachines).getByRole("link", { name: "1号机" })).toBeInTheDocument();
+    expect(within(associatedMachines).getByRole("link", { name: "2号机" })).toBeInTheDocument();
+    expect(within(associatedMachines).getByRole("link", { name: "3号机" })).toBeInTheDocument();
     const workedMachines = screen.getByRole("region", {
       name: "做过此订单的机器",
     });
@@ -568,7 +579,7 @@ describe("orders page", () => {
       remainingQuantity: 90,
       isOverPlanned: false,
       canClose: false,
-      currentMachines: [],
+      machineAssignments: [],
       productionRecords: [],
       drawings: [],
     });

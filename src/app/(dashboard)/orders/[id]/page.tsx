@@ -717,34 +717,40 @@ export default async function OrderDetailPage({
         </div>
 
         <aside className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-          <section aria-label="当前关联机器">
+          <section aria-label="关联机器">
             <h2 className="text-base font-semibold text-slate-950">
-              当前关联机器
+              关联机器
             </h2>
-            {order.currentMachines.length === 0 ? (
+            {order.machineAssignments.length === 0 ? (
               <p className="mt-3 text-sm text-slate-500">
-                当前没有机器关联到此订单。
+                没有机器关联到此订单。
               </p>
             ) : (
               <div className="mt-4 divide-y divide-slate-100">
-                {order.currentMachines.map((machine) => (
-                  <div key={machine.id} className="py-3 first:pt-0 last:pb-0">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <Link
-                          href={`/machines/${machine.id}`}
-                          className="font-medium text-slate-950 underline-offset-4 hover:underline"
-                        >
-                          {machine.code}
-                        </Link>
+                {order.machineAssignments.map((assignment) => {
+                  const machine = assignment.machine;
+                  return (
+                    <div
+                      key={machine.id}
+                      className="py-3 first:pt-0 last:pb-0"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <Link
+                            href={`/machines/${machine.id}`}
+                            className="font-medium text-slate-950 underline-offset-4 hover:underline"
+                          >
+                            {machine.code}
+                          </Link>
+                        </div>
+                        <StatusBadge
+                          status={machine.status}
+                          labels={machineStatusLabels}
+                        />
                       </div>
-                      <StatusBadge
-                        status={machine.status}
-                        labels={machineStatusLabels}
-                      />
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </section>

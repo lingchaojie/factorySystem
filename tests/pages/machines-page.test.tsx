@@ -60,17 +60,38 @@ describe("machines page", () => {
         model: null,
         location: null,
         status: "active",
-        currentOrder: {
-          id: "order-1",
-          customerName: "甲方工厂",
-          partName: "法兰",
-          plannedQuantity: 100,
-          status: "completed",
-          productionRecords: [
-            { type: "completed", quantity: 80 },
-            { type: "shipped", quantity: 35 },
-          ],
-        },
+        orderAssignments: [
+          {
+            orderId: "order-1",
+            order: {
+              id: "order-1",
+              customerName: "甲方工厂",
+              partName: "法兰",
+              status: "in_progress",
+              productionRecords: [],
+            },
+          },
+          {
+            orderId: "order-2",
+            order: {
+              id: "order-2",
+              customerName: "乙方工厂",
+              partName: "轴套",
+              status: "processing_pending",
+              productionRecords: [],
+            },
+          },
+          {
+            orderId: "order-3",
+            order: {
+              id: "order-3",
+              customerName: "丙方工厂",
+              partName: "底座",
+              status: "development_pending",
+              productionRecords: [],
+            },
+          },
+        ],
         productionRecords: [],
       },
     ]);
@@ -97,16 +118,20 @@ describe("machines page", () => {
     expect(
       screen.getByRole("columnheader", { name: "今日出货" }),
     ).toHaveClass("whitespace-nowrap");
-    expect(screen.getByRole("progressbar", { name: "出货量进度" })).toHaveAttribute(
-      "aria-valuenow",
-      "35",
+    expect(
+      screen.getByRole("columnheader", { name: "关联订单" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "甲方工厂 / 法兰" })).toHaveAttribute(
+      "href",
+      "/orders/order-1",
     );
-    expect(screen.getByRole("progressbar", { name: "加工量进度" })).toHaveAttribute(
-      "aria-valuenow",
-      "80",
+    expect(screen.getByRole("link", { name: "乙方工厂 / 轴套" })).toHaveAttribute(
+      "href",
+      "/orders/order-2",
     );
-    expect(screen.getByText("出货量 35 / 100")).toBeInTheDocument();
-    expect(screen.getByText("加工量 80 / 100")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "丙方工厂 / 底座" })).not.toBeInTheDocument();
+    expect(screen.getByText("另有 1 个")).toBeInTheDocument();
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
   });
 
   it("hides machine creation from employee users", async () => {
