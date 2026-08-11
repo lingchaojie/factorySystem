@@ -2,6 +2,8 @@ import Link from "next/link";
 import React from "react";
 import {
   deleteOrderAction,
+  linkOrderMachineAction,
+  unlinkOrderMachineAction,
   updateOrderDetailsAction,
   updateOrderNotesAction,
 } from "@/app/actions/orders";
@@ -21,6 +23,7 @@ import {
   orderStatusLabels,
   StatusBadge,
 } from "@/components/status-badge";
+import { UnlinkMachineOrderButton } from "@/components/unlink-machine-order-button";
 import { formatCnyFromCents, getOrderAmountCents } from "@/domain/money";
 import {
   formatBusinessDate,
@@ -28,6 +31,7 @@ import {
   formatDateTimeLocalValue,
 } from "@/lib/business-time";
 import { requireUser } from "@/lib/auth";
+import { listMachines } from "@/server/services/machines";
 import { getOrderWithSummary } from "@/server/services/orders";
 import { DeleteOrderButton } from "./delete-order-button";
 import { OrderDrawingGallery } from "./order-drawing-gallery";
@@ -223,7 +227,22 @@ export default async function OrderDetailPage({
   const recordParams = await searchParams;
   const user = await requireUser();
   const canManageOrders = user.role === "manager";
-  const order = await getOrderWithSummary(user.workspaceId, id);
+  const [order, machines] = await Promise.all([
+    getOrderWithSummary(user.workspaceId, id),
+    listMachines(user.workspaceId),
+  ]);
+  const assignedMachineIds = new Set(
+    order.machineAssignments.map((assignment) => assignment.machine.id),
+  );
+  const availableMachines = machines.filter(
+    (machine) => !assignedMachineIds.has(machine.id),
+  );
+  const availableMachineOptions = availableMachines.map((machine) => ({
+    value: machine.id,
+    label: machine.code,
+  }));
+  const canManageAssignments =
+    canManageOrders && order.status !== "completed";
   const recordDirection = parseRecordDirection(recordParams.recordDirection);
   const machineOptions = Array.from(
     new Map(
@@ -616,16 +635,59 @@ export default async function OrderDetailPage({
                             {machine.code}
                           </Link>
                         </div>
-                        <StatusBadge
-                          status={machine.status}
-                          labels={machineStatusLabels}
-                        />
+                        <div className="flex flex-wrap items-center justify-end gap-2">
+                          <StatusBadge
+                            status={machine.status}
+                            labels={machineStatusLabels}
+                          />
+                          {canManageAssignments ? (
+                            <form action={unlinkOrderMachineAction}>
+                              <input
+                                type="hidden"
+                                name="orderId"
+                                value={order.id}
+                              />
+                              <input
+                                type="hidden"
+                                name="machineId"
+                                value={machine.id}
+                              />
+                              <UnlinkMachineOrderButton />
+                            </form>
+                          ) : null}
+                        </div>
                       </div>
                     </div>
                   );
                 })}
               </div>
             )}
+            {order.status === "completed" ? (
+              <p className="mt-4 text-sm text-slate-500">
+                订单已完成，不能调整机器关联。
+              </p>
+            ) : canManageOrders ? (
+              availableMachines.length === 0 ? (
+                <p className="mt-4 text-sm text-slate-500">
+                  当前没有其他可关联机器。
+                </p>
+              ) : (
+                <form
+                  action={linkOrderMachineAction}
+                  className="mt-4 grid gap-4"
+                >
+                  <input type="hidden" name="orderId" value={order.id} />
+                  <SelectInput
+                    label="可关联机器"
+                    name="machineId"
+                    defaultValue={availableMachines[0]?.id}
+                    options={availableMachineOptions}
+                    required
+                  />
+                  <SubmitButton>保存关联</SubmitButton>
+                </form>
+              )
+            ) : null}
           </section>
           <section
             aria-label="做过此订单的机器"

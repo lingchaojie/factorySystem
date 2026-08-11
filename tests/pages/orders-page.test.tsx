@@ -21,6 +21,8 @@ const { authMock, machinesMock, ordersMock, actionsMock } = vi.hoisted(() => ({
   actionsMock: {
     createOrderAction: vi.fn(),
     deleteOrderAction: vi.fn(),
+    linkOrderMachineAction: vi.fn(),
+    unlinkOrderMachineAction: vi.fn(),
     updateOrderDetailsAction: vi.fn(),
     updateOrderNotesAction: vi.fn(),
     updateOrderStatusAction: vi.fn(),
@@ -32,6 +34,63 @@ vi.mock("@/lib/auth", () => authMock);
 vi.mock("@/server/services/machines", () => machinesMock);
 vi.mock("@/server/services/orders", () => ordersMock);
 vi.mock("@/app/actions/orders", () => actionsMock);
+
+function machineFixture(id: string, code: string) {
+  return {
+    id,
+    workspaceId: "workspace-1",
+    code,
+    name: code,
+    model: null,
+    location: null,
+    status: "active" as const,
+    notes: null,
+    createdAt: new Date("2026-05-10T00:00:00.000Z"),
+    updatedAt: new Date("2026-05-10T00:00:00.000Z"),
+    orderAssignments: [],
+    productionRecords: [],
+  };
+}
+
+function orderDetailFixture({
+  status = "in_progress",
+  assignedMachines = [],
+}: {
+  status?:
+    | "development_pending"
+    | "processing_pending"
+    | "in_progress"
+    | "completed";
+  assignedMachines?: Array<ReturnType<typeof machineFixture>>;
+} = {}) {
+  return {
+    id: "order-1",
+    orderNo: "ORD-20260510-0001",
+    customerName: "甲方工厂",
+    partName: "法兰",
+    plannedQuantity: 100,
+    unitPriceCents: 1234,
+    dueDate: null,
+    status,
+    notes: null,
+    closedAt:
+      status === "completed"
+        ? new Date("2026-05-11T00:00:00.000Z")
+        : null,
+    createdAt: new Date("2026-05-10T00:00:00.000Z"),
+    updatedAt: new Date("2026-05-10T00:00:00.000Z"),
+    createdByUser: null,
+    updatedByUser: null,
+    completedQuantity: 20,
+    shippedQuantity: 10,
+    remainingQuantity: 90,
+    isOverPlanned: false,
+    canClose: false,
+    machineAssignments: assignedMachines.map((machine) => ({ machine })),
+    productionRecords: [],
+    drawings: [],
+  };
+}
 
 describe("orders page", () => {
   beforeEach(() => {
@@ -479,6 +538,70 @@ describe("orders page", () => {
     expect(screen.queryByText("旧记录")).not.toBeInTheDocument();
   });
 
+  it("lets managers add and remove machines from an active order", async () => {
+    const firstMachine = machineFixture("machine-1", "1号机");
+    const secondMachine = machineFixture("machine-2", "2号机");
+    const thirdMachine = machineFixture("machine-3", "3号机");
+    machinesMock.listMachines.mockResolvedValue([
+      firstMachine,
+      secondMachine,
+      thirdMachine,
+    ]);
+    ordersMock.getOrderWithSummary.mockResolvedValue(
+      orderDetailFixture({ assignedMachines: [firstMachine] }),
+    );
+
+    render(
+      await OrderDetailPage({
+        params: Promise.resolve({ id: "order-1" }),
+      }),
+    );
+
+    const assignmentRegion = screen.getByRole("region", {
+      name: "关联机器",
+    });
+    expect(
+      within(assignmentRegion).getByRole("button", { name: "解除关联" }),
+    ).toBeInTheDocument();
+    const select = within(assignmentRegion).getByLabelText("可关联机器");
+    expect(
+      within(select).queryByRole("option", { name: "1号机" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(select).getByRole("option", { name: "2号机" }),
+    ).toBeInTheDocument();
+    expect(
+      within(select).getByRole("option", { name: "3号机" }),
+    ).toBeInTheDocument();
+    expect(
+      within(assignmentRegion).getByRole("button", { name: "保存关联" }),
+    ).toBeInTheDocument();
+  });
+
+  it("explains when every machine is already assigned to an active order", async () => {
+    const machine = machineFixture("machine-1", "1号机");
+    machinesMock.listMachines.mockResolvedValue([machine]);
+    ordersMock.getOrderWithSummary.mockResolvedValue(
+      orderDetailFixture({ assignedMachines: [machine] }),
+    );
+
+    render(
+      await OrderDetailPage({
+        params: Promise.resolve({ id: "order-1" }),
+      }),
+    );
+
+    const assignmentRegion = screen.getByRole("region", {
+      name: "关联机器",
+    });
+    expect(
+      within(assignmentRegion).getByText("当前没有其他可关联机器。"),
+    ).toBeInTheDocument();
+    expect(
+      within(assignmentRegion).queryByLabelText("可关联机器"),
+    ).not.toBeInTheDocument();
+  });
+
   it("shows the machines that have worked on an order detail", async () => {
     ordersMock.getOrderWithSummary.mockResolvedValue({
       id: "order-1",
@@ -579,6 +702,17 @@ describe("orders page", () => {
     expect(within(workedMachines).getAllByRole("link")).toHaveLength(2);
     expect(within(workedMachines).queryByText("旧记录")).not.toBeInTheDocument();
     expect(within(workedMachines).queryByText("新记录")).not.toBeInTheDocument();
+    expect(
+      within(associatedMachines).getByText(
+        "订单已完成，不能调整机器关联。",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(associatedMachines).queryByRole("button", { name: "解除关联" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(associatedMachines).queryByLabelText("可关联机器"),
+    ).not.toBeInTheDocument();
   });
 
   it("hides order price and mutation controls from employee users on detail", async () => {
@@ -590,6 +724,9 @@ describe("orders page", () => {
       role: "employee",
       workspace: { name: "精密加工一厂" },
     });
+    machinesMock.listMachines.mockResolvedValue([
+      machineFixture("machine-1", "1号机"),
+    ]);
     ordersMock.getOrderWithSummary.mockResolvedValue({
       id: "order-1",
       orderNo: "ORD-20260510-0001",
@@ -627,5 +764,17 @@ describe("orders page", () => {
     expect(screen.queryByText("订单金额")).not.toBeInTheDocument();
     expect(screen.queryByText(/12\.34/)).not.toBeInTheDocument();
     expect(screen.queryByText(/1,234\.00/)).not.toBeInTheDocument();
+    const assignmentRegion = screen.getByRole("region", {
+      name: "关联机器",
+    });
+    expect(
+      within(assignmentRegion).queryByRole("button", { name: "解除关联" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(assignmentRegion).queryByLabelText("可关联机器"),
+    ).not.toBeInTheDocument();
+    expect(
+      within(assignmentRegion).queryByRole("button", { name: "保存关联" }),
+    ).not.toBeInTheDocument();
   });
 });

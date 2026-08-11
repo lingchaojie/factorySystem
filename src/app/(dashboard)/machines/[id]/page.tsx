@@ -25,6 +25,7 @@ import {
   OrderProgressBars,
   summarizeProgressRecords,
 } from "@/components/order-progress-bars";
+import { UnlinkMachineOrderButton } from "@/components/unlink-machine-order-button";
 import {
   formatBusinessDateTime,
   formatDateTimeLocalValue,
@@ -33,7 +34,6 @@ import { requireUser } from "@/lib/auth";
 import { getMachine } from "@/server/services/machines";
 import { listOrders } from "@/server/services/orders";
 import { DeleteMachineButton } from "./delete-machine-button";
-import { UnlinkOrderButton } from "./unlink-order-button";
 
 function formatOrder(order: { customerName: string; partName: string }) {
   return `${order.customerName} / ${order.partName}`;
@@ -429,7 +429,7 @@ export default async function MachineDetailPage({
                             name="orderId"
                             value={order.id}
                           />
-                          <UnlinkOrderButton />
+                          <UnlinkMachineOrderButton />
                         </form>
                       </div>
                       <OrderProgressBars

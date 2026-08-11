@@ -2,9 +2,9 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import React from "react";
 import { describe, expect, it, vi } from "vitest";
 import { DeleteMachineButton } from "@/app/(dashboard)/machines/[id]/delete-machine-button";
-import { UnlinkOrderButton } from "@/app/(dashboard)/machines/[id]/unlink-order-button";
 import { DeleteOrderButton } from "@/app/(dashboard)/orders/[id]/delete-order-button";
 import { DeleteRecordButton } from "@/app/(dashboard)/records/delete-record-button";
+import { UnlinkMachineOrderButton } from "@/components/unlink-machine-order-button";
 
 describe("destructive submit buttons", () => {
   it("render red text instead of inheriting the primary submit white text", () => {
@@ -13,11 +13,11 @@ describe("destructive submit buttons", () => {
         <DeleteOrderButton />
         <DeleteRecordButton />
         <DeleteMachineButton />
-        <UnlinkOrderButton />
+        <UnlinkMachineOrderButton />
       </>,
     );
 
-    for (const name of ["删除订单", "删除", "删除机器", "移除关联"]) {
+    for (const name of ["删除订单", "删除", "删除机器", "解除关联"]) {
       const button = screen.getByRole("button", { name });
       expect(button).toHaveClass("text-red-700");
       expect(button).not.toHaveClass("text-white");
@@ -42,14 +42,14 @@ describe("destructive submit buttons", () => {
 
     render(
       <form onSubmit={submitSpy}>
-        <UnlinkOrderButton />
+        <UnlinkMachineOrderButton />
       </form>,
     );
-    const button = screen.getByRole("button", { name: "移除关联" });
+    const button = screen.getByRole("button", { name: "解除关联" });
 
     fireEvent.click(button);
     expect(confirmSpy).toHaveBeenCalledWith(
-      "确定移除这台机器与该订单的关联吗？已有生产记录会保留。",
+      "确定解除这台机器与该订单的关联吗？已有生产记录会保留。",
     );
     expect(submitSpy).not.toHaveBeenCalled();
 

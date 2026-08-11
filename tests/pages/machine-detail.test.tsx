@@ -175,7 +175,7 @@ describe("machine detail page", () => {
       "",
     );
     expect(screen.getByRole("button", { name: "保存记录" })).toBeEnabled();
-    expect(screen.getAllByRole("button", { name: "移除关联" })).toHaveLength(
+    expect(screen.getAllByRole("button", { name: "解除关联" })).toHaveLength(
       2,
     );
   });
