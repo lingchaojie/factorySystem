@@ -68,7 +68,7 @@ async function createMachine(
 async function linkMachineToOrder(page: Page, orderName: string) {
   const form = page
     .locator("form")
-    .filter({ has: page.locator('select[name="orderId"]') });
+    .filter({ has: page.getByRole("button", { name: "保存关联" }) });
   const orderValue = await form
     .locator("option")
     .filter({ hasText: orderName })
@@ -76,11 +76,15 @@ async function linkMachineToOrder(page: Page, orderName: string) {
   expect(orderValue).toBeTruthy();
   await form.locator('select[name="orderId"]').selectOption(orderValue ?? "");
   await form.getByRole("button", { name: "保存关联" }).click();
-  await expect(
-    page.locator("section").filter({
+  const assignmentSection = page
+    .locator("section")
+    .filter({
       has: page.getByRole("heading", { name: "关联订单", exact: true }),
-    }).last(),
-  ).toContainText(orderName);
+    })
+    .last();
+  await expect(
+    assignmentSection.getByRole("link", { name: orderName }),
+  ).toBeVisible();
 }
 
 async function expectMachineOrderLink(page: Page, orderName: string) {
@@ -97,12 +101,16 @@ async function expectMachineOrderLink(page: Page, orderName: string) {
 
 async function createProductionRecord(
   page: Page,
+  orderName: string,
   record: { completed: string; shipped: string; notes: string },
 ) {
   const form = page
     .locator("form")
     .filter({ has: page.locator('input[name="completedQuantity"]') })
     .filter({ has: page.locator('input[name="machineId"]') });
+  await form.locator('select[name="orderId"]').selectOption({
+    label: orderName,
+  });
   await form.locator('input[name="completedQuantity"]').fill(record.completed);
   await form.locator('input[name="shippedQuantity"]').fill(record.shipped);
   await form.locator('textarea[name="notes"]').fill(record.notes);
@@ -170,8 +178,8 @@ test("factory order, machine, production, and deletion flow updates totals", asy
   await createMachine(page, machine);
   await linkMachineToOrder(page, orderName);
   await expectMachineOrderLink(page, orderName);
-  await createProductionRecord(page, firstRecord);
-  await createProductionRecord(page, secondRecord);
+  await createProductionRecord(page, orderName, firstRecord);
+  await createProductionRecord(page, orderName, secondRecord);
   await expectOrderSummary(page, orderName, {
     completed: "110",
     shipped: "110",
@@ -206,6 +214,63 @@ test("factory order, machine, production, and deletion flow updates totals", asy
     completed: "60",
     shipped: "20",
     remaining: "80",
+    overPlanned: false,
+  });
+});
+
+test("one machine records against two associated orders", async ({
+  page,
+}, testInfo) => {
+  const suffix = `multi${Date.now().toString(36).slice(-5)}${testInfo.workerIndex}`;
+  await login(page);
+  const firstOrderName = await createOrder(page, {
+    customerName: `甲方${suffix}`,
+    partName: `法兰${suffix}`,
+    unitPrice: "12.34",
+  });
+  const secondOrderName = await createOrder(page, {
+    customerName: `乙方${suffix}`,
+    partName: `轴套${suffix}`,
+    unitPrice: "12.34",
+  });
+
+  await createMachine(page, { code: `MM${suffix}` });
+  await linkMachineToOrder(page, firstOrderName);
+  await linkMachineToOrder(page, secondOrderName);
+  await page.goto(new URL(page.url()).pathname);
+
+  const recordForm = page
+    .locator("form")
+    .filter({ has: page.locator('input[name="completedQuantity"]') });
+  const targetOrder = recordForm.locator('select[name="orderId"]');
+  await expect(targetOrder).toHaveValue("");
+  await expect(
+    targetOrder.locator("option", { hasText: firstOrderName }),
+  ).toHaveCount(1);
+  await expect(
+    targetOrder.locator("option", { hasText: secondOrderName }),
+  ).toHaveCount(1);
+
+  await createProductionRecord(page, firstOrderName, {
+    completed: "11",
+    shipped: "3",
+    notes: `甲方记录-${suffix}`,
+  });
+  await createProductionRecord(page, secondOrderName, {
+    completed: "7",
+    shipped: "2",
+    notes: `乙方记录-${suffix}`,
+  });
+  await expectOrderSummary(page, firstOrderName, {
+    completed: "11",
+    shipped: "3",
+    remaining: "97",
+    overPlanned: false,
+  });
+  await expectOrderSummary(page, secondOrderName, {
+    completed: "7",
+    shipped: "2",
+    remaining: "98",
     overPlanned: false,
   });
 });
