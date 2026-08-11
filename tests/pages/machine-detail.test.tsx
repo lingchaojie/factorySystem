@@ -22,6 +22,33 @@ vi.mock("@/lib/workspace", () => workspaceMock);
 vi.mock("@/server/services/machines", () => machinesMock);
 vi.mock("@/server/services/orders", () => ordersMock);
 
+function orderAssignment({
+  id = "order-1",
+  customerName = "甲方工厂",
+  partName = "法兰",
+  plannedQuantity = 100,
+  productionRecords = [],
+}: {
+  id?: string;
+  customerName?: string;
+  partName?: string;
+  plannedQuantity?: number | null;
+  productionRecords?: Array<{ type: string; quantity: number }>;
+} = {}) {
+  return {
+    orderId: id,
+    order: {
+      id,
+      orderNo: `MO-${id}`,
+      customerName,
+      partName,
+      plannedQuantity,
+      status: "in_progress",
+      productionRecords,
+    },
+  };
+}
+
 describe("machine detail page", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -53,14 +80,7 @@ describe("machine detail page", () => {
       location: null,
       notes: "等待保养",
       status: "active",
-      currentOrderId: "order-1",
-      currentOrder: {
-        id: "order-1",
-        orderNo: "MO-1",
-        customerName: "甲方工厂",
-        partName: "法兰",
-        status: "in_progress",
-      },
+      orderAssignments: [orderAssignment()],
       productionRecords: [
         {
           id: "record-1",
@@ -109,10 +129,82 @@ describe("machine detail page", () => {
     expect(orderLinks).toHaveLength(2);
     expect(orderLinks[0]).toHaveAttribute("href", "/orders/order-1");
     expect(orderLinks[1]).toHaveAttribute("href", "/orders/order-1");
+    expect(screen.getByLabelText("目标订单")).toHaveValue("order-1");
     expect(screen.getByRole("columnheader", { name: "录入人" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "修改人" })).toBeInTheDocument();
     expect(screen.getByText("张三")).toBeInTheDocument();
     expect(screen.getByText("李四")).toBeInTheDocument();
+  });
+
+  it("requires choosing the target order when multiple orders are assigned", async () => {
+    ordersMock.listOrders.mockResolvedValue([]);
+    machinesMock.getMachine.mockResolvedValue({
+      id: "machine-1",
+      code: "CNC-1",
+      name: "一号机",
+      model: null,
+      location: null,
+      notes: null,
+      status: "active",
+      orderAssignments: [
+        orderAssignment(),
+        orderAssignment({
+          id: "order-2",
+          customerName: "乙方工厂",
+          partName: "轴套",
+        }),
+      ],
+      productionRecords: [],
+    });
+
+    render(
+      await MachineDetailPage({
+        params: Promise.resolve({ id: "machine-1" }),
+        searchParams: Promise.resolve({}),
+      }),
+    );
+
+    expect(
+      screen.getByRole("link", { name: "甲方工厂 / 法兰" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "乙方工厂 / 轴套" }),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("目标订单")).toHaveValue("");
+    expect(screen.getByRole("option", { name: "请选择订单" })).toHaveValue(
+      "",
+    );
+    expect(screen.getByRole("button", { name: "保存记录" })).toBeEnabled();
+    expect(screen.getAllByRole("button", { name: "移除关联" })).toHaveLength(
+      2,
+    );
+  });
+
+  it("keeps a valid target order selected from the query string", async () => {
+    ordersMock.listOrders.mockResolvedValue([]);
+    machinesMock.getMachine.mockResolvedValue({
+      id: "machine-1",
+      code: "CNC-1",
+      name: "一号机",
+      model: null,
+      location: null,
+      notes: null,
+      status: "active",
+      orderAssignments: [
+        orderAssignment(),
+        orderAssignment({ id: "order-2", customerName: "乙方工厂", partName: "轴套" }),
+      ],
+      productionRecords: [],
+    });
+
+    render(
+      await MachineDetailPage({
+        params: Promise.resolve({ id: "machine-1" }),
+        searchParams: Promise.resolve({ orderId: "order-2" }),
+      }),
+    );
+
+    expect(screen.getByLabelText("目标订单")).toHaveValue("order-2");
   });
 
   it("sorts production records by record time by default", async () => {
@@ -126,8 +218,7 @@ describe("machine detail page", () => {
       location: null,
       notes: null,
       status: "active",
-      currentOrderId: null,
-      currentOrder: null,
+      orderAssignments: [],
       productionRecords: [
         {
           id: "record-old",
@@ -197,8 +288,7 @@ describe("machine detail page", () => {
       location: null,
       notes: null,
       status: "active",
-      currentOrderId: null,
-      currentOrder: null,
+      orderAssignments: [],
       productionRecords: [
         {
           id: "record-b",
@@ -254,7 +344,7 @@ describe("machine detail page", () => {
     );
   });
 
-  it("shows shipped and completed progress for the current order regardless of status", async () => {
+  it("shows shipped and completed progress for an assigned order", async () => {
     workspaceMock.requireWorkspaceId.mockResolvedValue("workspace-1");
     ordersMock.listOrders.mockResolvedValue([]);
     machinesMock.getMachine.mockResolvedValue({
@@ -265,19 +355,14 @@ describe("machine detail page", () => {
       location: null,
       notes: null,
       status: "active",
-      currentOrderId: "order-1",
-      currentOrder: {
-        id: "order-1",
-        orderNo: "MO-1",
-        customerName: "甲方工厂",
-        partName: "法兰",
-        plannedQuantity: 100,
-        status: "completed",
-        productionRecords: [
-          { type: "completed", quantity: 80 },
-          { type: "shipped", quantity: 35 },
-        ],
-      },
+      orderAssignments: [
+        orderAssignment({
+          productionRecords: [
+            { type: "completed", quantity: 80 },
+            { type: "shipped", quantity: 35 },
+          ],
+        }),
+      ],
       productionRecords: [],
     });
 
@@ -317,8 +402,7 @@ describe("machine detail page", () => {
       location: null,
       notes: "等待保养",
       status: "active",
-      currentOrderId: null,
-      currentOrder: null,
+      orderAssignments: [],
       productionRecords: [],
     });
 
@@ -332,7 +416,7 @@ describe("machine detail page", () => {
     expect(screen.queryByRole("button", { name: "删除机器" })).not.toBeInTheDocument();
   });
 
-  it("disables record entry when the current order is completed", async () => {
+  it("disables record entry when there is no unfinished assigned order", async () => {
     workspaceMock.requireWorkspaceId.mockResolvedValue("workspace-1");
     ordersMock.listOrders.mockResolvedValue([]);
     machinesMock.getMachine.mockResolvedValue({
@@ -343,14 +427,7 @@ describe("machine detail page", () => {
       location: null,
       notes: null,
       status: "active",
-      currentOrderId: "order-1",
-      currentOrder: {
-        id: "order-1",
-        orderNo: "MO-1",
-        customerName: "甲方工厂",
-        partName: "法兰",
-        status: "completed",
-      },
+      orderAssignments: [],
       productionRecords: [],
     });
 
@@ -361,8 +438,9 @@ describe("machine detail page", () => {
     );
 
     expect(
-      screen.getByText("当前订单已完成，请关联未完成的订单后再录入。"),
+      screen.getByText("这台机器没有关联未完成订单，不能录入生产记录。"),
     ).toBeInTheDocument();
+    expect(screen.getByLabelText("目标订单")).toBeDisabled();
     expect(screen.getByLabelText("记录时间")).toBeDisabled();
     expect(screen.getByLabelText("加工数量")).toBeDisabled();
     expect(screen.getByLabelText("出货数量")).toBeDisabled();

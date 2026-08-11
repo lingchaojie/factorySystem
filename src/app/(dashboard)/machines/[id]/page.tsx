@@ -5,6 +5,7 @@ import {
   createMachineRecordAction,
   deleteMachineAction,
   linkMachineAction,
+  unlinkMachineAction,
   updateMachineAction,
 } from "@/app/actions/machines";
 import { CreateEntityDialog } from "@/components/create-entity-dialog";
@@ -32,6 +33,7 @@ import { requireUser } from "@/lib/auth";
 import { getMachine } from "@/server/services/machines";
 import { listOrders } from "@/server/services/orders";
 import { DeleteMachineButton } from "./delete-machine-button";
+import { UnlinkOrderButton } from "./unlink-order-button";
 
 function formatOrder(order: { customerName: string; partName: string }) {
   return `${order.customerName} / ${order.partName}`;
@@ -161,6 +163,7 @@ export default async function MachineDetailPage({
 }: {
   params: Promise<{ id: string }>;
   searchParams?: Promise<{
+    orderId?: string | string[];
     recordSort?: string | string[];
     recordDirection?: string | string[];
   }>;
@@ -180,18 +183,47 @@ export default async function MachineDetailPage({
     recordDirection,
   );
   const canManageMachines = user.role === "manager";
-  const availableOrders = orders.filter((order) => order.status !== "completed");
-  const hasCurrentOrder = Boolean(machine.currentOrderId);
-  const canRecordCurrentOrder = Boolean(
-    machine.currentOrder && machine.currentOrder.status !== "completed",
+  const assignedOrderIds = new Set(
+    machine.orderAssignments.map((assignment) => assignment.orderId),
   );
-  const currentOrderProgress = machine.currentOrder
-    ? summarizeProgressRecords(machine.currentOrder.productionRecords)
-    : { completedQuantity: 0, shippedQuantity: 0 };
-  const orderOptions = availableOrders.map((order) => ({
+  const availableOrders = orders.filter(
+    (order) =>
+      order.status !== "completed" && !assignedOrderIds.has(order.id),
+  );
+  const recordableOrders = machine.orderAssignments.map(
+    (assignment) => assignment.order,
+  );
+  const requestedOrderId =
+    typeof sortParams.orderId === "string" ? sortParams.orderId : "";
+  const selectedOrderId = recordableOrders.some(
+    (order) => order.id === requestedOrderId,
+  )
+    ? requestedOrderId
+    : recordableOrders.length === 1
+      ? recordableOrders[0].id
+      : "";
+  const canRecord = recordableOrders.length > 0;
+  const availableOrderOptions = availableOrders.map((order) => ({
     value: order.id,
     label: formatOrder(order),
   }));
+  const recordOrderOptions = [
+    ...(recordableOrders.length === 1
+      ? []
+      : [
+          {
+            value: "",
+            label:
+              recordableOrders.length === 0
+                ? "暂无可录入订单"
+                : "请选择订单",
+          },
+        ]),
+    ...recordableOrders.map((order) => ({
+      value: order.id,
+      label: formatOrder(order),
+    })),
+  ];
 
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-6">
@@ -356,29 +388,64 @@ export default async function MachineDetailPage({
         <aside className="grid content-start gap-6 pb-24 md:pb-0">
           <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
             <h2 className="text-base font-semibold text-slate-950">关联订单</h2>
-            {machine.currentOrder ? (
-              <div className="mt-3 flex flex-wrap items-start gap-3 text-sm">
-                <span className="text-slate-500">当前订单</span>
-                <Link
-                  href={`/orders/${machine.currentOrder.id}`}
-                  className="font-medium text-slate-950 underline-offset-4 hover:underline"
-                >
-                  {formatOrder(machine.currentOrder)}
-                </Link>
-                <StatusBadge
-                  status={machine.currentOrder.status}
-                  labels={orderStatusLabels}
-                />
-                <OrderProgressBars
-                  plannedQuantity={machine.currentOrder.plannedQuantity}
-                  completedQuantity={currentOrderProgress.completedQuantity}
-                  shippedQuantity={currentOrderProgress.shippedQuantity}
-                />
+            {machine.orderAssignments.length === 0 ? (
+              <p className="mt-3 text-sm text-slate-500">
+                这台机器还没有关联未完成订单。
+              </p>
+            ) : (
+              <div className="mt-4 grid gap-3">
+                {machine.orderAssignments.map((assignment) => {
+                  const order = assignment.order;
+                  const progress = summarizeProgressRecords(
+                    order.productionRecords,
+                  );
+
+                  return (
+                    <div
+                      key={assignment.orderId}
+                      className="grid gap-3 rounded-md border border-slate-200 p-3"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div className="flex flex-wrap items-center gap-2 text-sm">
+                          <Link
+                            href={`/orders/${order.id}`}
+                            className="font-medium text-slate-950 underline-offset-4 hover:underline"
+                          >
+                            {formatOrder(order)}
+                          </Link>
+                          <StatusBadge
+                            status={order.status}
+                            labels={orderStatusLabels}
+                          />
+                        </div>
+                        <form action={unlinkMachineAction}>
+                          <input
+                            type="hidden"
+                            name="machineId"
+                            value={machine.id}
+                          />
+                          <input
+                            type="hidden"
+                            name="orderId"
+                            value={order.id}
+                          />
+                          <UnlinkOrderButton />
+                        </form>
+                      </div>
+                      <OrderProgressBars
+                        plannedQuantity={order.plannedQuantity}
+                        completedQuantity={progress.completedQuantity}
+                        shippedQuantity={progress.shippedQuantity}
+                        className="w-full sm:w-48"
+                      />
+                    </div>
+                  );
+                })}
               </div>
-            ) : null}
+            )}
             {availableOrders.length === 0 ? (
               <p className="mt-3 text-sm text-slate-500">
-                当前没有未完成的订单。请先在订单流程中创建订单。
+                当前没有其他可关联的未完成订单。
               </p>
             ) : (
               <form action={linkMachineAction} className="mt-4 grid gap-4">
@@ -386,8 +453,8 @@ export default async function MachineDetailPage({
                 <SelectInput
                   label="可关联订单"
                   name="orderId"
-                  defaultValue={machine.currentOrderId ?? availableOrders[0]?.id}
-                  options={orderOptions}
+                  defaultValue={availableOrders[0]?.id}
+                  options={availableOrderOptions}
                   required
                 />
                 <SubmitButton>保存关联</SubmitButton>
@@ -397,24 +464,27 @@ export default async function MachineDetailPage({
 
           <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
             <h2 className="text-base font-semibold text-slate-950">录入记录</h2>
-            {!hasCurrentOrder ? (
+            {!canRecord ? (
               <p className="mt-3 text-sm text-slate-500">
-                这台机器未关联订单，不能录入生产记录。
-              </p>
-            ) : null}
-            {hasCurrentOrder && !canRecordCurrentOrder ? (
-              <p className="mt-3 text-sm text-slate-500">
-                当前订单已完成，请关联未完成的订单后再录入。
+                这台机器没有关联未完成订单，不能录入生产记录。
               </p>
             ) : null}
             <form action={createMachineRecordAction} className="mt-4 grid gap-4">
               <input type="hidden" name="machineId" value={machine.id} />
+              <SelectInput
+                label="目标订单"
+                name="orderId"
+                defaultValue={selectedOrderId}
+                options={recordOrderOptions}
+                required
+                disabled={!canRecord}
+              />
               <TextInput
                 label="记录时间"
                 name="recordedAt"
                 type="datetime-local"
                 defaultValue={formatDateTimeLocalValue()}
-                disabled={!canRecordCurrentOrder}
+                disabled={!canRecord}
               />
               <NumberInput
                 label="加工数量"
@@ -422,7 +492,7 @@ export default async function MachineDetailPage({
                 min={0}
                 step={1}
                 defaultValue={0}
-                disabled={!canRecordCurrentOrder}
+                disabled={!canRecord}
               />
               <NumberInput
                 label="出货数量"
@@ -430,14 +500,14 @@ export default async function MachineDetailPage({
                 min={0}
                 step={1}
                 defaultValue={0}
-                disabled={!canRecordCurrentOrder}
+                disabled={!canRecord}
               />
               <Textarea
                 label="备注"
                 name="notes"
-                disabled={!canRecordCurrentOrder}
+                disabled={!canRecord}
               />
-              <SubmitButton disabled={!canRecordCurrentOrder}>保存记录</SubmitButton>
+              <SubmitButton disabled={!canRecord}>保存记录</SubmitButton>
             </form>
           </section>
         </aside>
