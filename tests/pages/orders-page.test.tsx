@@ -321,6 +321,24 @@ describe("orders page", () => {
           mimeType: "model/step",
           createdAt: new Date("2026-05-10T01:00:00.000Z"),
         },
+        {
+          id: "drawing-jpg",
+          originalName: "front.jpg",
+          relativePath: "images/front.jpg",
+          storedPath: "workspace-1/order-1/images/front.jpg",
+          sizeBytes: 2048,
+          mimeType: "image/jpeg",
+          createdAt: new Date("2026-05-10T01:01:00.000Z"),
+        },
+        {
+          id: "drawing-png",
+          originalName: "side.png",
+          relativePath: "images/side.png",
+          storedPath: "workspace-1/order-1/images/side.png",
+          sizeBytes: 3072,
+          mimeType: "image/png",
+          createdAt: new Date("2026-05-10T01:02:00.000Z"),
+        },
       ],
     });
 
@@ -376,6 +394,17 @@ describe("orders page", () => {
     expect(
       screen.getByRole("link", { name: /fixture\.step/ }),
     ).toHaveAttribute("href", "/api/order-drawings/drawing-1");
+    expect(
+      screen.getByRole("button", { name: "预览 front.jpg" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "预览 side.png" }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "预览 side.png" }));
+    expect(
+      screen.getByRole("dialog", { name: "预览 side.png" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("第 2 张 / 共 2 张")).toBeInTheDocument();
   });
 
   it("sorts and filters order detail production records by machine", async () => {

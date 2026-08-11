@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Archive, FileText, Folder } from "lucide-react";
 import React from "react";
 import {
   deleteOrderAction,
@@ -31,21 +30,8 @@ import {
 import { requireUser } from "@/lib/auth";
 import { getOrderWithSummary } from "@/server/services/orders";
 import { DeleteOrderButton } from "./delete-order-button";
+import { OrderDrawingGallery } from "./order-drawing-gallery";
 import { OrderDrawingUpload } from "./order-drawing-upload";
-
-type Drawing = {
-  id: string;
-  originalName: string;
-  relativePath: string;
-  sizeBytes: number;
-};
-
-type DrawingFolder = {
-  name: string;
-  path: string;
-  folders: Map<string, DrawingFolder>;
-  files: Drawing[];
-};
 
 function formatOrderTitle(order: { customerName: string; partName: string }) {
   return `${order.customerName} / ${order.partName}`;
@@ -205,58 +191,6 @@ function formatDateInputValue(date: Date | null) {
   return date ? formatDateTimeLocalValue(date).slice(0, 10) : "";
 }
 
-function formatFileSize(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function createFolder(name: string, folderPath: string): DrawingFolder {
-  return {
-    name,
-    path: folderPath,
-    folders: new Map(),
-    files: [],
-  };
-}
-
-function buildDrawingTree(drawings: Drawing[]) {
-  const root = createFolder("", "");
-  for (const drawing of drawings) {
-    const parts = drawing.relativePath.split("/").filter(Boolean);
-    let folder = root;
-    for (const part of parts.slice(0, -1)) {
-      const childPath = folder.path ? `${folder.path}/${part}` : part;
-      let child = folder.folders.get(part);
-      if (!child) {
-        child = createFolder(part, childPath);
-        folder.folders.set(part, child);
-      }
-      folder = child;
-    }
-    folder.files.push(drawing);
-  }
-  return root;
-}
-
-function archiveHref(orderId: string, prefix = "") {
-  const params = new URLSearchParams({ orderId });
-  if (prefix) params.set("prefix", prefix);
-  return `/api/order-drawings/archive?${params.toString()}`;
-}
-
-function sortFolders(folders: Iterable<DrawingFolder>) {
-  return Array.from(folders).sort((left, right) =>
-    left.name.localeCompare(right.name, "zh-CN"),
-  );
-}
-
-function sortFiles(files: Drawing[]) {
-  return [...files].sort((left, right) =>
-    left.relativePath.localeCompare(right.relativePath, "zh-CN"),
-  );
-}
-
 function Metric({
   label,
   value,
@@ -271,57 +205,6 @@ function Metric({
               {formatQuantity(value)}
             </dd>
     </div>
-  );
-}
-
-function DrawingTree({
-  folder,
-  orderId,
-  depth = 0,
-}: {
-  folder: DrawingFolder;
-  orderId: string;
-  depth?: number;
-}) {
-  return (
-    <ul className={depth === 0 ? "mt-4 space-y-1" : "mt-1 space-y-1"}>
-      {sortFolders(folder.folders.values()).map((child) => (
-        <li key={child.path}>
-          <div
-            className="flex min-h-9 items-center justify-between gap-3 rounded-md px-2 py-1.5 hover:bg-slate-50"
-            style={{ paddingLeft: depth * 18 + 8 }}
-          >
-            <Link
-              href={archiveHref(orderId, child.path)}
-              className="inline-flex min-w-0 items-center gap-2 font-medium text-slate-950 underline-offset-4 hover:underline"
-            >
-              <Folder aria-hidden="true" size={16} />
-              <span className="truncate">{child.name}</span>
-            </Link>
-          </div>
-          <DrawingTree folder={child} orderId={orderId} depth={depth + 1} />
-        </li>
-      ))}
-      {sortFiles(folder.files).map((drawing) => (
-        <li key={drawing.id}>
-          <div
-            className="flex min-h-9 items-center justify-between gap-3 rounded-md px-2 py-1.5 hover:bg-slate-50"
-            style={{ paddingLeft: depth * 18 + 8 }}
-          >
-            <Link
-              href={`/api/order-drawings/${drawing.id}`}
-              className="inline-flex min-w-0 items-center gap-2 text-slate-950 underline-offset-4 hover:underline"
-            >
-              <FileText aria-hidden="true" size={16} />
-              <span className="truncate">{drawing.originalName}</span>
-            </Link>
-            <span className="shrink-0 text-xs text-slate-500">
-              {formatFileSize(drawing.sizeBytes)}
-            </span>
-          </div>
-        </li>
-      ))}
-    </ul>
   );
 }
 
@@ -341,7 +224,6 @@ export default async function OrderDetailPage({
   const user = await requireUser();
   const canManageOrders = user.role === "manager";
   const order = await getOrderWithSummary(user.workspaceId, id);
-  const drawingTree = buildDrawingTree(order.drawings);
   const recordDirection = parseRecordDirection(recordParams.recordDirection);
   const machineOptions = Array.from(
     new Map(
@@ -581,16 +463,7 @@ export default async function OrderDetailPage({
                 当前订单还没有上传图纸。
               </p>
             ) : (
-              <div>
-                <Link
-                  href={archiveHref(order.id)}
-                  className="mt-4 inline-flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-                >
-                  <Archive aria-hidden="true" size={16} />
-                  下载全部图纸
-                </Link>
-                <DrawingTree folder={drawingTree} orderId={order.id} />
-              </div>
+              <OrderDrawingGallery orderId={order.id} drawings={order.drawings} />
             )}
 
             {canManageOrders ? <OrderDrawingUpload orderId={order.id} /> : null}
