@@ -2,6 +2,10 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 
 const username = process.env.BOOTSTRAP_USERNAME ?? "admin";
 const password = process.env.BOOTSTRAP_PASSWORD ?? "change-me-before-use";
+const onePixelPng = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+  "base64",
+);
 
 async function login(page: Page) {
   await page.goto("/login");
@@ -273,4 +277,47 @@ test("one machine records against two associated orders", async ({
     remaining: "98",
     overPlanned: false,
   });
+});
+
+test("previews and switches uploaded order images", async ({ page }, testInfo) => {
+  const suffix = `img${Date.now().toString(36).slice(-5)}${testInfo.workerIndex}`;
+  await login(page);
+  const orderName = await createOrder(page, {
+    customerName: `图纸客户${suffix}`,
+    partName: `图纸工件${suffix}`,
+    unitPrice: "12.34",
+  });
+  const row = await orderRow(page, orderName);
+  await row.getByRole("link", { name: "详情" }).click();
+  await expect(page.getByRole("heading", { name: orderName })).toBeVisible();
+
+  await page.locator('input[name="drawings"]').setInputFiles([
+    { name: "front.png", mimeType: "image/png", buffer: onePixelPng },
+    { name: "side.png", mimeType: "image/png", buffer: onePixelPng },
+  ]);
+  await expect(
+    page.getByRole("button", { name: "预览 front.png" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "预览 side.png" }),
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: "预览 side.png" }).click();
+  const dialog = page.getByRole("dialog", { name: "预览 side.png" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByText("第 2 张 / 共 2 张")).toBeVisible();
+  const sideImage = dialog.getByRole("img", { name: "side.png" });
+  await expect(sideImage).toBeVisible();
+  await expect
+    .poll(() => sideImage.evaluate((image) => (image as HTMLImageElement).naturalWidth))
+    .toBeGreaterThan(0);
+
+  await dialog.getByRole("button", { name: "上一张" }).click();
+  await expect(page.getByRole("img", { name: "front.png" })).toBeVisible();
+  await expect(page.getByText("第 1 张 / 共 2 张")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(
+    page.getByRole("link", { name: "下载 front.png" }),
+  ).toHaveAttribute("href", /^\/api\/order-drawings\/[^?]+$/);
 });
