@@ -99,25 +99,16 @@ async function linkMachinesToCreatedOrder(
       throw new Error("机器不存在");
     }
 
-    if (machine.currentOrderId) {
-      const currentOrder = await lockOrderForUpdate(
-        tx,
-        workspaceId,
-        machine.currentOrderId,
-      );
-
-      if (!currentOrder || currentOrder.status !== "completed") {
-        throw new Error("机器正在加工其他订单，不能关联");
-      }
-    }
-
-    await tx.machine.update({
-      where: { workspaceId_id: { workspaceId, id: machine.id } },
-      data: {
-        currentOrder: {
-          connect: { workspaceId_id: { workspaceId, id: orderId } },
+    await tx.machineOrderAssignment.upsert({
+      where: {
+        workspaceId_machineId_orderId: {
+          workspaceId,
+          machineId: machine.id,
+          orderId,
         },
       },
+      create: { workspaceId, machineId: machine.id, orderId },
+      update: {},
     });
   }
 }
@@ -174,7 +165,10 @@ export async function getOrderWithSummary(workspaceId: string, orderId: string) 
   const order = await prisma.order.findFirstOrThrow({
     where: { id: orderId, workspaceId },
     include: {
-      currentMachines: true,
+      machineAssignments: {
+        include: { machine: true },
+        orderBy: { createdAt: "asc" },
+      },
       createdByUser: true,
       updatedByUser: true,
       drawings: { orderBy: { createdAt: "desc" } },
@@ -295,18 +289,18 @@ export async function updateOrderStatus(
   if (!orderStatuses.has(status)) {
     throw new Error("订单状态无效");
   }
-  const order = await prisma.order.findFirstOrThrow({
-    where: { id: orderId, workspaceId },
-    select: { id: true },
-  });
+  return prisma.$transaction(async (tx) => {
+    const order = await lockOrderForUpdate(tx, workspaceId, orderId);
+    if (!order) throw new Error("订单不存在");
 
-  return prisma.order.update({
-    where: { id: order.id },
-    data: {
-      status,
-      updatedByUserId: actorUserId,
-      closedAt: status === "completed" ? new Date() : null,
-    },
+    return tx.order.update({
+      where: { workspaceId_id: { workspaceId, id: order.id } },
+      data: {
+        status,
+        updatedByUserId: actorUserId,
+        closedAt: status === "completed" ? new Date() : null,
+      },
+    });
   });
 }
 
@@ -324,24 +318,24 @@ export async function updateOrderDetails(
     throw new Error("订单状态无效");
   }
 
-  const order = await prisma.order.findFirstOrThrow({
-    where: { id: orderId, workspaceId },
-    select: { id: true, closedAt: true },
-  });
+  return prisma.$transaction(async (tx) => {
+    const order = await lockOrderForUpdate(tx, workspaceId, orderId);
+    if (!order) throw new Error("订单不存在");
 
-  return prisma.order.update({
-    where: { id: order.id },
-    data: {
-      customerName: input.customerName.trim(),
-      partName: input.partName.trim(),
-      plannedQuantity: input.plannedQuantity,
-      unitPriceCents: input.unitPriceCents,
-      dueDate: input.dueDate,
-      status: input.status,
-      updatedByUserId: input.actorUserId,
-      closedAt:
-        input.status === "completed" ? (order.closedAt ?? new Date()) : null,
-    },
+    return tx.order.update({
+      where: { workspaceId_id: { workspaceId, id: order.id } },
+      data: {
+        customerName: input.customerName.trim(),
+        partName: input.partName.trim(),
+        plannedQuantity: input.plannedQuantity,
+        unitPriceCents: input.unitPriceCents,
+        dueDate: input.dueDate,
+        status: input.status,
+        updatedByUserId: input.actorUserId,
+        closedAt:
+          input.status === "completed" ? (order.closedAt ?? new Date()) : null,
+      },
+    });
   });
 }
 
@@ -374,10 +368,6 @@ export async function deleteOrder(workspaceId: string, orderId: string) {
 
     if (!order) throw new Error("订单不存在");
 
-    await tx.machine.updateMany({
-      where: { workspaceId, currentOrderId: order.id },
-      data: { currentOrderId: null },
-    });
     await tx.productionRecord.deleteMany({
       where: { workspaceId, orderId: order.id },
     });

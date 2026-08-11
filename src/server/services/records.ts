@@ -11,6 +11,7 @@ import {
 
 export type CreateProductionRecordInput = {
   machineId: string;
+  orderId: string;
   recordedAt: Date;
   completedQuantity: number;
   shippedQuantity: number;
@@ -51,17 +52,23 @@ export async function createProductionRecord(
     if (!machine) {
       throw new Error("机器不存在");
     }
-    if (!machine.currentOrderId) {
-      throw new Error("机器未关联订单，不能录入记录");
-    }
-
-    const order = await lockOrderForUpdate(
-      tx,
-      workspaceId,
-      machine.currentOrderId,
-    );
+    const order = await lockOrderForUpdate(tx, workspaceId, input.orderId);
     if (!order) {
       throw new Error("订单不存在");
+    }
+
+    const assignment = await tx.machineOrderAssignment.findUnique({
+      where: {
+        workspaceId_machineId_orderId: {
+          workspaceId,
+          machineId: machine.id,
+          orderId: order.id,
+        },
+      },
+      select: { orderId: true },
+    });
+    if (!assignment) {
+      throw new Error("机器未关联该订单，不能录入记录");
     }
     if (order.status === "completed") {
       throw new Error("订单已完成，不能录入记录");
@@ -86,7 +93,7 @@ export async function createProductionRecord(
             },
             order: {
               connect: {
-                workspaceId_id: { workspaceId, id: machine.currentOrderId },
+                workspaceId_id: { workspaceId, id: order.id },
               },
             },
             recordedAt: input.recordedAt,
@@ -104,7 +111,7 @@ export async function createProductionRecord(
       );
     }
 
-    return { machineId: machine.id, orderId: machine.currentOrderId, records };
+    return { machineId: machine.id, orderId: order.id, records };
   });
 }
 

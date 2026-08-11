@@ -9,7 +9,6 @@ export type LockedOrder = {
 
 export type LockedMachine = {
   id: string;
-  currentOrderId: string | null;
 };
 
 export async function lockMachineForUpdate(
@@ -18,7 +17,7 @@ export async function lockMachineForUpdate(
   machineId: string,
 ) {
   const machines = await tx.$queryRaw<LockedMachine[]>`
-    SELECT "id", "currentOrderId"
+    SELECT "id"
     FROM "Machine"
     WHERE "workspaceId" = ${workspaceId}
       AND "id" = ${machineId}

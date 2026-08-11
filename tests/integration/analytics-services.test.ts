@@ -61,6 +61,7 @@ describe("analytics services", () => {
     await linkMachineToOrder(workspace.id, pricedMachine.id, pricedOrder.id);
     await createProductionRecord(workspace.id, {
       machineId: pricedMachine.id,
+      orderId: pricedOrder.id,
       recordedAt: new Date("2026-05-10T02:00:00.000Z"),
       completedQuantity: 80,
       shippedQuantity: 60,
@@ -69,6 +70,7 @@ describe("analytics services", () => {
     await linkMachineToOrder(workspace.id, unpricedMachine.id, unpricedOrder.id);
     await createProductionRecord(workspace.id, {
       machineId: unpricedMachine.id,
+      orderId: unpricedOrder.id,
       recordedAt: new Date("2026-05-10T03:00:00.000Z"),
       completedQuantity: 0,
       shippedQuantity: 5,

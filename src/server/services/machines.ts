@@ -111,14 +111,37 @@ export async function linkMachineToOrder(
       });
     }
 
-    return tx.machine.update({
-      where: { id: machine.id },
-      data: {
-        currentOrder: {
-          connect: { workspaceId_id: { workspaceId, id: order.id } },
+    return tx.machineOrderAssignment.upsert({
+      where: {
+        workspaceId_machineId_orderId: {
+          workspaceId,
+          machineId: machine.id,
+          orderId: order.id,
         },
       },
+      create: { workspaceId, machineId: machine.id, orderId: order.id },
+      update: {},
     });
+  });
+}
+
+export async function unlinkMachineFromOrder(
+  workspaceId: string,
+  machineId: string,
+  orderId: string,
+) {
+  return prisma.$transaction(async (tx) => {
+    const machine = await lockMachineForUpdate(tx, workspaceId, machineId);
+    if (!machine) throw new Error("机器不存在");
+
+    const order = await lockOrderForUpdate(tx, workspaceId, orderId);
+    if (!order) throw new Error("订单不存在");
+
+    const deleted = await tx.machineOrderAssignment.deleteMany({
+      where: { workspaceId, machineId: machine.id, orderId: order.id },
+    });
+    if (deleted.count === 0) throw new Error("机器未关联该订单");
+    return deleted;
   });
 }
 
@@ -148,10 +171,12 @@ export async function listMachines(
         : undefined,
     },
     include: {
-      currentOrder: {
+      orderAssignments: {
+        where: { order: { status: { not: "completed" } } },
         include: {
-          productionRecords: true,
+          order: { include: { productionRecords: true } },
         },
+        orderBy: { createdAt: "asc" },
       },
       productionRecords: true,
     },
@@ -163,10 +188,12 @@ export async function getMachine(workspaceId: string, machineId: string) {
   return prisma.machine.findFirstOrThrow({
     where: { id: machineId, workspaceId },
     include: {
-      currentOrder: {
+      orderAssignments: {
+        where: { order: { status: { not: "completed" } } },
         include: {
-          productionRecords: true,
+          order: { include: { productionRecords: true } },
         },
+        orderBy: { createdAt: "asc" },
       },
       productionRecords: {
         include: {

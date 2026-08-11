@@ -7,8 +7,10 @@ import { prisma } from "@/lib/db";
 import {
   createMachine,
   deleteMachine,
+  getMachine,
   linkMachineToOrder,
   listMachines,
+  unlinkMachineFromOrder,
   updateMachine,
 } from "@/server/services/machines";
 import {
@@ -35,6 +37,7 @@ import {
   listCustomerAccounts,
   updateCustomerUser,
 } from "@/server/services/platform-admin";
+import { lockOrderForUpdate } from "@/server/services/order-locks";
 
 async function createWorkspace() {
   const workspace = await prisma.workspace.create({
@@ -203,6 +206,244 @@ describe("factory services", () => {
     expect(updated.notes).toBe("等待换刀");
   });
 
+  it("records against either of two orders linked to one machine", async () => {
+    const workspace = await createWorkspace();
+    const machine = await createMachine(workspace.id, {
+      code: "MULTI-1",
+      name: "MULTI-1",
+      model: "",
+      location: "",
+      status: "active",
+      notes: "",
+    });
+    const firstOrder = await createOrder(workspace.id, {
+      customerName: "甲方",
+      partName: "法兰",
+      plannedQuantity: 100,
+      unitPriceCents: null,
+      dueDate: null,
+      notes: "",
+    });
+    const secondOrder = await createOrder(workspace.id, {
+      customerName: "乙方",
+      partName: "轴套",
+      plannedQuantity: 100,
+      unitPriceCents: null,
+      dueDate: null,
+      notes: "",
+    });
+
+    await linkMachineToOrder(workspace.id, machine.id, firstOrder.id);
+    await linkMachineToOrder(workspace.id, machine.id, secondOrder.id);
+    await createProductionRecord(workspace.id, {
+      machineId: machine.id,
+      orderId: firstOrder.id,
+      recordedAt: new Date("2026-08-11T01:00:00.000Z"),
+      completedQuantity: 12,
+      shippedQuantity: 3,
+      notes: "第一单",
+    });
+    await createProductionRecord(workspace.id, {
+      machineId: machine.id,
+      orderId: secondOrder.id,
+      recordedAt: new Date("2026-08-11T02:00:00.000Z"),
+      completedQuantity: 7,
+      shippedQuantity: 2,
+      notes: "第二单",
+    });
+
+    const firstSummary = await getOrderWithSummary(workspace.id, firstOrder.id);
+    const secondSummary = await getOrderWithSummary(workspace.id, secondOrder.id);
+    const machineDetail = await getMachine(workspace.id, machine.id);
+    expect(firstSummary.completedQuantity).toBe(12);
+    expect(firstSummary.shippedQuantity).toBe(3);
+    expect(secondSummary.completedQuantity).toBe(7);
+    expect(secondSummary.shippedQuantity).toBe(2);
+    expect(
+      machineDetail.orderAssignments.map((assignment) => assignment.orderId),
+    ).toEqual(expect.arrayContaining([firstOrder.id, secondOrder.id]));
+  });
+
+  it("rejects a production record for an unlinked order", async () => {
+    const workspace = await createWorkspace();
+    const machine = await createMachine(workspace.id, {
+      code: "MULTI-2",
+      name: "MULTI-2",
+      model: "",
+      location: "",
+      status: "active",
+      notes: "",
+    });
+    const order = await createOrder(workspace.id, {
+      customerName: "甲方",
+      partName: "法兰",
+      plannedQuantity: 10,
+      unitPriceCents: null,
+      dueDate: null,
+      notes: "",
+    });
+
+    await expect(
+      createProductionRecord(workspace.id, {
+        machineId: machine.id,
+        orderId: order.id,
+        recordedAt: new Date("2026-08-11T03:00:00.000Z"),
+        completedQuantity: 1,
+        shippedQuantity: 0,
+        notes: "未关联录入",
+      }),
+    ).rejects.toThrow("机器未关联该订单，不能录入记录");
+  });
+
+  it("hides completed assignments and restores them when reopened", async () => {
+    const workspace = await createWorkspace();
+    const machine = await createMachine(workspace.id, {
+      code: "MULTI-3",
+      name: "MULTI-3",
+      model: "",
+      location: "",
+      status: "active",
+      notes: "",
+    });
+    const order = await createOrder(workspace.id, {
+      customerName: "甲方",
+      partName: "法兰",
+      plannedQuantity: 10,
+      unitPriceCents: null,
+      dueDate: null,
+      notes: "",
+    });
+    await linkMachineToOrder(workspace.id, machine.id, order.id);
+
+    await updateOrderStatus(workspace.id, order.id, "completed");
+    expect((await getMachine(workspace.id, machine.id)).orderAssignments).toEqual(
+      [],
+    );
+
+    await updateOrderStatus(workspace.id, order.id, "in_progress");
+    expect(
+      (await getMachine(workspace.id, machine.id)).orderAssignments.map(
+        (assignment) => assignment.orderId,
+      ),
+    ).toEqual([order.id]);
+  });
+
+  it("rejects a record when completion wins the order lock", async () => {
+    const workspace = await createWorkspace();
+    const machine = await createMachine(workspace.id, {
+      code: "MULTI-LOCK",
+      name: "MULTI-LOCK",
+      model: "",
+      location: "",
+      status: "active",
+      notes: "",
+    });
+    const order = await createOrder(workspace.id, {
+      customerName: "甲方",
+      partName: "锁测试",
+      plannedQuantity: 10,
+      unitPriceCents: null,
+      dueDate: null,
+      notes: "",
+    });
+    await linkMachineToOrder(workspace.id, machine.id, order.id);
+
+    let releaseCompletion!: () => void;
+    let reportLocked!: () => void;
+    const release = new Promise<void>((resolve) => {
+      releaseCompletion = resolve;
+    });
+    const locked = new Promise<void>((resolve) => {
+      reportLocked = resolve;
+    });
+    const completion = prisma.$transaction(async (tx) => {
+      await lockOrderForUpdate(tx, workspace.id, order.id);
+      reportLocked();
+      await release;
+      await tx.order.update({
+        where: { workspaceId_id: { workspaceId: workspace.id, id: order.id } },
+        data: { status: "completed", closedAt: new Date() },
+      });
+    });
+
+    await locked;
+    const creation = createProductionRecord(workspace.id, {
+      machineId: machine.id,
+      orderId: order.id,
+      recordedAt: new Date("2026-08-11T03:30:00.000Z"),
+      completedQuantity: 1,
+      shippedQuantity: 0,
+      notes: "并发录入",
+    });
+    releaseCompletion();
+    await completion;
+
+    await expect(creation).rejects.toThrow("订单已完成，不能录入记录");
+    await expect(
+      prisma.productionRecord.count({
+        where: { workspaceId: workspace.id, orderId: order.id },
+      }),
+    ).resolves.toBe(0);
+  });
+
+  it("removes an assignment without deleting existing records", async () => {
+    const workspace = await createWorkspace();
+    const machine = await createMachine(workspace.id, {
+      code: "MULTI-4",
+      name: "MULTI-4",
+      model: "",
+      location: "",
+      status: "active",
+      notes: "",
+    });
+    const order = await createOrder(workspace.id, {
+      customerName: "甲方",
+      partName: "法兰",
+      plannedQuantity: 10,
+      unitPriceCents: null,
+      dueDate: null,
+      notes: "",
+    });
+    await linkMachineToOrder(workspace.id, machine.id, order.id);
+    await createProductionRecord(workspace.id, {
+      machineId: machine.id,
+      orderId: order.id,
+      recordedAt: new Date("2026-08-11T04:00:00.000Z"),
+      completedQuantity: 2,
+      shippedQuantity: 1,
+      notes: "关联内录入",
+    });
+
+    await unlinkMachineFromOrder(workspace.id, machine.id, order.id);
+
+    expect(
+      await prisma.machineOrderAssignment.findUnique({
+        where: {
+          workspaceId_machineId_orderId: {
+            workspaceId: workspace.id,
+            machineId: machine.id,
+            orderId: order.id,
+          },
+        },
+      }),
+    ).toBeNull();
+    expect(
+      await prisma.productionRecord.count({
+        where: { workspaceId: workspace.id, machineId: machine.id, orderId: order.id },
+      }),
+    ).toBe(2);
+    await expect(
+      createProductionRecord(workspace.id, {
+        machineId: machine.id,
+        orderId: order.id,
+        recordedAt: new Date("2026-08-11T05:00:00.000Z"),
+        completedQuantity: 1,
+        shippedQuantity: 0,
+        notes: "移除后录入",
+      }),
+    ).rejects.toThrow("机器未关联该订单，不能录入记录");
+  });
+
   it("deletes orders without linked machines or production records", async () => {
     const workspace = await createWorkspace();
     const order = await createOrder(workspace.id, {
@@ -240,6 +481,7 @@ describe("factory services", () => {
     await linkMachineToOrder(workspace.id, machine.id, order.id);
     await createProductionRecord(workspace.id, {
       machineId: machine.id,
+      orderId: order.id,
       recordedAt: new Date("2026-05-10T00:00:00.000Z"),
       completedQuantity: 5,
       shippedQuantity: 2,
@@ -255,11 +497,10 @@ describe("factory services", () => {
       }),
     ).resolves.toBe(0);
     await expect(
-      prisma.machine.findUniqueOrThrow({
-        where: { workspaceId_id: { workspaceId: workspace.id, id: machine.id } },
-        select: { currentOrderId: true },
+      prisma.machineOrderAssignment.count({
+        where: { workspaceId: workspace.id, machineId: machine.id },
       }),
-    ).resolves.toEqual({ currentOrderId: null });
+    ).resolves.toBe(0);
   });
 
   it("deletes machines only when they have no production records", async () => {
@@ -299,6 +540,7 @@ describe("factory services", () => {
     await linkMachineToOrder(workspace.id, machine.id, order.id);
     await createProductionRecord(workspace.id, {
       machineId: machine.id,
+      orderId: order.id,
       recordedAt: new Date("2026-05-10T08:00:00.000Z"),
       completedQuantity: 10,
       shippedQuantity: 0,
@@ -396,6 +638,7 @@ describe("factory services", () => {
     await linkMachineToOrder(workspace.id, activeMachine.id, inProgressOrder.id);
     await createProductionRecord(workspace.id, {
       machineId: activeMachine.id,
+      orderId: inProgressOrder.id,
       recordedAt: new Date("2026-05-10T08:00:00.000Z"),
       completedQuantity: 10,
       shippedQuantity: 4,
@@ -404,6 +647,7 @@ describe("factory services", () => {
     await linkMachineToOrder(workspace.id, maintenanceMachine.id, completedOrder.id);
     await createProductionRecord(workspace.id, {
       machineId: maintenanceMachine.id,
+      orderId: completedOrder.id,
       recordedAt: new Date("2026-05-10T09:00:00.000Z"),
       completedQuantity: 8,
       shippedQuantity: 0,
@@ -525,26 +769,39 @@ describe("factory services", () => {
     expect(
       linkedMachines
         .filter((machine) => ["A1", "A2"].includes(machine.code))
-        .map((machine) => machine.currentOrderId),
+        .flatMap((machine) =>
+          machine.orderAssignments.map((assignment) => assignment.orderId),
+        ),
     ).toEqual([created.id, created.id]);
     expect(
-      linkedMachines.find((machine) => machine.code === "A3")?.currentOrderId,
-    ).toBe(busyOrder.id);
+      linkedMachines
+        .find((machine) => machine.code === "A3")
+        ?.orderAssignments.map((assignment) => assignment.orderId),
+    ).toEqual([busyOrder.id]);
 
     const detail = await getOrderWithSummary(workspace.id, created.id);
     expect(detail.status).toBe("in_progress");
 
-    await expect(
-      createOrder(workspace.id, {
-        customerName: "错误客户",
-        partName: "错误工件",
-        plannedQuantity: 1,
-        unitPriceCents: null,
-        dueDate: null,
-        notes: "",
-        machineIds: [busyMachine.id],
+    const another = await createOrder(workspace.id, {
+      customerName: "追加客户",
+      partName: "追加工件",
+      plannedQuantity: 1,
+      unitPriceCents: null,
+      dueDate: null,
+      notes: "",
+      machineIds: [busyMachine.id],
+    });
+    expect(
+      await prisma.machineOrderAssignment.findUnique({
+        where: {
+          workspaceId_machineId_orderId: {
+            workspaceId: workspace.id,
+            machineId: busyMachine.id,
+            orderId: another.id,
+          },
+        },
       }),
-    ).rejects.toThrow("机器正在加工其他订单，不能关联");
+    ).not.toBeNull();
   });
 
   it("replaces existing drawing records and files when uploading again", async () => {
@@ -655,6 +912,7 @@ describe("factory services", () => {
     await linkMachineToOrder(workspace.id, machine.id, order.id);
     const created = await createProductionRecord(workspace.id, {
       machineId: machine.id,
+      orderId: order.id,
       recordedAt: new Date("2026-05-10T08:00:00.000Z"),
       completedQuantity: 120,
       shippedQuantity: 80,
@@ -715,6 +973,7 @@ describe("factory services", () => {
     await linkMachineToOrder(workspace.id, machine.id, order.id);
     const created = await createProductionRecord(workspace.id, {
       machineId: machine.id,
+      orderId: order.id,
       recordedAt: new Date("2026-05-10T08:00:00.000Z"),
       completedQuantity: 20,
       shippedQuantity: 0,
@@ -766,6 +1025,7 @@ describe("factory services", () => {
     await linkMachineToOrder(workspace.id, machine.id, order.id);
     await createProductionRecord(workspace.id, {
       machineId: machine.id,
+      orderId: order.id,
       recordedAt: new Date("2026-05-10T08:00:00.000Z"),
       completedQuantity: 60,
       shippedQuantity: 20,
@@ -773,6 +1033,7 @@ describe("factory services", () => {
     });
     const second = await createProductionRecord(workspace.id, {
       machineId: machine.id,
+      orderId: order.id,
       recordedAt: new Date("2026-05-10T09:00:00.000Z"),
       completedQuantity: 50,
       shippedQuantity: 90,
@@ -846,6 +1107,7 @@ describe("factory services", () => {
     await linkMachineToOrder(workspace.id, machine.id, order.id);
     await createProductionRecord(workspace.id, {
       machineId: machine.id,
+      orderId: order.id,
       recordedAt: new Date("2026-05-10T10:00:00.000Z"),
       completedQuantity: 100,
       shippedQuantity: 100,
@@ -856,6 +1118,7 @@ describe("factory services", () => {
     await expect(
       createProductionRecord(workspace.id, {
         machineId: machine.id,
+        orderId: order.id,
         recordedAt: new Date("2026-05-10T11:00:00.000Z"),
         completedQuantity: 1,
         shippedQuantity: 0,
@@ -894,6 +1157,7 @@ describe("factory services", () => {
     await linkMachineToOrder(workspace.id, sourceMachine.id, order.id);
     await createProductionRecord(workspace.id, {
       machineId: sourceMachine.id,
+      orderId: order.id,
       recordedAt: new Date("2026-05-10T12:00:00.000Z"),
       completedQuantity: 100,
       shippedQuantity: 100,
@@ -944,6 +1208,7 @@ describe("factory services", () => {
     await linkMachineToOrder(workspace.id, machine.id, order.id);
     const created = await createProductionRecord(workspace.id, {
       machineId: machine.id,
+      orderId: order.id,
       recordedAt: new Date("2026-05-10T12:00:00.000Z"),
       completedQuantity: 100,
       shippedQuantity: 100,
@@ -984,6 +1249,7 @@ describe("factory services", () => {
     await linkMachineToOrder(workspace.id, machine.id, order.id);
     const created = await createProductionRecord(workspace.id, {
       machineId: machine.id,
+      orderId: order.id,
       recordedAt: new Date("2026-05-10T12:00:00.000Z"),
       completedQuantity: 100,
       shippedQuantity: 100,
@@ -1039,6 +1305,7 @@ describe("factory services", () => {
     await linkMachineToOrder(workspace.id, machine.id, dueOrder.id);
     await createProductionRecord(workspace.id, {
       machineId: machine.id,
+      orderId: dueOrder.id,
       recordedAt: new Date("2026-05-10T12:00:00.000Z"),
       completedQuantity: 6,
       shippedQuantity: 2,
@@ -1053,7 +1320,7 @@ describe("factory services", () => {
 
     const detail = await getOrderWithSummary(workspace.id, dueOrder.id);
     expect(detail.productionRecords[0].machine.code).toBe("5");
-    expect(detail.currentMachines[0].code).toBe("5");
+    expect(detail.machineAssignments[0].machine.code).toBe("5");
 
     const records = await listProductionRecords(workspace.id, {});
     expect(records[0].order.productionRecords).toEqual(
