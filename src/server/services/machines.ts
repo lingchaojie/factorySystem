@@ -136,6 +136,9 @@ export async function unlinkMachineFromOrder(
 
     const order = await lockOrderForUpdate(tx, workspaceId, orderId);
     if (!order) throw new Error("订单不存在");
+    if (order.status === "completed") {
+      throw new Error("订单已完成，不能解除关联机器");
+    }
 
     const deleted = await tx.machineOrderAssignment.deleteMany({
       where: { workspaceId, machineId: machine.id, orderId: order.id },

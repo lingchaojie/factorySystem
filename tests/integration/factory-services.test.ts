@@ -1170,6 +1170,43 @@ describe("factory services", () => {
     ).rejects.toThrow("订单已完成，不能关联机器");
   });
 
+  it("rejects unlinking a machine from a completed order", async () => {
+    const workspace = await createWorkspace();
+    const machine = await createMachine(workspace.id, {
+      code: "LOCK-1",
+      name: "锁定机",
+      model: "",
+      location: "",
+      status: "active",
+      notes: "",
+    });
+    const order = await createOrder(workspace.id, {
+      customerName: "锁定客户",
+      partName: "锁定工件",
+      plannedQuantity: 10,
+      unitPriceCents: null,
+      dueDate: null,
+      notes: "",
+    });
+    await linkMachineToOrder(workspace.id, machine.id, order.id);
+    await updateOrderStatus(workspace.id, order.id, "completed");
+
+    await expect(
+      unlinkMachineFromOrder(workspace.id, machine.id, order.id),
+    ).rejects.toThrow("订单已完成，不能解除关联机器");
+    await expect(
+      prisma.machineOrderAssignment.findUnique({
+        where: {
+          workspaceId_machineId_orderId: {
+            workspaceId: workspace.id,
+            machineId: machine.id,
+            orderId: order.id,
+          },
+        },
+      }),
+    ).resolves.not.toBeNull();
+  });
+
   it("rejects linking a missing machine to an order", async () => {
     const workspace = await createWorkspace();
     const order = await createOrder(workspace.id, {
