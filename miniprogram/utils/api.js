@@ -4,8 +4,9 @@ const SESSION_KEY = 'factory_session';
 const SESSION_CONNECTION_KEY = 'factory_session_connection';
 let cloudInitialized = false;
 
-function isCloud() { return connection.mode === 'cloud'; }
+function isCloud() { return ['cloud', 'gateway'].includes(connection.mode); }
 function connectionKey() {
+  if (connection.mode === 'gateway') return 'gateway:' + connection.url;
   if (isCloud()) return 'function:' + connection.env + ':' + connection.functionName;
   return 'http:' + getServer();
 }
@@ -13,7 +14,7 @@ function connectionInfo() {
   return { cloud: isCloud(), label: isCloud() ? '工厂云服务' : getServer() };
 }
 function initCloud() {
-  if (!isCloud() || cloudInitialized) return;
+  if (connection.mode !== 'cloud' || cloudInitialized) return;
   if (!connection.env || !connection.functionName) throw new Error('云服务尚未配置完成，请联系管理员');
   if (!wx.cloud || typeof wx.cloud.callFunction !== 'function') throw new Error('请更新微信后再使用云服务');
   wx.cloud.init({ env: connection.env, traceUser: false });
@@ -70,8 +71,10 @@ function request(path, options) {
           reject(error); return;
         }
         if (response.statusCode >= 200 && response.statusCode < 300) {
-          if (!response.data || typeof response.data !== 'object') {
-            reject(new Error('服务器响应异常，请确认已部署小程序接口')); return;
+          if (!response.data || typeof response.data !== 'object' || Array.isArray(response.data)) {
+            const error = new Error('服务器响应异常，请先核对提交结果');
+            error.uncertain = options.method === 'POST';
+            reject(error); return;
           }
           resolve(response.data); return;
         }
@@ -88,7 +91,16 @@ function request(path, options) {
         reject(error);
       }
     };
-    if (isCloud()) {
+    if (connection.mode === 'gateway') {
+      if (!/^https:\/\/[a-z0-9.-]+\/factory-proxy$/.test(connection.url || '')) {
+        reject(new Error('云服务尚未配置完成，请联系管理员')); return;
+      }
+      // 固定入口仅接收转发参数；业务令牌放在 JSON 中，由原服务器校验。
+      wx.request(Object.assign({}, requestOptions, {
+        url: connection.url, method: 'POST', header: { 'content-type': 'application/json', accept: 'application/json' },
+        data: { method: requestOptions.method, path, body: options.data, token: token || undefined },
+      }));
+    } else if (connection.mode === 'cloud') {
       // 失败时不回退 HTTP，也不重试，避免泄露凭据或重复写入加工/出货。
       try { initCloud(); }
       catch (error) { reject(error); return; }

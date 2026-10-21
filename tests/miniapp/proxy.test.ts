@@ -5,8 +5,12 @@ import type { AddressInfo } from "node:net";
 import { afterEach, describe, expect, it } from "vitest";
 
 const require = createRequire(import.meta.url);
-const { createProxy } = require("../../cloudfunctions/factoryProxy/index.js") as {
+type ProxyResult = { statusCode: number; data: Record<string, unknown> };
+const { createProxy, createHandler } = require("../../cloudfunctions/factoryProxy/index.js") as {
   createProxy: (origin: string, timeout?: number) => (event: object) => Promise<{ statusCode: number; data: Record<string, unknown> }>;
+  createHandler: (proxy: (event: object) => Promise<ProxyResult>) => (event: object) => Promise<{
+    statusCode: number; body?: string; headers?: Record<string, string>; data?: Record<string, unknown>;
+  }>;
 };
 const token = "a".repeat(43);
 const servers: ReturnType<typeof createServer>[] = [];
@@ -22,6 +26,32 @@ afterEach(async () => {
 });
 
 describe("free cloud function proxy over real HTTP", () => {
+  it("unwraps gateway JSON while preserving backend status and the SDK call contract", async () => {
+    const seen: string[] = [];
+    const handler = createHandler(createProxy(await upstream((req, res) => {
+      seen.push(req.url!);
+      res.writeHead(401, { "content-type": "application/json" }); res.end(JSON.stringify({ error: "登录已过期" }));
+    })));
+    const result = await handler({ httpMethod: "POST", path: "/", headers: { "Content-Type": "application/json; charset=utf-8" },
+      body: JSON.stringify({ method: "GET", path: "/machines", token }) });
+    expect(result.statusCode).toBe(401);
+    expect(JSON.parse(result.body!)).toEqual({ error: "登录已过期" });
+    expect(result.headers?.["cache-control"]).toBe("no-store");
+    expect(await handler({ path: "/orders", token })).toEqual({ statusCode: 401, data: { error: "登录已过期" } });
+    expect(seen).toEqual(["/api/miniapp/machines", "/api/miniapp/orders"]);
+  });
+  it("rejects invalid gateway envelopes and arbitrary nested targets before contacting upstream", async () => {
+    let calls = 0;
+    const handler = createHandler(createProxy(await upstream((_req, res) => { calls++; res.end(); })));
+    const event = { httpMethod: "POST", path: "/", headers: { "content-type": "application/json" }, body: JSON.stringify({ path: "/machines", token }) };
+    for (const patch of [{ httpMethod: "GET" }, { path: "/factory-proxy/extra" }, { isBase64Encoded: true },
+      { body: "not-json" }, { body: "x".repeat(21000) }, { headers: { "content-type": "text/plain" } },
+      { body: JSON.stringify({ path: "http://untrusted.invalid/orders", token }) }]) {
+      const result = await handler({ ...event, ...patch });
+      expect(result.statusCode).toBe(400); expect(JSON.parse(result.body!)).toHaveProperty("error");
+    }
+    expect(calls).toBe(0);
+  });
   it("forwards login and search to the fixed upstream without cookies or arbitrary headers", async () => {
     const requests: { url?: string; authorization?: string; body: string; cookie?: string }[] = [];
     const origin = await upstream((req, res) => {

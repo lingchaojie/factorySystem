@@ -2,7 +2,7 @@
 
 原生微信小程序，无需安装前端依赖或编译。支持网站客户账号登录、机器和订单查询、订单详情与记录、按机器关联订单录入加工/出货、退出登录。经理可以看订单单价，员工接口不返回价格。平台管理员 `/admin` 账号不用于这里登录。
 
-当前默认通过免费普通云函数 `factoryProxy` 访问原服务器，与网站使用同一数据库。使用正式 AppID `wxaad3cf2f0c22bfe6`，云环境为 `factory-miniapp-d2f8yb6s0afa796d`。云环境和函数已零元开通，仍需完成小程序关联及真机联调后才可宣称扫码可用。部署与免费期限见 [云函数接入文档](../docs/deployment/wechat-cloudbase.md)。以下 IP 调试步骤仅在主动将 `config.js` 中 `connection.mode` 改为 `http` 时适用。
+当前默认通过腾讯云免费环境提供的 HTTPS 网关调用普通云函数 `factoryProxy`，访问原服务器，与网站使用同一数据库。正式 AppID 为 `wxaad3cf2f0c22bfe6`，云环境为 `factory-miniapp-d2f8yb6s0afa796d`。由于该环境为 PG 模式，不支持从微信开发者工具导入，使用 `connection.mode: 'gateway'` 而非 `wx.cloud.callFunction`。管理员需要将 `config.js` 中 URL 的 HTTPS 主机加入微信后台的 request 合法域名，再做手机扫码验收；不需要购买域名。部署与免费期限见 [云函数接入文档](../docs/deployment/wechat-cloudbase.md)。以下 IP 调试步骤仅在主动将 `connection.mode` 改为 `http` 时适用。
 
 ## 1. 启动 / 更新同一个后台
 
@@ -64,7 +64,7 @@
 
 工厂归属和操作人来自服务端登录态，不能由客户端指定。录入时间采用服务器当前时间。过期 / 撤销令牌返回 401 并返回登录页。网站继续使用原 Cookie 登录。
 
-HTTP 调试会明文传输凭据，只使用演示账号和演示数据。云模式通过 `wx.cloud.callFunction` 调用普通云函数，不使用 AnyService；云函数到当前 HTTP 源站的链路仍未加密，不能视为全链路加密。
+HTTP 调试会明文传输凭据，只使用演示账号和演示数据。默认网关模式通过 HTTPS 调用免费普通云函数，不使用 AnyService；云函数到当前 HTTP 源站的链路仍未加密，不能视为全链路加密。网关和函数均不重试写入，超时或 5xx 后须先核对网站记录再继续提交。
 
 ## 开发验证
 

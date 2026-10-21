@@ -102,5 +102,26 @@ function createProxy(upstreamOrigin, timeoutMs = UPSTREAM_TIMEOUT_MS) {
   };
 }
 
-exports.main = createProxy(origin);
+// 普通云调用直接传业务参数；HTTP 网关会将它们包在 event.body 中。
+function createHandler(proxy) {
+  return async function handler(event) {
+    if (!event || typeof event.httpMethod !== 'string') return proxy(event);
+    let result;
+    try {
+      if (event.httpMethod !== 'POST' || !['/', '/factory-proxy'].includes(event.path) ||
+          event.isBase64Encoded || typeof event.body !== 'string' ||
+          Buffer.byteLength(event.body) > MAX_BODY_BYTES + 4096) throw new Error('invalid HTTP envelope');
+      const headers = event.headers || {};
+      const contentType = Object.entries(headers).find(([name]) => name.toLowerCase() === 'content-type');
+      if (!contentType || !/^application\/json(?:;|$)/i.test(contentType[1])) throw new Error('invalid content type');
+      result = await proxy(JSON.parse(event.body));
+    } catch { result = reply(400, '请求参数或接口无效'); }
+    return { statusCode: result.statusCode,
+      headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' },
+      body: JSON.stringify(result.data), isBase64Encoded: false };
+  };
+}
+
+exports.main = createHandler(createProxy(origin));
 exports.createProxy = createProxy;
+exports.createHandler = createHandler;

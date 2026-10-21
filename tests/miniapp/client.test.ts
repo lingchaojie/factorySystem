@@ -125,6 +125,48 @@ describe("mini program CloudBase transport", () => {
   });
 });
 
+describe("mini program fixed HTTPS gateway", () => {
+  const store = new Map<string, unknown>();
+  const wx = { request: vi.fn(), reLaunch: vi.fn(), getStorageSync: vi.fn((key: string) => store.get(key)),
+    setStorageSync: vi.fn((key: string, value: unknown) => store.set(key, value)), removeStorageSync: vi.fn((key: string) => store.delete(key)) };
+  const gateway = "https://factory-demo.example/factory-proxy";
+  const load = (url = gateway) => loadModule("utils/api.js", { wx }, { "../config": {
+    defaultServer: "http://old-demo:18080", connection: { mode: "gateway", url },
+  } });
+  beforeEach(() => { store.clear(); vi.resetAllMocks(); });
+  it("sends login and authenticated writes only to the fixed gateway with an explicit envelope", async () => {
+    const api = load();
+    const login = api.request("/auth/login", { method: "POST", auth: false, data: { username: "worker", password: "test" } });
+    expect(wx.request.mock.calls[0][0]).toMatchObject({ url: gateway, method: "POST",
+      data: { method: "POST", path: "/auth/login", body: { username: "worker", password: "test" } } });
+    expect(wx.request.mock.calls[0][0].header.Authorization).toBeUndefined();
+    wx.request.mock.calls[0][0].success({ statusCode: 200, data: { token: "business-token" } }); await login;
+    api.saveSession({ token: "business-token" });
+    const saved = api.request("/records", { method: "POST", data: { completedQuantity: 11, shippedQuantity: 4 } });
+    expect(wx.request.mock.calls[1][0]).toMatchObject({ url: gateway, method: "POST", data: {
+      path: "/records", token: "business-token", body: { completedQuantity: 11, shippedQuantity: 4 } } });
+    wx.request.mock.calls[1][0].success({ statusCode: 201, data: { records: [] } }); await saved;
+    expect(api.connectionInfo()).toMatchObject({ cloud: true });
+    expect(() => api.saveServer("http://other-server")).toThrow("管理员");
+  });
+  it("drops credentials when switching gateway and never retries an uncertain write", async () => {
+    const api = load(); api.saveSession({ token: "old" });
+    expect(load("https://other.example/factory-proxy").session()).toBeNull();
+    const pending = api.request("/records", { method: "POST", data: {} });
+    const rejected = expect(pending).rejects.toMatchObject({ uncertain: true });
+    wx.request.mock.calls[0][0].fail(); await rejected;
+    expect(wx.request).toHaveBeenCalledOnce();
+    await expect(load("http://unsafe.example/factory-proxy").request("/auth/login", { method: "POST", auth: false })).rejects.toThrow("尚未配置");
+    expect(wx.request).toHaveBeenCalledOnce();
+  });
+  it("marks an HTML or malformed success response as an uncertain write", async () => {
+    const pending = load().request("/records", { method: "POST", data: {} });
+    const rejected = expect(pending).rejects.toMatchObject({ uncertain: true });
+    wx.request.mock.calls[0][0].success({ statusCode: 200, data: "<html>unexpected response</html>" });
+    await rejected; expect(wx.request).toHaveBeenCalledOnce();
+  });
+});
+
 // Exercise native Page logic with the same API contract, without mocking the submit implementation.
 describe("native cloud login", () => {
   it("uses the fixed cloud connection instead of saving the old editable server", async () => {

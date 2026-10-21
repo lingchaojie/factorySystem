@@ -9,7 +9,12 @@ const createProxy = createProxyImplementation as (origin: string) => (event: obj
 
 test("cloud-function proxy writes share the website database and preserve access rules", async ({ request, baseURL }) => {
   if (!baseURL) throw new Error("A running website baseURL is required");
-  const proxy = createProxy(baseURL);
+  const gatewayURL = process.env.MINIAPP_GATEWAY_URL;
+  const proxy = gatewayURL ? async (event: object) => {
+    const response = await fetch(gatewayURL, { method: "POST", redirect: "error", signal: AbortSignal.timeout(15000),
+      headers: { "content-type": "application/json", accept: "application/json" }, body: JSON.stringify(event) });
+    return { statusCode: response.status, data: await response.json() as Record<string, unknown> };
+  } : createProxy(baseURL);
   const db = new PrismaClient();
   const username = `cloud-mini-${randomUUID()}`;
   const password = "cloud-demo-test-password";
