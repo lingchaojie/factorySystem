@@ -1,4 +1,4 @@
-# 微信小程序 Demo：免费云函数转发
+# 微信小程序 Demo：免费云函数与默认 HTTPS 网关
 
 ## 部署信息（2026-10-21）
 
@@ -7,20 +7,26 @@
 | 原站点 | `http://42.194.184.98:18080` |
 | 原服务器 | 广州轻量主机 `lhins-8khlj2p9` |
 | 正式小程序 AppID | `wxaad3cf2f0c22bfe6` |
-| 云环境 | `factory-miniapp-d2f8yb6s0afa796d`（上海，免费体验版） |
+| 云环境 | `factory-miniapp-d2f8yb6s0afa796d`（上海，免费体验版，PG 模式） |
 | 普通云函数 | `factoryProxy`，Node.js 20.19，256 MB，3 秒 |
+| HTTPS 入口 | `https://factory-miniapp-d2f8yb6s0afa796d-1304793564.ap-shanghai.app.tcloudbase.com/factory-proxy` |
+| 网关路由 | `/factory-proxy` → 普通云函数 `factoryProxy`，不透传路径，不启用浏览器跨域设置 |
 | 代码 | `cloudfunctions/factoryProxy/` |
 | 计费 | 免费体验环境已零元开通；未购买付费套餐，无自动续费或超限按量 |
 
-云环境与函数已创建，控制台真实调用已收到原服务器的正常 401 鉴权响应。小程序关联、授权账号登录/写入联调和正式 AppID 的扫码预览尚需完成，不能把函数部署成功等同于已能扫码使用。
+免费 HTTPS 网关路由与普通云函数已部署。真实公网 POST 已收到原网站正常的 401 JSON 鉴权响应，无重定向或 HTML 中间页。网关适配与客户端共 28 项测试、TypeScript 与针对改动文件的 ESLint 检查通过。此前转发函数直接回源的真实数据库联调已通过：加工 11、出货 4 与网页显示一致，员工不返回单价，退出后令牌失效且网站会话仍可用；测试前后业务数据计数相同（工厂 2、用户 4、机器 15、订单 244、记录 355），网站 HTTP 200。经实际公网网关的全流程复测仍需完成；服务器 OrcaTerm 会话失效，重连触发腾讯云管理员微信身份验证，尚待完成验证。
+
+管理员已手动将上方 HTTPS 主机加入微信 request 合法域名。关闭并重新打开项目后，保持 `urlCheck: true`，真实小程序 `wx.request` 已收到正常 401 JSON。登录页通过官方 miniprogram-automator 实际点击登录按钮，使用不存在的临时账号收到原站点「账号或密码错误」，并正常结束 loading；随后清空测试输入和错误提示。正式 AppID 的新版本预览编译成功，体积 37,343 字节。手机扫码和经公网网关的成功登录、加工/出货最终联调仍待完成，不能把预览码已生成等同于全部验收通过。
+
+环境类型说明：创建时选用了 PG 模式；微信开发者工具明确提示「暂不支持选择 PostgreSQL 环境」，不能以 `wx.cloud.callFunction` 直接导入。模式创建后不可切换，腾讯云与微信侧新建页目前均仅提供付费套餐。本次保留原免费环境，改用它提供的 HTTP 网关；未购买或删除环境。经管理员明确同意曾生成客户端 Publishable Key，用官方 JS SDK 探测 `/v1/functions/factoryProxy` 后仍返回 `EXCEED_AUTHORITY`，因此当前小程序不使用该 SDK 或公开密钥。未生成服务端管理员密钥。该客户端公开密钥保存在本地忽略目录，未写入仓库或小程序。
 
 ## 数据路径
 
-小程序 `wx.cloud.callFunction` → `factoryProxy` → 原站点 `/api/miniapp/*` → 原 PostgreSQL。
+小程序 `wx.request`（POST JSON）→ 腾讯云免费默认 HTTPS 网关 `/factory-proxy` → 普通云函数 `factoryProxy` → 原站点 `/api/miniapp/*` → 原 PostgreSQL。
 
 网站继续使用原服务和原数据库。云环境自带数据库不存放工厂业务数据，不迁移、复制或重新 seed 原生产库。小程序仍使用网站客户账号；平台管理员账号不适用。
 
-此方案不使用 AnyService，不购买域名。小程序到云开发通过 SDK 调用，手机不需要关闭域名校验。云函数到现有服务器仍是公网 HTTP，仅用于当前 Demo，不能声称全链路已加密。
+此方案不使用 AnyService，不购买域名。小程序到网关使用 HTTPS，需添加腾讯云提供的主机到微信 request 合法域名，保持域名校验开启。云函数到现有服务器仍是公网 HTTP，仅用于当前 Demo，不能声称全链路已加密。
 
 ## 函数行为
 
@@ -29,27 +35,30 @@
 - 只传 JSON，不记录账号、密码和令牌。请求体上限 16 KiB，响应体上限 1 MiB。
 - 回源总时限 2.2 秒，为免费函数 3 秒执行上限留余量。回源失败返回 502，超时返回 504。
 - 云调用失败不回退 HTTP，不自动重试。写入 5xx、超时或未知结果时，小程序锁定再次提交，必须先在网站核对记录。
+- HTTP 网关仅接收外层 POST、JSON 字符串请求体，拒绝 Base64、超长或错误格式；解析后仍经过相同接口白名单与业务鉴权。响应使用集成格式，保留上游 HTTP 状态与 JSON，并设置 `cache-control: no-store`。
+- 环境 OPA 策略见 `cloudfunctions/factoryProxy/gateway-policy.rego`：仅允许 `/factory-proxy` 的 POST；匿名/公开客户端对其他路径的访问明确拒绝。已用其他函数入口实测 403。策略不放开 CloudBase 数据库或其他资源，业务数据库始终由原站点鉴权。
 
 ## 小程序配置
 
 `miniprogram/config.js` 的 `connection` 为：
 
 ```js
-{ mode: 'cloud', env: 'factory-miniapp-d2f8yb6s0afa796d', functionName: 'factoryProxy' }
+{ mode: 'gateway',
+  url: 'https://factory-miniapp-d2f8yb6s0afa796d-1304793564.ap-shanghai.app.tcloudbase.com/factory-proxy' }
 ```
 
 登录页不显示服务器地址。环境或函数变化会清除旧会话，避免向另一环境发送旧令牌。`project.config.json` 已使用正式 AppID，并设置 `urlCheck: true`。
 
-在云开发后台的环境管理中关联此正式小程序，按平台要求完成管理员扫码。无需向小程序或仓库写入 AppSecret。没有授权或关联时，不能通过关闭域名校验修复云调用。
+无需反复扫码导入 PG 环境。当前方式只需 request 域名配置及网站客户账号，不需要将 AppSecret 或 CloudBase 管理员密钥写入小程序。模式限制见[官方环境介绍](https://docs.cloudbase.net/quick-start/env-overview)，网关请求/集成响应格式见[通过 HTTP 访问云函数](https://docs.cloudbase.net/service/access-cloud-function)，默认域名测试限制见[网关概述](https://docs.cloudbase.net/service/introduce)。
 
 ## 后续更新与验证
 
-函数包根目录应直接包含 `index.js`、`config.js`、`package.json`。在控制台上传 ZIP，使用普通云函数、执行方法 `index.main`，关闭自动安装依赖。函数无外部 npm 依赖。也可在已授权的 CLI 中按仓库 `cloudbaserc.json` 部署该函数，不要整体部署额外资源。
+函数包根目录应直接包含 `index.js`、`config.js`、`package.json`，策略文件只是部署参考。在控制台上传 ZIP，使用普通云函数、执行方法 `index.main`，关闭自动安装依赖。函数无外部 npm 依赖。也可用已授权的微信 CLI `cloud functions deploy --project <miniprogram绝对路径> --env factory-miniapp-d2f8yb6s0afa796d --paths <factoryProxy绝对路径> --remote-npm-install false` 单独更新代码，不整体部署额外资源。网关与 OPA 在控制台维护，覆盖 OPA 前必须先读取并保留其他已有规则。
 
 发布预览前：
 
 1. 保持免费体验版，确认未开启付费升级、自动续费或超额按量。
-2. 验证新 AppID 已关联环境，函数处于正常状态。
+2. 验证 request 合法域名已保存，网关路由与函数处于正常状态。
 3. 使用隔离的演示工厂登录，验证机器、订单、搜索和详情；员工仍无单价。
 4. 经转发函数录入加工/出货，在网站核对同一记录、合计和操作人。
 5. 验证退出/过期返回登录，网站浏览器的独立会话仍可用。
@@ -62,7 +71,7 @@ npx vitest run tests/miniapp/client.test.ts tests/miniapp/proxy.test.ts
 npx tsc --noEmit
 ```
 
-`proxy.test.ts` 使用真实本地 HTTP 验证固定回源、登录/写入结果、鉴权、非法路径、重定向、响应大小与超时不重试。它不能代替微信 SDK 真机联调。
+`proxy.test.ts` 使用真实本地 HTTP 验证网关封装、固定回源、登录/写入结果、鉴权、非法路径、重定向、响应大小与超时不重试。它不能代替微信真机联调。`tests/e2e/miniapp-cloud-proxy.spec.ts` 支持设置 `MINIAPP_GATEWAY_URL` 后经真实云端入口执行隔离工厂的登录、加工/出货、网页核对与退出测试；不设置时只验证本地转发逻辑到站点的路径。该测试必须连接已有站点运行，禁止为此重置或 seed 生产库。
 
 ## 免费期限
 
