@@ -7,5 +7,5 @@
     <view class="muted gap">{{item.orders.length}} 个可录入订单</view>
     <view class="stats"><view class="stat"><view class="number">{{item.todayCompleted}}</view><view class="muted">今日加工</view></view><view class="stat"><view class="number">{{item.todayShipped}}</view><view class="muted">今日出货</view></view><view class="stat"><view class="link">查看 / 录入 →</view></view></view>
   </view>
-  <view wx:if="{{!loading &amp;&amp; !error &amp;&amp; !machines.length}}" class="card empty">暂无机器。请先在网站创建机器并关联订单。</view>
+  <view wx:if="{{!loading && !error && !machines.length}}" class="card empty">暂无机器。请先在网站创建机器并关联订单。</view>
 </view>

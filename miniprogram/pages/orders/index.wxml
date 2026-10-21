@@ -11,5 +11,5 @@
     <view class="muted">交期 {{item.dueDateLabel}}</view>
     <view class="stats"><view class="stat"><view class="number">{{item.planLabel}}</view><view class="muted">计划</view></view><view class="stat"><view class="number">{{item.completedQuantity}}</view><view class="muted">加工</view></view><view class="stat"><view class="number">{{item.shippedQuantity}}</view><view class="muted">出货</view></view></view>
   </view>
-  <view wx:if="{{!loading &amp;&amp; !error &amp;&amp; !orders.length}}" class="card empty">没有符合条件的订单。</view>
+  <view wx:if="{{!loading && !error && !orders.length}}" class="card empty">没有符合条件的订单。</view>
 </view>

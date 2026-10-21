@@ -19,5 +19,5 @@
       <button class="secondary" bindtap="openOrder" disabled="{{submitting}}">查看订单与记录</button>
     </view>
   </block>
-  <button wx:if="{{error &amp;&amp; !machine}}" class="secondary" bindtap="load">重新加载</button>
+  <button wx:if="{{error && !machine}}" class="secondary" bindtap="load">重新加载</button>
 </view>
