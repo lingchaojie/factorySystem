@@ -1,13 +1,11 @@
 import { randomUUID } from "node:crypto";
-import { createRequire } from "node:module";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { expect, test } from "@playwright/test";
+import { createProxy as createProxyImplementation } from "../../cloudfunctions/factoryProxy/index.js";
 
-const require = createRequire(import.meta.url);
-const { createProxy } = require("../../cloudfunctions/factoryProxy/index.js") as {
-  createProxy: (origin: string) => (event: object) => Promise<{ statusCode: number; data: Record<string, unknown> }>;
-};
+const createProxy = createProxyImplementation as (origin: string) => (event: object) =>
+  Promise<{ statusCode: number; data: Record<string, unknown> }>;
 
 test("cloud-function proxy writes share the website database and preserve access rules", async ({ request, baseURL }) => {
   if (!baseURL) throw new Error("A running website baseURL is required");
