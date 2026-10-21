@@ -22,6 +22,10 @@ Open `http://localhost:3000` in the Windows browser.
 
 See [current project notes](docs/project-current-state.md) for implemented features, account model, local debugging notes, and operational experience.
 
+## WeChat Mini Program Demo
+
+Import `miniprogram/` into WeChat DevTools. The native demo supports customer login, machines, orders, and production/shipment entry against the same backend/database as the website. For IP-only debugging, setup and phone preview instructions are in [the mini program guide](miniprogram/README.md).
+
 ## Production Deploy
 
 Production runs with Docker Compose. On the server, checkout and pull the branch you want to deploy, then rebuild and restart the stack:

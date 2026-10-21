@@ -12,6 +12,11 @@ const compat = new FlatCompat({
 const eslintConfig = [
   ...compat.extends("next/core-web-vitals", "next/typescript"),
   {
+    files: ["miniprogram/**/*.js"],
+    // Native WeChat modules use CommonJS rather than the Next.js import runtime.
+    rules: { "@typescript-eslint/no-require-imports": "off" },
+  },
+  {
     ignores: [".next/**", "out/**", "build/**", "next-env.d.ts"],
   },
 ];

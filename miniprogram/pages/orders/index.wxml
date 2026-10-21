@@ -1,0 +1,15 @@
+<view class="page">
+  <view class="hero"><view class="eyebrow">ORDERS</view><view class="title">订单进度</view><view class="subtitle">查看工件、交期与加工出货进度。</view></view>
+  <view class="filter"><input class="input" value="{{query}}" bindinput="query" bindconfirm="load" confirm-type="search" placeholder="搜索客户 / 工件" maxlength="200" /><button class="secondary" bindtap="load">搜索</button></view>
+  <picker class="picker" range="{{statuses}}" value="{{statusIndex}}" bindchange="status">{{statuses[statusIndex]}} ▾</picker>
+  <view class="gap"></view>
+  <view wx:if="{{error}}" class="error">{{error}}<button class="secondary" bindtap="load">重新加载</button></view>
+  <view wx:if="{{loading}}" class="muted">正在读取订单…</view>
+  <view wx:for="{{orders}}" wx:key="id" class="card" data-id="{{item.id}}" bindtap="open">
+    <view class="row"><view class="name">{{item.partName}}</view><text class="badge {{item.status}}">{{item.statusLabel}}</text></view>
+    <view class="muted gap">{{item.customerName}} · {{item.orderNo}}</view>
+    <view class="muted">交期 {{item.dueDateLabel}}</view>
+    <view class="stats"><view class="stat"><view class="number">{{item.planLabel}}</view><view class="muted">计划</view></view><view class="stat"><view class="number">{{item.completedQuantity}}</view><view class="muted">加工</view></view><view class="stat"><view class="number">{{item.shippedQuantity}}</view><view class="muted">出货</view></view></view>
+  </view>
+  <view wx:if="{{!loading &amp;&amp; !error &amp;&amp; !orders.length}}" class="card empty">没有符合条件的订单。</view>
+</view>

@@ -1,0 +1,27 @@
+<view class="page">
+  <view wx:if="{{error}}" class="error">{{error}}<button class="secondary" bindtap="load">重新加载</button></view>
+  <view wx:if="{{loading}}" class="muted">正在读取订单…</view>
+  <block wx:if="{{order}}">
+    <view class="hero"><view class="eyebrow">{{order.orderNo}}</view><view class="title">{{order.partName}}</view><view class="subtitle">{{order.customerName}}</view></view>
+    <view class="card">
+      <view class="row"><view class="name">生产进度</view><text class="badge {{order.status}}">{{order.statusLabel}}</text></view>
+      <view class="stats"><view class="stat"><view class="number">{{order.planLabel}}</view><view class="muted">计划</view></view><view class="stat"><view class="number">{{order.completedQuantity}}</view><view class="muted">加工</view></view><view class="stat"><view class="number">{{order.shippedQuantity}}</view><view class="muted">出货</view></view></view>
+      <view class="muted gap">交期：{{order.dueDateLabel}}</view>
+      <view wx:if="{{manager}}" class="muted">单价：{{order.priceLabel}}</view>
+      <view class="muted">备注：{{order.notes || '无'}}</view>
+      <view wx:if="{{order.isOverPlanned}}" class="notice gap">加工或出货数量已超过计划。</view>
+    </view>
+    <view class="section">关联机器</view>
+    <view wx:if="{{!order.machines.length}}" class="card empty">尚未关联机器，请在网站完成关联。</view>
+    <view wx:for="{{order.machines}}" wx:key="id" class="card row" data-id="{{item.id}}" bindtap="openMachine"><view class="name">{{item.name}}</view><view class="link">查看 / 录入 →</view></view>
+    <view class="section">生产与出货记录 · {{order.records.length}}</view>
+    <view class="card">
+      <view wx:if="{{!order.records.length}}" class="empty">暂无生产记录。</view>
+      <view wx:for="{{order.records}}" wx:key="id" class="record">
+        <view class="row"><view class="name">{{item.typeLabel}} {{item.quantity}} 件</view><view class="muted">{{item.machineName}}</view></view>
+        <view class="muted gap">{{item.timeLabel}} · {{item.operatorName || '未登记操作人'}}</view>
+        <view wx:if="{{item.notes}}" class="muted">{{item.notes}}</view>
+      </view>
+    </view>
+  </block>
+</view>

@@ -55,5 +55,6 @@ node_modules/
 coverage/
 test-results/
 playwright-report/
+miniprogram/project.private.config.json
 postgres-data/
 storage/

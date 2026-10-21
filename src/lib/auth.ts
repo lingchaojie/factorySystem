@@ -12,7 +12,7 @@ import {
 } from "@/lib/session";
 import { verifyPassword } from "@/lib/password";
 
-export async function loginWithPassword(
+export async function authenticatePassword(
   username: string,
   password: string,
 ): Promise<AuthenticatedUser | null> {
@@ -29,16 +29,6 @@ export async function loginWithPassword(
   const valid = await verifyPassword(password, user.passwordHash);
   if (!valid) return null;
 
-  const token = await createSession(user.id);
-  const cookieStore = await cookies();
-  cookieStore.set(sessionCookieName, token, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: getSessionCookieSecure(),
-    path: "/",
-    maxAge: 60 * 60 * 24 * getSessionTtlDays(),
-  });
-
   return {
     id: user.id,
     workspaceId: user.workspaceId,
@@ -49,6 +39,24 @@ export async function loginWithPassword(
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
   };
+}
+
+export async function loginWithPassword(
+  username: string,
+  password: string,
+): Promise<AuthenticatedUser | null> {
+  const user = await authenticatePassword(username, password);
+  if (!user) return null;
+  const token = await createSession(user.id);
+  const cookieStore = await cookies();
+  cookieStore.set(sessionCookieName, token, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: getSessionCookieSecure(),
+    path: "/",
+    maxAge: 60 * 60 * 24 * getSessionTtlDays(),
+  });
+  return user;
 }
 
 export async function requireUser() {

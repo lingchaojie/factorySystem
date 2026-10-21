@@ -66,6 +66,11 @@ export async function createSession(userId: string): Promise<string> {
 export async function readSessionUser(): Promise<AuthenticatedUser | null> {
   const cookieStore = await cookies();
   const token = cookieStore.get(sessionCookieName)?.value;
+  return readSessionTokenUser(token);
+}
+
+// Both browser cookies and mini-program Bearer tokens use the same hashed sessions.
+export async function readSessionTokenUser(token?: string): Promise<AuthenticatedUser | null> {
   if (!token) return null;
 
   const session = await prisma.session.findUnique({
@@ -85,6 +90,10 @@ export async function readSessionUser(): Promise<AuthenticatedUser | null> {
 export async function destroyCurrentSession(): Promise<void> {
   const cookieStore = await cookies();
   const token = cookieStore.get(sessionCookieName)?.value;
+  await destroySessionToken(token);
+}
+
+export async function destroySessionToken(token?: string): Promise<void> {
   if (!token) return;
 
   await prisma.session.deleteMany({

@@ -86,4 +86,16 @@ describe("session helpers", () => {
       },
     });
   });
+
+  it("hashes Bearer tokens and rejects expired or revoked sessions", async () => {
+    const { readSessionTokenUser, destroySessionToken } = await import("@/lib/session");
+    prismaMock.session.findUnique.mockResolvedValue({ expiresAt: new Date(Date.now() - 1000), user: { id: "u1" } });
+    expect(await readSessionTokenUser("bearer-secret")).toBeNull();
+    expect(prismaMock.session.findUnique.mock.calls[0][0].where.tokenHash).toMatch(/^[a-f0-9]{64}$/);
+    prismaMock.session.findUnique.mockResolvedValue(null);
+    expect(await readSessionTokenUser("revoked-secret")).toBeNull();
+    await destroySessionToken("bearer-secret");
+    expect(prismaMock.session.deleteMany).toHaveBeenCalledWith({ where: { tokenHash: expect.stringMatching(/^[a-f0-9]{64}$/) } });
+    expect(await readSessionTokenUser(undefined)).toBeNull();
+  });
 });

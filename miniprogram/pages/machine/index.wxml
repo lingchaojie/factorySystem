@@ -1,0 +1,23 @@
+<view class="page">
+  <view wx:if="{{error}}" class="error">{{error}}</view>
+  <view wx:if="{{loading}}" class="muted">正在读取最新数据…</view>
+  <block wx:if="{{machine}}">
+    <view class="hero"><view class="eyebrow">生产工作台</view><view class="row"><view class="title">{{machine.name}}</view><text class="badge {{machine.status}}">{{machine.statusLabel}}</text></view><view class="subtitle">{{machine.notes || '记录每一次加工与出货。'}}</view></view>
+    <view class="card"><view class="row"><view class="stat"><view class="number">{{machine.todayCompleted}}</view><view class="muted">今日加工</view></view><view class="stat"><view class="number">{{machine.todayShipped}}</view><view class="muted">今日出货</view></view></view></view>
+    <view wx:if="{{!machine.orders.length}}" class="card empty">暂无可录入订单。请在网站关联未完成订单，再下拉刷新。</view>
+    <view wx:else="" class="card">
+      <view class="name">录入生产记录</view>
+      <view class="label">目标订单</view>
+      <picker class="picker" range="{{machine.orders}}" range-key="title" value="{{orderIndex}}" bindchange="selectOrder" disabled="{{submitting || uncertain}}">{{selectedOrder.title}} ▾</picker>
+      <view class="muted gap">{{selectedOrder.orderNo}} · {{selectedOrder.statusLabel}}</view>
+      <view class="stats"><view class="stat"><view class="number">{{selectedOrder.planLabel}}</view><view class="muted">计划</view></view><view class="stat"><view class="number">{{selectedOrder.completedQuantity}}</view><view class="muted">累计加工</view></view><view class="stat"><view class="number">{{selectedOrder.shippedQuantity}}</view><view class="muted">累计出货</view></view></view>
+      <view class="label">本次加工数量</view><input class="input" type="number" value="{{completedQuantity}}" data-key="completedQuantity" bindinput="field" placeholder="0" disabled="{{submitting || uncertain}}" />
+      <view class="label">本次出货数量</view><input class="input" type="number" value="{{shippedQuantity}}" data-key="shippedQuantity" bindinput="field" placeholder="0" disabled="{{submitting || uncertain}}" />
+      <view class="label">备注（选填）</view><textarea class="textarea" value="{{notes}}" data-key="notes" bindinput="field" maxlength="2000" placeholder="例如：白班、补交出货" disabled="{{submitting || uncertain}}" />
+      <view class="muted gap">记录时间使用服务器当前时间，操作人自动登记。</view>
+      <button class="primary" bindtap="submit" loading="{{submitting}}" disabled="{{submitting || loading || uncertain}}">确认录入</button>
+      <button class="secondary" bindtap="openOrder" disabled="{{submitting}}">查看订单与记录</button>
+    </view>
+  </block>
+  <button wx:if="{{error &amp;&amp; !machine}}" class="secondary" bindtap="load">重新加载</button>
+</view>

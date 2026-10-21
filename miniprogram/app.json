@@ -1,0 +1,19 @@
+{
+  "pages": ["pages/login/index", "pages/machines/index", "pages/machine/index", "pages/orders/index", "pages/order/index", "pages/account/index"],
+  "window": {
+    "navigationBarTitleText": "工厂管理",
+    "navigationBarBackgroundColor": "#102a43",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#f3f6f9",
+    "backgroundTextStyle": "dark"
+  },
+  "tabBar": {
+    "color": "#6b7c8e", "selectedColor": "#087f8c", "backgroundColor": "#ffffff",
+    "list": [
+      { "pagePath": "pages/machines/index", "text": "机器" },
+      { "pagePath": "pages/orders/index", "text": "订单" },
+      { "pagePath": "pages/account/index", "text": "我的" }
+    ]
+  },
+  "sitemapLocation": "sitemap.json"
+}

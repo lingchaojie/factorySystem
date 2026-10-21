@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { cookiesStore, prismaMock } = vi.hoisted(() => ({
   cookiesStore: {
@@ -27,10 +27,11 @@ vi.mock("@/lib/password", () => ({
 }));
 
 describe("loginWithPassword", () => {
+  afterEach(() => vi.unstubAllEnvs());
   beforeEach(() => {
     vi.clearAllMocks();
     vi.resetModules();
-    delete process.env.NODE_ENV;
+    vi.stubEnv("NODE_ENV", undefined);
     delete process.env.SESSION_COOKIE_SECURE;
     process.env.SESSION_TTL_DAYS = "14";
   });
@@ -120,7 +121,7 @@ describe("loginWithPassword", () => {
   });
 
   it("allows the session cookie secure flag to be configured for HTTP deployments", async () => {
-    process.env.NODE_ENV = "production";
+    vi.stubEnv("NODE_ENV", "production");
     process.env.SESSION_COOKIE_SECURE = "false";
     const user = {
       id: "user-1",
@@ -154,7 +155,7 @@ describe("loginWithPassword", () => {
   });
 
   it("uses secure session cookies by default in production", async () => {
-    process.env.NODE_ENV = "production";
+    vi.stubEnv("NODE_ENV", "production");
     const user = {
       id: "user-1",
       workspaceId: "workspace-1",
