@@ -1,9 +1,9 @@
 {
-  "description": "工厂管理 Demo：通过 IP 调试，共用网站数据",
+  "description": "工厂管理 Demo：免费云函数转发，共用网站数据",
   "projectname": "factory-demo",
   "compileType": "miniprogram",
   "miniprogramRoot": "./",
-  "appid": "touristappid",
-  "setting": { "urlCheck": false, "es6": true, "enhance": true, "postcss": true, "minified": true },
+  "appid": "wxaad3cf2f0c22bfe6",
+  "setting": { "urlCheck": true, "es6": true, "enhance": true, "postcss": true, "minified": true },
   "packOptions": { "ignore": [{ "type": "file", "value": "README.md" }] }
 }

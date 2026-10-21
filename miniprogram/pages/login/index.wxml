@@ -1,19 +1,22 @@
 <view class="page">
   <view class="hero">
     <view class="login-mark">工</view>
-    <view class="eyebrow">FACTORY / DEMO</view>
+    <view class="eyebrow">FACTORY</view>
     <view class="title">随时掌握生产进度</view>
     <view class="subtitle">使用网站的客户账号登录，数据同步到同一个工厂。</view>
   </view>
   <view wx:if="{{error}}" class="error">{{error}}</view>
   <view class="card">
-    <view class="label">服务器地址</view>
-    <input class="input" value="{{server}}" data-key="server" bindinput="field" placeholder="http://服务器IP:18080" disabled="{{loading}}" />
+    <block wx:if="{{!cloud}}">
+      <view class="label">服务器地址</view>
+      <input class="input" value="{{server}}" data-key="server" bindinput="field" placeholder="http://服务器IP:18080" disabled="{{loading}}" />
+    </block>
     <view class="label">账号</view>
     <input class="input" value="{{username}}" data-key="username" bindinput="field" placeholder="网站客户账号" maxlength="200" disabled="{{loading}}" />
     <view class="label">密码</view>
     <input class="input" password="{{true}}" value="{{password}}" data-key="password" bindinput="field" placeholder="请输入密码" maxlength="200" disabled="{{loading}}" bindconfirm="login" />
     <button class="primary" bindtap="login" loading="{{loading}}" disabled="{{loading}}">登录工厂</button>
   </view>
-  <view class="notice">IP 调试演示：开发者工具关闭域名校验，手机端开启调试模式。手机不能使用 127.0.0.1，请填写可访问的服务器 IP。</view>
+  <view wx:if="{{cloud}}" class="notice">使用分配给你的工厂账号登录。加工、出货和订单进度与网站同步。</view>
+  <view wx:else class="notice">IP 调试演示：开发者工具关闭域名校验，手机端开启调试模式。手机不能使用 127.0.0.1，请填写可访问的服务器 IP。</view>
 </view>

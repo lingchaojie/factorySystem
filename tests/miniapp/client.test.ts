@@ -59,7 +59,96 @@ describe("mini program transport", () => {
   });
 });
 
+describe("mini program CloudBase transport", () => {
+  const store = new Map<string, unknown>();
+  const cloud = { init: vi.fn(), callFunction: vi.fn() };
+  const wx = { cloud, request: vi.fn(), reLaunch: vi.fn(),
+    getStorageSync: vi.fn((key: string) => store.get(key)),
+    setStorageSync: vi.fn((key: string, value: unknown) => store.set(key, value)),
+    removeStorageSync: vi.fn((key: string) => store.delete(key)) };
+  const load = (env = "factory-env") => loadModule("utils/api.js", { wx }, { "../config": {
+    defaultServer: "http://1.2.3.4:18080", connection: { mode: "cloud", env, functionName: "factoryProxy" },
+  } });
+  beforeEach(() => { store.clear(); vi.resetAllMocks(); });
+  it("routes reads and writes through the same free function and keeps business authentication", async () => {
+    const api = load(); api.saveSession({ token: "cloud-token", user: {} });
+    cloud.callFunction.mockResolvedValue({ result: { statusCode: 200, data: { records: [] } } });
+    await api.request("/orders?query=%E8%BD%B4&status=active");
+    await api.request("/records", { method: "POST", data: { completedQuantity: 5 } });
+    expect(cloud.init).toHaveBeenCalledOnce();
+    expect(cloud.init).toHaveBeenCalledWith({ env: "factory-env", traceUser: false });
+    expect(cloud.callFunction).toHaveBeenNthCalledWith(1, {
+      config: { env: "factory-env" }, name: "factoryProxy",
+      data: { method: "GET", path: "/orders?query=%E8%BD%B4&status=active", token: "cloud-token", body: undefined },
+    });
+    expect(cloud.callFunction).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      data: { path: "/records", method: "POST", body: { completedQuantity: 5 }, token: "cloud-token" },
+    }));
+    expect(wx.request).not.toHaveBeenCalled();
+    expect(() => api.saveServer("http://other-server")).toThrow("管理员");
+  });
+  it("does not forward tokens from the old HTTP demo or another cloud environment", async () => {
+    store.set("factory_session", { token: "old-http-token" });
+    const api = load(); expect(api.session()).toBeNull();
+    api.saveSession({ token: "first-env-token" });
+    const other = load("other-env");
+    cloud.callFunction.mockResolvedValue({ result: { statusCode: 200, data: { machines: [] } } });
+    await other.request("/machines");
+    expect(cloud.callFunction.mock.calls[0][0].data.token).toBeUndefined();
+    expect(other.session()).toBeNull();
+  });
+  it("keeps failed POST outcomes uncertain without retrying or falling back to HTTP", async () => {
+    cloud.callFunction.mockRejectedValue(new Error("timeout"));
+    await expect(load().request("/records", { method: "POST", data: {} })).rejects.toMatchObject({ uncertain: true });
+    expect(cloud.callFunction).toHaveBeenCalledOnce();
+    expect(wx.request).not.toHaveBeenCalled();
+  });
+  it("handles expired tokens and bad credentials through the same backend contract", async () => {
+    const api = load(); api.saveSession({ token: "expired" });
+    cloud.callFunction.mockResolvedValueOnce({ result: { statusCode: 401, data: { error: "账号或密码错误" } } });
+    await expect(api.request("/auth/login", { method: "POST", auth: false })).rejects.toThrow("账号或密码错误");
+    expect(cloud.callFunction.mock.calls[0][0].data.token).toBeUndefined();
+    expect(wx.reLaunch).not.toHaveBeenCalled();
+    cloud.callFunction.mockResolvedValueOnce({ result: { statusCode: 401, data: { error: "登录过期" } } });
+    await expect(api.request("/auth/me")).rejects.toThrow("登录过期");
+    expect(api.session()).toBeNull();
+    expect(wx.reLaunch).toHaveBeenCalledWith({ url: "/pages/login/index" });
+  });
+  it("fails before sending credentials if cloud setup is incomplete", async () => {
+    await expect(load("").request("/auth/login", { method: "POST", auth: false })).rejects.toThrow("尚未配置");
+    expect(cloud.callFunction).not.toHaveBeenCalled(); expect(wx.request).not.toHaveBeenCalled();
+  });
+  it("treats a missing cloud result as an uncertain write", async () => {
+    cloud.callFunction.mockResolvedValue({ result: null });
+    await expect(load().request("/records", { method: "POST", data: {} })).rejects.toMatchObject({ uncertain: true });
+    expect(cloud.callFunction).toHaveBeenCalledOnce(); expect(wx.request).not.toHaveBeenCalled();
+  });
+});
+
 // Exercise native Page logic with the same API contract, without mocking the submit implementation.
+describe("native cloud login", () => {
+  it("uses the fixed cloud connection instead of saving the old editable server", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let page: any;
+    const api = { getServer: vi.fn(() => "http://old-demo:18080"), connectionInfo: vi.fn(() => ({ cloud: true })),
+      session: vi.fn(() => null), saveServer: vi.fn(), saveSession: vi.fn(),
+      request: vi.fn().mockResolvedValue({ token: "token", user: {} }) };
+    const wx = { switchTab: vi.fn() };
+    loadModule("pages/login/index.js", { wx, Page: (definition: unknown) => { page = definition; } }, { "../../utils/api": api });
+    page.data = structuredClone(page.data);
+    page.setData = (values: object) => Object.assign(page.data, values);
+    page.onLoad();
+    page.data.username = " worker "; page.data.password = "password";
+    await page.login();
+    expect(page.data.cloud).toBe(true); expect(api.saveServer).not.toHaveBeenCalled();
+    expect(api.request).toHaveBeenCalledWith("/auth/login", { method: "POST", auth: false,
+      data: { username: "worker", password: "password" } });
+    expect(api.saveSession).toHaveBeenCalledWith({ token: "token", user: {} });
+    expect(page.data.password).toBe("");
+    expect(wx.switchTab).toHaveBeenCalledWith({ url: "/pages/machines/index" });
+  });
+});
+
 describe("native production page", () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let page: any;

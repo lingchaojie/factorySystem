@@ -5,8 +5,8 @@
     <view class="name">{{user.workspaceName}}</view>
     <view class="label">当前账号</view><view>{{user.displayName || user.username}}（{{user.username}}）</view>
     <view class="label">角色</view><view>{{user.role === 'manager' ? '经理' : '员工'}}</view>
-    <view class="label">当前服务器</view><view class="muted">{{server}}</view>
-    <button class="secondary" bindtap="logout" loading="{{loading}}" disabled="{{loading}}">退出登录 / 更换服务器</button>
+    <view class="label">当前服务</view><view class="muted">{{server}}</view>
+    <button class="secondary" bindtap="logout" loading="{{loading}}" disabled="{{loading}}">{{cloud ? '退出登录' : '退出登录 / 更换服务器'}}</button>
   </view>
-  <view class="notice">本 Demo 与网站共用账号、工厂数据和生产规则。订单创建、机器关联在网站操作；小程序下拉刷新获取最新进度。时间按北京时间显示。</view>
+  <view class="notice">与网站共用账号、工厂数据和生产规则。订单创建、机器关联在网站操作；小程序下拉刷新获取最新进度。时间按北京时间显示。</view>
 </view>

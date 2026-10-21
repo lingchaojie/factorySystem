@@ -1,9 +1,10 @@
 const api = require('../../utils/api');
 Page({
-  data: { user: null, server: '', error: '', loading: false },
+  data: { user: null, server: '', cloud: false, error: '', loading: false },
   async onShow() {
     if (!api.requireAuth()) return;
-    this.setData({ user: api.session().user, server: api.getServer(), error: '' });
+    const connection = api.connectionInfo();
+    this.setData({ user: api.session().user, server: connection.label, cloud: connection.cloud, error: '' });
     try {
       const result = await api.request('/auth/me');
       const current = api.session();

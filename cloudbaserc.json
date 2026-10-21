@@ -1,0 +1,14 @@
+{
+  "envId": "factory-miniapp-d2f8yb6s0afa796d",
+  "functionRoot": "./cloudfunctions",
+  "functions": [
+    {
+      "name": "factoryProxy",
+      "runtime": "Nodejs20.19",
+      "handler": "index.main",
+      "timeout": 3,
+      "memorySize": 256,
+      "installDependency": false
+    }
+  ]
+}

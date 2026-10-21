@@ -1,0 +1,8 @@
+{
+  "name": "factory-proxy",
+  "version": "1.0.0",
+  "private": true,
+  "main": "index.js",
+  "description": "Forward only factory mini-program API calls to the existing server",
+  "engines": { "node": ">=18" }
+}

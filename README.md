@@ -24,7 +24,7 @@ See [current project notes](docs/project-current-state.md) for implemented featu
 
 ## WeChat Mini Program Demo
 
-Import `miniprogram/` into WeChat DevTools. The native demo supports customer login, machines, orders, and production/shipment entry against the same backend/database as the website. For IP-only debugging, setup and phone preview instructions are in [the mini program guide](miniprogram/README.md).
+Import `miniprogram/` into WeChat DevTools. The native demo supports customer login, machines, orders, and production/shipment entry against the same backend/database as the website. It can forward calls through a free CloudBase ordinary function without AnyService or a purchased domain. See [cloud-function setup and free-tier limits](docs/deployment/wechat-cloudbase.md) and [the mini program guide](miniprogram/README.md).
 
 ## Production Deploy
 
