@@ -1,4 +1,5 @@
 const api = require('../../utils/api');
+const { buildQuery } = require('../../utils/chat');
 const greeting = { id: 'welcome', role: 'assistant', text: '你好，我是工厂助手。\n告诉我机器编号或订单号，我帮你查最新加工、出货和订单进度。', sources: [] };
 Page({
   data: { messages: [greeting], draft: '', busy: false, configured: false, checking: true, error: '', providerHost: '', consent: false,
@@ -51,11 +52,11 @@ Page({
       this.setData({ consent: true });
     }
     const requestId = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 14);
-    const history = this.data.messages.filter(m => m.id !== 'welcome' && !m.failed).slice(-8).map(m => ({ role: m.role, content: m.text.slice(0, 1600) }));
+    const body = buildQuery(this.data.messages, text, requestId);
     this.add({ id: requestId, role: 'user', text, sources: [] });
     this.setData({ draft: '' });
     try {
-      const result = await api.request('/assistant', { method: 'POST', data: { message: text, history, requestId, consent: true } });
+      const result = await api.request('/assistant', { method: 'POST', data: body });
       if (!this.owns(token)) return;
       this.deadline = Date.now() + 90000;
       this.setData({ pendingJob: result.job.id });

@@ -8,14 +8,24 @@ function pageAt(path: string, api: object, wx: object) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let page: any;
   vm.runInNewContext(readFileSync("miniprogram/pages/" + path + "/index.js", "utf8"), {
-    require: () => api, wx, Page: (value: unknown) => { page = value; }, setTimeout, clearTimeout,
+    require: (name: string) => name.endsWith('/chat') ? chat : api, wx, Page: (value: unknown) => { page = value; }, setTimeout, clearTimeout,
   });
   page.data = structuredClone(page.data);
   page.setData = (value: object) => Object.assign(page.data, value);
   return page;
 }
 
+const chatModule = { exports: {} as { buildQuery: (messages: object[], message: string, requestId: string) => { history: object[] } } };
+vm.runInNewContext(readFileSync("miniprogram/utils/chat.js", "utf8"), { module: chatModule });
+const chat = chatModule.exports;
+
 describe("public CNC introduction and private assistant", () => {
+  it("keeps long Chinese/emoji conversations within the real gateway byte limit", () => {
+    const messages = Array.from({ length: 12 }, (_, i) => ({ id: String(i), role: i % 2 ? "assistant" : "user", text: "车间🛠️".repeat(400) }));
+    const body = chat.buildQuery(messages, "查询进度".repeat(100), "request-00000001");
+    expect(Buffer.byteLength(JSON.stringify(body))).toBeLessThanOrEqual(12000);
+    expect(body.history.length).toBeLessThan(8);
+  });
   it("shows a public landing page without loading business data and routes visitors to login", () => {
     const wx = { hideTabBar: vi.fn(), showTabBar: vi.fn(), navigateTo: vi.fn(), switchTab: vi.fn() };
     const api = { session: vi.fn(() => null), request: vi.fn() };

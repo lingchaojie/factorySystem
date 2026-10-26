@@ -73,6 +73,16 @@ describe("free cloud function proxy over real HTTP", () => {
       { url: "/api/miniapp/orders?query=%E8%BD%B4&status=in_progress", authorization: `Bearer ${token}`, body: "", cookie: undefined },
     ]);
   });
+  it("allows only authenticated assistant submission and job reads, not arbitrary agent routes", async () => {
+    const requests: string[] = [];
+    const proxy = createProxy(await upstream((req, res) => { requests.push(req.url!); res.writeHead(200, { "content-type": "application/json" }); res.end('{"job":{"state":"pending"}}'); }));
+    expect((await proxy({ method: "POST", path: "/assistant", token, body: { message: "查进度" } })).statusCode).toBe(200);
+    expect((await proxy({ path: "/assistant/jobs/test-job", token })).statusCode).toBe(200);
+    expect((await proxy({ path: "/assistant/jobs/test-job" })).statusCode).toBe(401);
+    expect((await proxy({ method: "POST", path: "/assistant/jobs/test-job", token })).statusCode).toBe(400);
+    expect((await proxy({ path: "/assistant?url=http://evil.invalid", token })).statusCode).toBe(400);
+    expect(requests).toEqual(["/api/miniapp/assistant", "/api/miniapp/assistant/jobs/test-job"]);
+  });
   it("preserves record creation, validation errors, expired tokens and logout status", async () => {
     const results = [
       { statusCode: 201, data: { records: [{ quantity: 11 }, { quantity: 4 }] } },
