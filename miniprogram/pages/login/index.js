@@ -3,7 +3,7 @@ Page({
   data: { server: '', cloud: false, username: '', password: '', loading: false, error: '' },
   onLoad() {
     this.setData({ server: api.getServer(), cloud: api.connectionInfo().cloud });
-    if (api.session()) wx.switchTab({ url: '/pages/machines/index' });
+    if (api.session()) wx.switchTab({ url: '/pages/assistant/index' });
   },
   field(e) { this.setData({ [e.currentTarget.dataset.key]: e.detail.value }); },
   async login() {
@@ -16,7 +16,8 @@ Page({
         data: { username: this.data.username.trim(), password: this.data.password } });
       api.saveSession(result);
       this.setData({ password: '' });
-      wx.switchTab({ url: '/pages/machines/index' });
+      wx.showTabBar();
+      wx.switchTab({ url: '/pages/assistant/index' });
     } catch (error) { this.setData({ error: error.message }); }
     finally { this.setData({ loading: false }); }
   }

@@ -175,7 +175,7 @@ describe("native cloud login", () => {
     const api = { getServer: vi.fn(() => "http://old-demo:18080"), connectionInfo: vi.fn(() => ({ cloud: true })),
       session: vi.fn(() => null), saveServer: vi.fn(), saveSession: vi.fn(),
       request: vi.fn().mockResolvedValue({ token: "token", user: {} }) };
-    const wx = { switchTab: vi.fn() };
+    const wx = { switchTab: vi.fn(), showTabBar: vi.fn() };
     loadModule("pages/login/index.js", { wx, Page: (definition: unknown) => { page = definition; } }, { "../../utils/api": api });
     page.data = structuredClone(page.data);
     page.setData = (values: object) => Object.assign(page.data, values);
@@ -187,7 +187,7 @@ describe("native cloud login", () => {
       data: { username: "worker", password: "password" } });
     expect(api.saveSession).toHaveBeenCalledWith({ token: "token", user: {} });
     expect(page.data.password).toBe("");
-    expect(wx.switchTab).toHaveBeenCalledWith({ url: "/pages/machines/index" });
+    expect(wx.switchTab).toHaveBeenCalledWith({ url: "/pages/assistant/index" });
   });
 });
 

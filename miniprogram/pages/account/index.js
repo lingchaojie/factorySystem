@@ -22,7 +22,7 @@ Page({
       }
     }
     api.clearSession();
-    wx.reLaunch({ url: '/pages/login/index' });
+    wx.reLaunch({ url: '/pages/home/index' });
     this.setData({ loading: false });
   }
 });

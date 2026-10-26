@@ -1,0 +1,23 @@
+<view class="company">
+  <view class="cover">
+    <view class="brand"><view class="brand-icon">精</view><view><view class="brand-name">精工 CNC</view><view class="brand-sub">PRECISION IN EVERY DETAIL</view></view><text class="demo-tag">DEMO</text></view>
+    <view class="overline">精密制造 · 从图纸到零件</view>
+    <view class="headline">把每一份构想<view>加工成可靠的细节。</view></view>
+    <view class="intro">专注 CNC 精密零件加工，连接设计、制造与交付。让每一个工序有据可查，让每一份进度清晰可见。</view>
+    <view class="hero-entry" bindtap="enter">{{loggedIn ? '进入我的工作台' : '登录 / 进入工作台'}} →</view>
+    <view class="drawing"><view class="cross horizontal"></view><view class="cross vertical"></view><view class="part-ring"><view class="part-core"></view></view><view class="drawing-caption">CNC / PRECISION COMPONENT</view><view class="drawing-id">PART NO. JG–001</view></view>
+    <view class="cover-foot"><text>车削 / 铣削 / 复合加工</text><text>MANUFACTURING →</text></view>
+  </view>
+  <view class="content">
+    <view class="section-top"><view><view class="eyebrow">OUR CAPABILITIES</view><view class="section-title">为精密零件而生</view></view><text class="section-no">01 /</text></view>
+    <view class="capabilities">
+      <view class="capability"><text class="cap-index">01</text><view class="cap-title">CNC 精密车削</view><view class="muted">轴类、轴套、连接件<view>兼顾尺寸与表面质量</view></view></view>
+      <view class="capability"><text class="cap-index">02</text><view class="cap-title">加工中心铣削</view><view class="muted">壳体、支架、结构件<view>实现复杂轮廓与孔位</view></view></view>
+      <view class="capability wide"><text class="cap-index">03</text><view class="cap-title">从打样到批量交付</view><view class="muted">工艺评估 → 小批试制 → 过程检验 → 成品出货</view></view>
+    </view>
+    <view class="section-top"><view><view class="eyebrow">MADE WITH CARE</view><view class="section-title">每一步，都看得见</view></view><text class="section-no">02 /</text></view>
+    <view class="process"><view class="process-row"><text class="step">A</text><view><view class="cap-title">理解图纸，规划工艺</view><view class="muted">从材料、结构到关键尺寸，明确加工路径。</view></view></view><view class="process-row"><text class="step">B</text><view><view class="cap-title">跟踪生产，记录质量</view><view class="muted">机器与订单关联，过程记录同步更新。</view></view></view><view class="process-row"><text class="step">C</text><view><view class="cap-title">核对数量，有序交付</view><view class="muted">加工与出货分开记录，进度一目了然。</view></view></view></view>
+    <view class="portal"><view class="eyebrow">CONNECTED WORKSHOP</view><view class="section-title">车间进度，随问随知。</view><view class="portal-copy">登录工作台，与工厂助手对话查询机器和订单，或直接录入加工与出货。</view><button class="primary" bindtap="enter">{{loggedIn ? '进入我的工作台' : '登录 / 进入工作台'}} <text>→</text></button><view class="portal-note">使用网站已有的工厂账号 · 数据双端同步</view></view>
+    <view class="footer">精工 CNC · 精密零件加工<view>虚构公司演示页面，非实际企业资料或资质承诺。</view></view>
+  </view>
+</view>
