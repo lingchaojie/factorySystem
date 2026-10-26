@@ -14,4 +14,8 @@ function buildQuery(messages, message, requestId) {
   while (history.length && bytes(JSON.stringify(body)) > 12000) history.shift();
   return body;
 }
-module.exports = { buildQuery };
+function queryTime(value) {
+  const time = new Date(value).getTime();
+  return Number.isFinite(time) ? new Date(time + 8 * 3600000).toISOString().replace('T', ' ').slice(0, 19) + ' 北京时间' : '';
+}
+module.exports = { buildQuery, queryTime };

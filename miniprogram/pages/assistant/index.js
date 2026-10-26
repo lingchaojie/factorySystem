@@ -1,5 +1,5 @@
 const api = require('../../utils/api');
-const { buildQuery } = require('../../utils/chat');
+const { buildQuery, queryTime } = require('../../utils/chat');
 const greeting = { id: 'welcome', role: 'assistant', text: '你好，我是工厂助手。\n告诉我机器编号或订单号，我帮你查最新加工、出货和订单进度。', sources: [] };
 Page({
   data: { messages: [greeting], draft: '', busy: false, configured: false, checking: true, error: '', providerHost: '', consent: false,
@@ -46,7 +46,7 @@ Page({
     if (!this.data.consent) {
       const confirmed = await new Promise(resolve => wx.showModal({ title: '使用工厂助手',
         content: '你的问题、最近对话及本次查询到的机器/订单进度，将发送给 ' + this.data.providerHost + ' 及其模型服务生成回答。不发送密码和登录令牌，助手只能查询。是否继续？',
-        confirmText: '同意并查询', success: r => resolve(r.confirm), fail: () => resolve(false) }));
+        confirmText: '同意查询', success: r => resolve(r.confirm), fail: () => resolve(false) }));
       if (!this.owns(token)) return;
       if (!confirmed) { this.setData({ busy: false }); return; }
       this.setData({ consent: true });
@@ -76,7 +76,7 @@ Page({
         if (result.job.state === 'completed') {
           const answer = result.job.answer;
           this.add({ id: id + '-answer', role: 'assistant', text: answer.text, sources: answer.sources,
-            time: answer.queriedAt ? answer.queriedAt.replace('T', ' ').slice(0, 19) + ' UTC' : '' });
+            time: answer.queriedAt ? queryTime(answer.queriedAt) : '' });
           this.setData({ busy: false, pendingJob: '' }); return;
         }
         if (result.job.state === 'failed') throw new Error(result.job.error || '查询未完成，请稍后再试');

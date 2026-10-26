@@ -9,4 +9,5 @@ playwright-report
 storage
 *.log
 .env*
+**/.env*
 !.env.example
