@@ -12,6 +12,7 @@
     <view class="tab {{view === 'shipments' ? 'selected' : ''}}" data-view="shipments" bindtap="choose">待出货 {{summary ? summary.shipmentOrders : ''}}</view>
   </view>
   <view class="filter"><input class="input" value="{{query}}" bindinput="field" bindconfirm="load" confirm-type="search" placeholder="订单号 / 工件 / 机器编号" maxlength="100"/><button class="secondary" bindtap="load">查询</button></view>
+  <view wx:if="{{scope}}" class="muted">范围：{{scope}}</view>
   <view class="row meta"><text class="muted">{{time ? time + ' 更新' : '下拉刷新实时数据'}}</text><text class="link" bindtap="toggleRules">{{rules ? '收起规则' : '计算规则'}}</text></view>
   <view wx:if="{{rules}}" class="notice">交期按北京时间日期判断，今天至 3 天后为临期；进行中且尚需加工的订单，连续 3 天未报工会提示跟进。待办按订单自动生成，无手动完成或分派状态。维护/停用机器仅提示核实影响。已加工未出货为账面数量，出货前需核对实物与质检；数量异常时先核对，不计入待出货。搜索后数字为匹配订单汇总。</view>
   <view wx:if="{{view === 'shipments'}}" class="notice">支持分批出货。这里显示账面已加工未出货数量，点击订单 → 关联机器 → 录入实际出货。</view>

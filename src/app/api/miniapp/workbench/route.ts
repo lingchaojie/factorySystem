@@ -10,7 +10,7 @@ export async function GET(request: Request) {
       .parse(Object.fromEntries(new URL(request.url).searchParams));
     const result = await getWorkbench(user.workspaceId, params.query);
     const rows = result[params.view];
-    return json({ queriedAt: result.queriedAt, businessDate: result.businessDate, summary: result.summary,
+    return json({ queriedAt: result.queriedAt, businessDate: result.businessDate, summary: result.summary, scope: result.scope,
       view: params.view, page: params.page, total: rows.length, hasMore: params.page * 20 < rows.length,
       items: rows.slice((params.page - 1) * 20, params.page * 20) });
   });

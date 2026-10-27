@@ -51,7 +51,7 @@ describe("workbench business rules", () => {
   });
 });
 
-const mocks = vi.hoisted(() => ({ orders: vi.fn(), totals: vi.fn(), user: vi.fn(), transaction: vi.fn() }));
+const mocks = vi.hoisted(() => ({ orders: vi.fn(), totals: vi.fn(), machine: vi.fn(), user: vi.fn(), transaction: vi.fn() }));
 vi.mock("@/lib/db", () => ({ prisma: { $transaction: mocks.transaction } }));
 vi.mock("@/lib/session", () => ({ readSessionTokenUser: mocks.user }));
 import { getWorkbench } from "@/server/miniapp/workbench";
@@ -59,7 +59,8 @@ import { GET } from "@/app/api/miniapp/workbench/route";
 import { lookupProgress } from "@/server/assistant/lookup";
 describe("workbench API and assistant isolation", () => {
   function setup(count = 1) {
-    mocks.transaction.mockImplementation(callback => callback({ order: { findMany: mocks.orders }, productionRecord: { groupBy: mocks.totals } }));
+    mocks.machine.mockResolvedValue(null);
+    mocks.transaction.mockImplementation(callback => callback({ machine: { findFirst: mocks.machine }, order: { findMany: mocks.orders }, productionRecord: { groupBy: mocks.totals } }));
     mocks.orders.mockResolvedValue(Array.from({ length: count }, (_, i) => ({ ...order({ id: `demo_${i}`, dueDate: date("2026-10-01") }), machineAssignments: [] })));
     mocks.totals.mockResolvedValue(Array.from({ length: count }, (_, i) => ({ orderId: `demo_${i}`, type: "completed", _sum: { quantity: 70 }, _max: { recordedAt: now } })));
     mocks.user.mockResolvedValue({ id: "demo-user", workspaceId: "demo-workspace", role: "employee" });
@@ -81,6 +82,14 @@ describe("workbench API and assistant isolation", () => {
     for (const query of ["workspaceId=other", "page=0", "page=1.2", "view=admin"])
       expect((await GET(new Request("https://test/api/miniapp/workbench?" + query))).status).toBe(400);
     expect(mocks.transaction).not.toHaveBeenCalled();
+  });
+  it("prioritizes exact machine codes over overlapping fuzzy order numbers", async () => {
+    vi.clearAllMocks(); setup(); mocks.machine.mockResolvedValue({ id: "demo-machine", code: "CNC-01" });
+    const result = await getWorkbench("demo-workspace", "CNC-01");
+    expect(mocks.machine.mock.calls[0][0].where).toEqual({ workspaceId: "demo-workspace", code: { equals: "CNC-01", mode: "insensitive" } });
+    expect(mocks.orders.mock.calls[0][0].where).toMatchObject({ workspaceId: "demo-workspace", machineAssignments: { some: { workspaceId: "demo-workspace", machineId: "demo-machine" } } });
+    expect(mocks.orders.mock.calls[0][0].where).not.toHaveProperty("OR");
+    expect(result.scope).toContain("机器 CNC-01");
   });
   it("paginates response data while keeping complete totals; assistant reuses the same scoped computation", async () => {
     vi.clearAllMocks(); setup(25);

@@ -23,7 +23,7 @@ export async function lookupProgress(workspaceId: string, args: LookupInput): Pr
     const result = await getWorkbench(workspaceId, query, args.id);
     const rows = result[args.kind];
     return { queriedAt: result.queriedAt, hasMore: rows.length > 12, total: rows.length, summary: result.summary,
-      scope: args.id ? "指定订单" : query ? `关键词“${query}”匹配的未关闭订单` : "当前登录工厂全部未关闭订单",
+      scope: result.scope,
       rules: "北京时间；已过交期为逾期，今天至3天后到期为临期；进行中且仍需加工的订单3天未报工提示跟进；待办按订单去重；已加工未出货=累计加工-累计出货，异常数量不推荐出货；需核对实物、质检及设备实际影响。",
       items: rows.slice(0, 12).map(o => ({ kind: "order", id: o.id, title: `${o.orderNo} · ${o.partName}`,
         status: statuses[o.status], summary: `交期 ${o.dueDate ?? "未设置"}；计划 ${o.plannedQuantity ?? "未设置"} 件；累计加工 ${o.completedQuantity} 件，累计出货 ${o.shippedQuantity} 件；剩余待加工 ${o.remainingProcessing ?? "无法计算"} 件，剩余待出货 ${o.remainingQuantity ?? "无法计算"} 件；账面已加工未出货 ${o.readyQuantity} 件${o.anomaly ? "（数量异常，需先核对）" : ""}。${o.reasons.join("；")}。建议：${o.actions.join("；")}。关联机器：${o.machines.map(m => m.code).join("、") || "无"}` })) };
