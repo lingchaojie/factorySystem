@@ -1,6 +1,6 @@
 # 小程序指派事项
 
-经理在今日工作台点击“员工指派事项”，创建标题、说明、负责人、可选截止日期和可选关联订单。员工在同一入口查看“我的指派事项”，可标记完成或重新打开。经理查看本工厂全部事项。列表支持未完成/已完成/全部筛选及分页，显示负责人、截止日期、逾期和关联订单。
+经理在今日工作台点击“员工指派事项”，创建标题、说明、负责人、可选截止日期和可选关联订单。员工在同一入口查看“我的指派事项”；经理和负责人都可切换待处理、处理中、已完成。经理查看本工厂全部事项。列表支持未完成、三种单独状态、全部筛选及分页，显示负责人、截止日期、逾期和关联订单。
 
 这是持久化的经理指派事项，与工作台按订单计算的系统自动待办分别展示。不会自动发送微信通知，也不会自动修改生产记录或订单状态。
 
@@ -22,15 +22,15 @@
 - 创建使用按工厂唯一的 requestId 和请求内容摘要，相同请求重复提交返回原事项；换内容或创建人不能复用该编号。
 - 完成/重开按目标状态处理，重复“完成”不会覆盖原完成时间。所有写入条件保留工厂和负责人限制。
 - DTO 不返回密码、单价、客户资料或请求摘要。删除员工账号或订单时，仅将对应引用置空，事项历史保留。
-- 助手已有“今日待办”仍指订单自动待办；指派事项通过本页操作，不新增模型写入能力。
+- 助手已有“今日待办”仍指订单自动待办；1.4.0 增加经理明确指派的创建工具，事项状态在详情页操作，不提供模型状态修改或生产数据写入工具。
 
 ## 接口
 
-- GET /api/miniapp/tasks?status=pending|completed|all&page=1
+- GET /api/miniapp/tasks?status=open|pending|in_progress|completed|all&page=1（默认 open，包含待处理和处理中）
 - POST /api/miniapp/tasks
 - GET /api/miniapp/tasks/options（经理）
 - GET /api/miniapp/tasks/:id
-- POST /api/miniapp/tasks/:id/status，body 为 status: pending|completed
+- POST /api/miniapp/tasks/:id/status，body 为 status: pending|in_progress|completed
 
 免费 factoryProxy 添加以上路径白名单。没有删除接口，没有批量或跨工厂接口。
 
@@ -49,3 +49,14 @@
 - 原网站登录及机器、订单、经营页面回归通过。原有七类业务表摘要仍为 ee0d8981f37c727a9a200b13857971f2a10841efa6d81c2e4164ceeebb1433d5，计数 [3,8,23,286,624,40,128]。
 - 仅执行新增表迁移，未执行 seed；服务器备份及审计位于 /home/ubuntu/factory-backups/assignments-20261027/。执行记录 inv-rae85mg8xk，退出码 0。
 - 本机证据在忽略目录 dist/assigned-tasks-api-verification.json、dist/assigned-tasks-native-verification.json、dist/assigned-tasks-deployed-verified.png。
+
+## 1.4.0 部署验收
+
+- 完整功能提交 5841a77；服务器使用以原部署 33188b4 为父提交的后台快照 272d16d592175868a911df0d6c93609dadc70b9f，后台、Prisma 和部署脚本内容与完整提交一致。照片和 Logo 不参与后台传输，原网站前端未改动。
+- 100 项小程序/鉴权相关测试通过，TypeScript、改动文件 ESLint、Prisma schema 校验和服务器生产构建通过。
+- 执行记录 inv-uaeb95gwbc，退出码 0，仅应用 20261027160000_work_item_in_progress。未执行 seed。服务器备份与审计位于 /home/ubuntu/factory-backups/assistant-tasks-20261027/。
+- 迁移前后原有七类业务表摘要仍为 ee0d8981f37c727a9a200b13857971f2a10841efa6d81c2e4164ceeebb1433d5；既有 4 条事项摘要相同，faa95c51fc176d2f90f2a00ce43dec7b9d2a0eedac9b71d1a11ee67e1ee884f2。联调另在演示工厂新增两条标注“演示”的事项，没有写入锦强。
+- 真实 gpt-5.6-luna 创建关联 DEMO-CNC-007 的事项；同一聊天请求重复提交返回同一结果；经理和员工轮流切换三种状态、其他员工访问/修改拒绝、处理中筛选、完成时间清理均通过。订单加工 200 / 出货 0 未变化。
+- 微信原生工具真实创建关联 DEMO-CNC-018 的事项，验证任务卡跳转、经理设为处理中、员工看到后完成、经理看到完成后设回待处理。SDK 详情截图超时后，从数据库恢复同一条任务续测，没有为重试重复创建事项。网站登录与机器、订单、经营页面回归通过。
+- 1.4.0 开发版上传成功，最终包 685,447 字节；未提交审核或正式发布。管理员需在微信后台把 1.4.0 设为体验版，体验成员才使用新版。
+- 忽略目录证据：dist/assistant-tasks-140-api-verification.json、dist/assistant-assignment-native-140-verification.json、dist/assistant-tasks-deployed-140.png、dist/assistant-tasks-upload-140-info.json。
