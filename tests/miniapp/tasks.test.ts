@@ -69,7 +69,7 @@ describe("assigned task authorization and persistence", () => {
   });
   it("counts full scoped results independently of the page and does not accept tenant or actor fields from input", async () => {
     mocks.transaction.mockImplementation(callback => callback({ workItem: { findMany: mocks.list, count: mocks.count } }));
-    mocks.list.mockResolvedValue([row]); mocks.count.mockResolvedValueOnce(21).mockResolvedValueOnce(21).mockResolvedValueOnce(0).mockResolvedValueOnce(1);
+    mocks.list.mockResolvedValue([row]); mocks.count.mockResolvedValueOnce(21).mockResolvedValueOnce(21).mockResolvedValueOnce(0).mockResolvedValueOnce(0).mockResolvedValueOnce(1);
     const result = await listTasks(employee, { status: 'pending', page: 2 });
     expect(result).toMatchObject({ total: 21, page: 2, hasMore: false, summary: { pending: 21, overdue: 1 } });
     expect(mocks.list.mock.calls[0][0]).toMatchObject({ where: { workspaceId: manager.workspaceId, assigneeUserId: employee.id, status: 'pending' }, skip: 20, take: 20 });
@@ -80,5 +80,19 @@ describe("assigned task authorization and persistence", () => {
     mocks.employees.mockResolvedValue([]); mocks.orders.mockResolvedValue([]); await taskOptions(manager);
     expect(mocks.employees.mock.calls[0][0]).toMatchObject({ where: { workspaceId: manager.workspaceId, role: 'employee' } });
     expect(mocks.orders.mock.calls[0][0].select).toEqual({ id: true, orderNo: true, partName: true });
+  });
+  it("supports all three shared states, clears completion metadata when restarting, and counts overdue active tasks", async () => {
+    await setTaskStatus(employee, row.id, 'in_progress');
+    expect(mocks.update.mock.calls[0][0]).toMatchObject({ where: { workspaceId: manager.workspaceId, assigneeUserId: employee.id }, data: { status: 'in_progress', completedAt: null, completedByUserId: null } });
+    mocks.first.mockResolvedValue({ ...row, status: 'in_progress', dueDate: new Date('2020-01-01') });
+    expect((await getTask(employee, row.id)).overdue).toBe(true);
+    await setTaskStatus(manager, row.id, 'completed');
+    expect(mocks.update.mock.calls[1][0].data).toMatchObject({ status: 'completed', completedByUserId: manager.id });
+    mocks.transaction.mockImplementation(callback => callback({ workItem: { findMany: mocks.list, count: mocks.count } }));
+    mocks.list.mockResolvedValue([]); mocks.count.mockResolvedValueOnce(5).mockResolvedValueOnce(2).mockResolvedValueOnce(3).mockResolvedValueOnce(4).mockResolvedValueOnce(1);
+    const result = await listTasks(manager, { status: 'open', page: 1 });
+    expect(result.summary).toEqual({ pending: 2, inProgress: 3, completed: 4, overdue: 1 });
+    expect(mocks.list.mock.calls[0][0].where.status).toEqual({ in: ['pending', 'in_progress'] });
+    expect(mocks.count.mock.calls[4][0].where.status).toEqual({ in: ['pending', 'in_progress'] });
   });
 });

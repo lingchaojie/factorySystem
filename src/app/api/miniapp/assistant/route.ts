@@ -3,13 +3,14 @@ import { api, ApiError, json, requireMiniappUser } from "@/server/miniapp/http";
 import { chatInput, providerConfig, runAgent } from "@/server/assistant/agent";
 import { lookupProgress } from "@/server/assistant/lookup";
 import { assistantJobs } from "@/server/assistant/jobs";
+import { createAssignmentFromChat } from "@/server/assistant/assignment";
 
 export const runtime = "nodejs";
 export async function GET(request: Request) {
   return api(async () => {
-    await requireMiniappUser(request);
+    const user = await requireMiniappUser(request);
     const config = providerConfig();
-    return json({ configured: !!config, providerHost: config ? new URL(config.baseUrl).hostname : "", readOnly: true });
+    return json({ configured: !!config, providerHost: config ? new URL(config.baseUrl).hostname : "", readOnly: user.role !== "manager", canAssign: user.role === "manager" });
   });
 }
 export async function POST(request: Request) {
@@ -20,7 +21,8 @@ export async function POST(request: Request) {
     const input = chatInput.parse(JSON.parse(raw));
     const config = providerConfig();
     if (!config) throw new ApiError(503, "助手尚未接入模型，请联系管理员；机器和订单功能可正常使用");
-    const { job, execute } = assistantJobs.create(user, input, () => runAgent(config, input, args => lookupProgress(user.workspaceId, args)));
+    const { job, execute } = assistantJobs.create(user, input, () => runAgent(config, input, args => lookupProgress(user.workspaceId, args), fetch,
+      user.role === "manager" ? args => createAssignmentFromChat(user, input, args) : undefined));
     if (execute) after(execute);
     return json({ job }, 202);
   });
