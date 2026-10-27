@@ -1,5 +1,5 @@
 {
-  "pages": ["pages/home/index", "pages/login/index", "pages/workbench/index", "pages/assistant/index", "pages/machines/index", "pages/machine/index", "pages/orders/index", "pages/order/index", "pages/account/index"],
+  "pages": ["pages/home/index", "pages/login/index", "pages/workbench/index", "pages/tasks/index", "pages/task/index", "pages/assistant/index", "pages/machines/index", "pages/machine/index", "pages/orders/index", "pages/order/index", "pages/account/index"],
   "window": {
     "navigationBarTitleText": "工厂管理",
     "navigationBarBackgroundColor": "#102a43",

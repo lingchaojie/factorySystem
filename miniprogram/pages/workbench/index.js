@@ -1,12 +1,12 @@
 const api = require('../../utils/api');
 const { queryTime } = require('../../utils/chat');
 Page({
-  data: { view: 'risks', items: [], summary: null, query: '', scope: '', page: 1, total: 0, hasMore: false, loading: false, error: '', time: '', factory: '', rules: false },
+  data: { view: 'risks', items: [], summary: null, query: '', scope: '', page: 1, total: 0, hasMore: false, loading: false, error: '', time: '', factory: '', manager: false, rules: false },
   onShow() {
     if (!api.requireAuth()) return;
     const owner = api.session().token;
     if (this.owner !== owner) { this.owner = owner; this.setData({ items: [], summary: null, query: '', view: 'risks' }); }
-    this.setData({ factory: api.session().user.workspaceName });
+    this.setData({ factory: api.session().user.workspaceName, manager: api.session().user.role === 'manager' });
     this.load();
   },
   onUnload() { this.sequence = (this.sequence || 0) + 1; },
@@ -31,5 +31,6 @@ Page({
     finally { if (sequence === this.sequence) this.setData({ loading: false }); }
   },
   open(e) { wx.navigateTo({ url: '/pages/order/index?id=' + encodeURIComponent(e.currentTarget.dataset.id) }); },
-  ask() { wx.switchTab({ url: '/pages/assistant/index' }); }
+  ask() { wx.switchTab({ url: '/pages/assistant/index' }); },
+  openTasks() { wx.navigateTo({ url: '/pages/tasks/index' }); }
 });

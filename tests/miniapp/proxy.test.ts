@@ -26,6 +26,14 @@ afterEach(async () => {
 });
 
 describe("free cloud function proxy over real HTTP", () => {
+  it("allows scoped task routes without permitting deletion, tenant parameters or arbitrary actions", async () => {
+    const seen: string[] = []; const proxy = createProxy(await upstream((req, res) => { seen.push(req.url!); res.writeHead(200, { 'content-type': 'application/json' }); res.end('{}'); }));
+    for (const path of ['/tasks?status=pending&page=1', '/tasks/options', '/tasks/task1']) expect((await proxy({ path, token })).statusCode).toBe(200);
+    for (const path of ['/tasks', '/tasks/task1/status']) expect((await proxy({ method: 'POST', path, token, body: {} })).statusCode).toBe(200);
+    expect((await proxy({ path: '/tasks' })).statusCode).toBe(401);
+    for (const event of [{ method: 'DELETE', path: '/tasks/task1' }, { path: '/tasks?workspaceId=other' }, { method: 'POST', path: '/tasks/options' }, { method: 'POST', path: '/tasks/task1/delete' }]) expect((await proxy({ ...event, token })).statusCode).toBe(400);
+    expect(seen).toHaveLength(5);
+  });
   it("allows authenticated workbench pagination but no write or workspace override", async () => {
     const requests: string[] = [];
     const proxy = createProxy(await upstream((req, res) => { requests.push(req.url!); res.writeHead(200, { "content-type": "application/json" }); res.end('{"items":[]}'); }));

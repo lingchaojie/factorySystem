@@ -1,0 +1,7 @@
+<view class="page"><view wx:if="{{error}}" class="error">{{error}}<button class="secondary" bindtap="load" disabled="{{updating}}">刷新事项</button></view><view wx:if="{{loading}}" class="empty">正在读取事项…</view>
+  <block wx:if="{{item}}"><view class="hero"><view class="eyebrow">ASSIGNED TASK</view><view class="title">{{item.title}}</view></view>
+    <view class="card"><view class="row"><view class="name">事项状态</view><text class="badge {{item.overdue ? 'maintenance' : item.status}}">{{item.statusLabel}}</text></view><view class="label">负责人</view><view>{{item.assigneeLabel}}</view><view class="label">截止日期</view><view>{{item.dueDateLabel}}</view><view class="label">事项说明</view><text class="description" selectable="{{true}}">{{item.description || '无补充说明'}}</text><view class="label">创建人</view><view>{{item.createdByName}}</view><view class="muted gap">{{item.createdAtLabel}}</view><view wx:if="{{item.completedAtLabel}}" class="notice gap">{{item.completedByName || '已移除的账号'}} 于 {{item.completedAtLabel}} 完成</view></view>
+    <view wx:if="{{item.order}}" class="card" bindtap="openOrder"><view class="label">关联订单</view><view class="name">{{item.order.orderNo}}</view><view class="muted gap">{{item.order.partName}}</view><view class="link gap">查看订单进度 →</view></view>
+    <button class="primary complete-task" bindtap="toggleStatus" loading="{{updating}}" disabled="{{updating}}">{{item.status === 'completed' ? '重新打开事项' : '标记为已完成'}}</button>
+  </block>
+</view>

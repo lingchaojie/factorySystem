@@ -1,5 +1,6 @@
 <view class="page">
   <view class="hero"><view class="eyebrow">DAILY WORKBENCH</view><view class="title">今日工作台</view><view class="subtitle">{{factory}} · 北京时间</view></view>
+  <view class="card row assigned-entry" bindtap="openTasks"><view><view class="name">{{manager ? '员工指派事项' : '我的指派事项'}}</view><view class="muted">{{manager ? '创建事项、指派员工，可关联订单' : '查看经理交办的事项并标记完成'}}</view></view><text class="link">进入 →</text></view>
   <view class="overview" wx:if="{{summary}}">
     <view class="metric"><view class="number danger">{{summary.overdueOrders}}</view><view>逾期订单</view></view>
     <view class="metric"><view class="number amber">{{summary.dueSoonOrders}}</view><view>3 天内到期</view></view>
