@@ -1,5 +1,5 @@
 {
-  "pages": ["pages/home/index", "pages/login/index", "pages/assistant/index", "pages/machines/index", "pages/machine/index", "pages/orders/index", "pages/order/index", "pages/account/index"],
+  "pages": ["pages/home/index", "pages/login/index", "pages/workbench/index", "pages/assistant/index", "pages/machines/index", "pages/machine/index", "pages/orders/index", "pages/order/index", "pages/account/index"],
   "window": {
     "navigationBarTitleText": "工厂管理",
     "navigationBarBackgroundColor": "#102a43",
@@ -10,7 +10,7 @@
   "tabBar": {
     "color": "#6b7c8e", "selectedColor": "#087f8c", "backgroundColor": "#ffffff",
     "list": [
-      { "pagePath": "pages/home/index", "text": "首页" },
+      { "pagePath": "pages/workbench/index", "text": "工作台" },
       { "pagePath": "pages/assistant/index", "text": "助手" },
       { "pagePath": "pages/machines/index", "text": "机器" },
       { "pagePath": "pages/orders/index", "text": "订单" },

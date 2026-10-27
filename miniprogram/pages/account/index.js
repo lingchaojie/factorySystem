@@ -1,6 +1,7 @@
 const api = require('../../utils/api');
 Page({
   data: { user: null, server: '', cloud: false, error: '', loading: false },
+  home() { wx.navigateTo({ url: '/pages/home/index' }); },
   async onShow() {
     if (!api.requireAuth()) return;
     const connection = api.connectionInfo();

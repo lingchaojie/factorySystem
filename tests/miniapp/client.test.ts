@@ -187,7 +187,7 @@ describe("native cloud login", () => {
       data: { username: "worker", password: "password" } });
     expect(api.saveSession).toHaveBeenCalledWith({ token: "token", user: {} });
     expect(page.data.password).toBe("");
-    expect(wx.switchTab).toHaveBeenCalledWith({ url: "/pages/assistant/index" });
+    expect(wx.switchTab).toHaveBeenCalledWith({ url: "/pages/workbench/index" });
   });
 });
 

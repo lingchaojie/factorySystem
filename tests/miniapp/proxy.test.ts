@@ -26,6 +26,15 @@ afterEach(async () => {
 });
 
 describe("free cloud function proxy over real HTTP", () => {
+  it("allows authenticated workbench pagination but no write or workspace override", async () => {
+    const requests: string[] = [];
+    const proxy = createProxy(await upstream((req, res) => { requests.push(req.url!); res.writeHead(200, { "content-type": "application/json" }); res.end('{"items":[]}'); }));
+    expect((await proxy({ path: "/workbench?view=shipments&page=2&query=CNC-01", token })).statusCode).toBe(200);
+    expect((await proxy({ path: "/workbench" })).statusCode).toBe(401);
+    expect((await proxy({ method: "POST", path: "/workbench", token })).statusCode).toBe(400);
+    expect((await proxy({ path: "/workbench?workspaceId=other", token })).statusCode).toBe(400);
+    expect(requests).toEqual(["/api/miniapp/workbench?view=shipments&page=2&query=CNC-01"]);
+  });
   it("unwraps gateway JSON while preserving backend status and the SDK call contract", async () => {
     const seen: string[] = [];
     const handler = createHandler(createProxy(await upstream((req, res) => {

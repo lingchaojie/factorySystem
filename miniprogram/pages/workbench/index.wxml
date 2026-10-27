@@ -1,0 +1,33 @@
+<view class="page">
+  <view class="hero"><view class="eyebrow">DAILY WORKBENCH</view><view class="title">今日工作台</view><view class="subtitle">{{factory}} · 北京时间</view></view>
+  <view class="overview" wx:if="{{summary}}">
+    <view class="metric"><view class="number danger">{{summary.overdueOrders}}</view><view>逾期订单</view></view>
+    <view class="metric"><view class="number amber">{{summary.dueSoonOrders}}</view><view>3 天内到期</view></view>
+    <view class="metric"><view class="number">{{summary.shipmentOrders}}</view><view>待出货订单</view></view>
+    <view class="metric"><view class="number">{{summary.readyQuantity}}</view><view>已加工未出货 / 件</view></view>
+  </view>
+  <view class="tabs">
+    <view class="tab {{view === 'risks' ? 'selected' : ''}}" data-view="risks" bindtap="choose">交期风险 {{summary ? summary.riskOrders : ''}}</view>
+    <view class="tab {{view === 'todos' ? 'selected' : ''}}" data-view="todos" bindtap="choose">今日待办 {{summary ? summary.todoOrders : ''}}</view>
+    <view class="tab {{view === 'shipments' ? 'selected' : ''}}" data-view="shipments" bindtap="choose">待出货 {{summary ? summary.shipmentOrders : ''}}</view>
+  </view>
+  <view class="filter"><input class="input" value="{{query}}" bindinput="field" bindconfirm="load" confirm-type="search" placeholder="订单号 / 工件 / 机器编号" maxlength="100"/><button class="secondary" bindtap="load">查询</button></view>
+  <view class="row meta"><text class="muted">{{time ? time + ' 更新' : '下拉刷新实时数据'}}</text><text class="link" bindtap="toggleRules">{{rules ? '收起规则' : '计算规则'}}</text></view>
+  <view wx:if="{{rules}}" class="notice">交期按北京时间日期判断，今天至 3 天后为临期；进行中且尚需加工的订单，连续 3 天未报工会提示跟进。待办按订单自动生成，无手动完成或分派状态。维护/停用机器仅提示核实影响。已加工未出货为账面数量，出货前需核对实物与质检；数量异常时先核对，不计入待出货。搜索后数字为匹配订单汇总。</view>
+  <view wx:if="{{view === 'shipments'}}" class="notice">支持分批出货。这里显示账面已加工未出货数量，点击订单 → 关联机器 → 录入实际出货。</view>
+  <view wx:if="{{error}}" class="error">{{error}}<button class="secondary" bindtap="load">重新加载</button></view>
+  <view wx:for="{{items}}" wx:key="id" class="card work-item" data-id="{{item.id}}" bindtap="open">
+    <view class="row"><view class="name">{{item.partName}}</view><text class="badge {{item.overdue || item.anomaly ? 'urgent' : ''}}">{{view === 'shipments' ? '待核对出货' : item.overdue ? '已逾期' : item.dueSoon ? '临近交期' : '需跟进'}}</text></view>
+    <view class="muted gap">{{item.orderNo}} · {{item.machineLabel}}</view>
+    <view class="muted">交期 {{item.dueDate || '未设置'}} · 最近报工 {{item.lastCompletedDate || '尚无'}}</view>
+    <view class="quantity">计划 {{item.plannedQuantity === null ? '未设置' : item.plannedQuantity}} · 已加工 {{item.completedQuantity}} · 已出货 {{item.shippedQuantity}}</view>
+    <view wx:if="{{view === 'shipments'}}" class="ready">{{item.readyQuantity}} <text>件已加工未出货</text><view class="muted">{{item.shipmentLabel}}</view></view>
+    <view wx:for="{{item.reasons}}" wx:for-item="reason" wx:key="*this" class="reason">• {{reason}}</view>
+    <view class="action">建议：<text wx:for="{{item.actions}}" wx:for-item="action" wx:key="*this">{{index ? '；' : ''}}{{action}}</text></view>
+    <view class="link gap">查看订单 / 进入录入 →</view>
+  </view>
+  <view wx:if="{{loading}}" class="empty">正在读取工作台…</view>
+  <view wx:if="{{!loading && !error && !items.length}}" class="card empty">{{view === 'shipments' ? '暂无账面待出货订单。' : view === 'risks' ? '当前没有匹配的风险提醒。' : '当前没有匹配的待办。'}}</view>
+  <button wx:if="{{hasMore}}" class="secondary" bindtap="more" loading="{{loading}}" disabled="{{loading}}">加载更多（已显示 {{items.length}} / {{total}}）</button>
+  <button class="primary" bindtap="ask">让助手查询风险、待办或待出货</button>
+</view>

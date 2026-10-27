@@ -16,14 +16,14 @@ function input(event) {
   }
   const pathname = path.split('?')[0];
   const allowed = method === 'GET'
-    ? /^\/(?:auth\/me|machines(?:\/[A-Za-z0-9_-]{1,128})?|orders(?:\/[A-Za-z0-9_-]{1,128})?|assistant(?:\/jobs\/[A-Za-z0-9_-]{1,128})?)$/
+    ? /^\/(?:auth\/me|workbench|machines(?:\/[A-Za-z0-9_-]{1,128})?|orders(?:\/[A-Za-z0-9_-]{1,128})?|assistant(?:\/jobs\/[A-Za-z0-9_-]{1,128})?)$/
     : /^\/(?:auth\/(?:login|logout)|records|assistant)$/;
   if (!allowed.test(pathname)) throw new Error('接口或方法无效');
   if (path.includes('?')) {
-    if (method !== 'GET' || pathname !== '/orders') throw new Error('查询参数无效');
+    if (method !== 'GET' || !['/orders', '/workbench'].includes(pathname)) throw new Error('查询参数无效');
     const query = new URLSearchParams(path.slice(path.indexOf('?') + 1));
     for (const [key, value] of query) {
-      if (!['query', 'status'].includes(key) || value.length > 512) throw new Error('查询参数无效');
+      if (!(pathname === '/workbench' ? ['query', 'view', 'page'] : ['query', 'status']).includes(key) || value.length > 512) throw new Error('查询参数无效');
     }
   }
   const login = pathname === '/auth/login';

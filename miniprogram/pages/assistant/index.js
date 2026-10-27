@@ -1,9 +1,9 @@
 const api = require('../../utils/api');
 const { buildQuery, queryTime } = require('../../utils/chat');
-const greeting = { id: 'welcome', role: 'assistant', text: '你好，我是工厂助手。\n告诉我机器编号或订单号，我帮你查最新加工、出货和订单进度。', sources: [] };
+const greeting = { id: 'welcome', role: 'assistant', text: '你好，我是工厂助手。\n可以查询机器和订单进度，也能查看交期风险、今日待办与待出货清单。', sources: [] };
 Page({
   data: { messages: [greeting], draft: '', busy: false, configured: false, checking: true, error: '', providerHost: '', consent: false,
-    pendingJob: '', bottomId: 'message-welcome', suggestions: ['有哪些机器正在加工？', '帮我查一下 1 号机的进度', '查看最近的订单进度'] },
+    pendingJob: '', bottomId: 'message-welcome', suggestions: ['今天有哪些交期风险和待办？', '列出待出货清单', '帮我查一下 CNC-01 的进度'] },
   onShow() {
     this.active = true;
     if (!api.requireAuth()) return;

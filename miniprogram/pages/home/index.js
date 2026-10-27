@@ -4,10 +4,9 @@ Page({
   onShow() {
     const loggedIn = !!api.session();
     this.setData({ loggedIn });
-    if (loggedIn) wx.showTabBar(); else wx.hideTabBar();
   },
   enter() {
-    if (api.session()) wx.switchTab({ url: '/pages/assistant/index' });
+    if (api.session()) wx.switchTab({ url: '/pages/workbench/index' });
     else wx.navigateTo({ url: '/pages/login/index' });
   }
 });

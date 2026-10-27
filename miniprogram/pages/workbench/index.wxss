@@ -1,0 +1,16 @@
+.overview { display: grid; grid-template-columns: 1fr 1fr; gap: 2rpx; background: #e4ebf0; border: 1rpx solid #e4ebf0; border-radius: 22rpx; overflow: hidden; margin-bottom: 30rpx; }
+.metric { background: white; padding: 24rpx; font-size: 24rpx; color: #486581; }
+.metric .number { color: #087f8c; }
+.metric .danger, .danger { color: #b54432; }
+.metric .amber { color: #a16a0d; }
+.tabs { display: flex; background: #e8eef3; border-radius: 16rpx; padding: 6rpx; margin-bottom: 24rpx; }
+.tab { flex: 1; text-align: center; padding: 22rpx 2rpx; font-size: 24rpx; border-radius: 12rpx; }
+.selected { color: #087f8c; background: white; font-weight: 600; }
+.meta { margin-bottom: 22rpx; }
+.meta .muted { font-size: 22rpx; }
+.urgent { background: #fff0ed; color: #b54432; }
+.quantity { color: #486581; font-size: 25rpx; padding: 20rpx 0; border-bottom: 1rpx solid #eef2f6; margin-bottom: 18rpx; }
+.reason { line-height: 1.8; color: #9b571f; font-size: 25rpx; }
+.action { margin-top: 18rpx; padding: 18rpx; background: #f3f7fa; border-radius: 10rpx; font-size: 25rpx; line-height: 1.8; color: #486581; }
+.ready { color: #087f8c; font-size: 48rpx; font-weight: 600; margin: 20rpx 0; }
+.ready text { font-size: 24rpx; font-weight: 400; }

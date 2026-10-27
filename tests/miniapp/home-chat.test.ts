@@ -30,7 +30,11 @@ describe("public CNC introduction and private assistant", () => {
     const wx = { hideTabBar: vi.fn(), showTabBar: vi.fn(), navigateTo: vi.fn(), switchTab: vi.fn() };
     const api = { session: vi.fn(() => null), request: vi.fn() };
     const page = pageAt("home", api, wx); page.onShow(); page.enter();
-    expect(wx.hideTabBar).toHaveBeenCalledOnce(); expect(api.request).not.toHaveBeenCalled();
+    expect(page.data.loggedIn).toBe(false); expect(api.request).not.toHaveBeenCalled();
+    const config = JSON.parse(readFileSync('miniprogram/app.json', 'utf8'));
+    expect(config.pages[0]).toBe('pages/home/index');
+    expect(config.tabBar.list).toHaveLength(5);
+    expect(config.tabBar.list[0].pagePath).toBe('pages/workbench/index');
     expect(wx.navigateTo).toHaveBeenCalledWith({ url: "/pages/login/index" });
   });
   it("blocks direct anonymous chat access and never calls the model", async () => {

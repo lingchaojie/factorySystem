@@ -8,5 +8,6 @@
     <view class="label">当前服务</view><view class="muted">{{server}}</view>
     <button class="secondary" bindtap="logout" loading="{{loading}}" disabled="{{loading}}">{{cloud ? '退出登录' : '退出登录 / 更换服务器'}}</button>
   </view>
-  <view class="notice">与网站共用账号、工厂数据和生产规则。订单创建、机器关联在网站操作；小程序下拉刷新获取最新进度。时间按北京时间显示。</view>
+  <button class="secondary" bindtap="home">查看公司介绍</button>
+  <view class="notice gap">与网站共用账号、工厂数据和生产规则。订单创建、机器关联在网站操作；小程序下拉刷新获取最新进度。时间按北京时间显示。</view>
 </view>
