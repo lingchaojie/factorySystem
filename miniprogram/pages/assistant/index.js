@@ -2,7 +2,7 @@ const api = require('../../utils/api');
 const { buildQuery, queryTime } = require('../../utils/chat');
 const greeting = { id: 'welcome', role: 'assistant', text: '你好，我是工厂助手。\n可以查询机器和订单进度，也能查看交期风险、今日待办与待出货清单。', sources: [] };
 Page({
-  data: { messages: [greeting], draft: '', busy: false, configured: false, checking: true, error: '', providerHost: '', consent: false,
+  data: { messages: [greeting], draft: '', busy: false, configured: false, checking: true, error: '',
     pendingJob: '', bottomId: 'message-welcome', suggestions: ['今天有哪些交期风险和待办？', '列出待出货清单', '帮我查一下 CNC-01 的进度'] },
   onShow() {
     this.active = true;
@@ -10,7 +10,7 @@ Page({
     const token = api.session().token;
     if (this.owner !== token) {
       this.stopPoll(); this.owner = token;
-      this.setData({ messages: [greeting], draft: '', busy: false, pendingJob: '', consent: false, error: '' });
+      this.setData({ messages: [greeting], draft: '', busy: false, pendingJob: '', error: '' });
     }
     this.check();
     if (this.data.pendingJob) this.watch(this.data.pendingJob, token);
@@ -24,8 +24,7 @@ Page({
     this.setData({ checking: true });
     try {
       const info = await api.request('/assistant');
-      if (this.owns(token)) this.setData({ configured: info.configured, providerHost: info.providerHost, checking: false, error: '',
-        consent: this.data.providerHost === info.providerHost && this.data.consent });
+      if (this.owns(token)) this.setData({ configured: info.configured, checking: false, error: '' });
     } catch (error) {
       if (this.owns(token)) this.setData({ configured: false, checking: false, error: error.status === 404 ? '助手服务尚未部署，机器和订单功能可正常使用。' : error.message });
     }
@@ -43,14 +42,6 @@ Page({
     if (this.data.checking || !this.data.configured) { this.setData({ error: '助手尚未接入模型，请先使用机器和订单页面。' }); return; }
     const token = this.owner;
     this.setData({ busy: true, error: '' });
-    if (!this.data.consent) {
-      const confirmed = await new Promise(resolve => wx.showModal({ title: '使用工厂助手',
-        content: '你的问题、最近对话及本次查询到的机器/订单进度，将发送给 ' + this.data.providerHost + ' 及其模型服务生成回答。不发送密码和登录令牌，助手只能查询。是否继续？',
-        confirmText: '同意查询', success: r => resolve(r.confirm), fail: () => resolve(false) }));
-      if (!this.owns(token)) return;
-      if (!confirmed) { this.setData({ busy: false }); return; }
-      this.setData({ consent: true });
-    }
     const requestId = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 14);
     const body = buildQuery(this.data.messages, text, requestId);
     this.add({ id: requestId, role: 'user', text, sources: [] });
@@ -95,6 +86,6 @@ Page({
   },
   clear() {
     if (this.data.busy) return;
-    this.setData({ messages: [greeting], error: '', draft: '', consent: false, bottomId: 'message-welcome' });
+    this.setData({ messages: [greeting], error: '', draft: '', bottomId: 'message-welcome' });
   }
 });

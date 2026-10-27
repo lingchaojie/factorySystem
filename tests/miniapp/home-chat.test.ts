@@ -42,22 +42,23 @@ describe("public CNC introduction and private assistant", () => {
     const page = pageAt("assistant", api, {}); page.onShow(); page.data.draft = "查订单"; await page.send();
     expect(api.request).not.toHaveBeenCalled();
   });
-  it("asks before sharing data and does not submit when consent is declined", async () => {
-    const token = { token: "owner" };
-    const api = { requireAuth: vi.fn(() => true), session: vi.fn(() => token), request: vi.fn() };
-    const wx = { showModal: vi.fn((options: { success: (r: { confirm: boolean }) => void }) => options.success({ confirm: false })) };
+  it("submits an authenticated query directly without a provider confirmation, and locks duplicate taps", async () => {
+    const api = { requireAuth: vi.fn(() => true), session: vi.fn(() => ({ token: "owner" })),
+      request: vi.fn().mockResolvedValue({ job: { id: "job1" } }) };
+    const wx = { showModal: vi.fn() };
     const page = pageAt("assistant", api, wx);
-    page.owner = "owner"; page.data.configured = true; page.data.checking = false; page.data.providerHost = "provider.example"; page.data.draft = "查1号机";
-    await page.send();
-    expect(wx.showModal.mock.calls[0][0]).toMatchObject({ content: expect.stringContaining("provider.example") });
-    expect(api.request).not.toHaveBeenCalled(); expect(page.data.busy).toBe(false);
+    page.owner = "owner"; page.data.configured = true; page.data.checking = false; page.data.draft = "查1号机";
+    await Promise.all([page.send(), page.send()]);
+    expect(wx.showModal).not.toHaveBeenCalled();
+    expect(api.request).toHaveBeenCalledExactlyOnceWith("/assistant", { method: "POST", data: expect.objectContaining({ message: "查1号机", consent: true }) });
+    expect(page.data.pendingJob).toBe("job1"); expect(page.data.busy).toBe(true);
   });
   it("creates a single query, polls its result and accepts only allowlisted source links", async () => {
     const api = { requireAuth: vi.fn(() => true), session: vi.fn(() => ({ token: "owner" })),
       request: vi.fn().mockResolvedValueOnce({ job: { id: "job1" } }).mockResolvedValueOnce({ job: { state: "completed", answer: { text: "加工11件", sources: [{ kind: "machine", id: "m1" }], queriedAt: "" } } }) };
     const wx = { navigateTo: vi.fn() };
     const page = pageAt("assistant", api, wx); page.owner = "owner"; page.active = true;
-    Object.assign(page.data, { configured: true, checking: false, consent: true, draft: "查1号机" });
+    Object.assign(page.data, { configured: true, checking: false, draft: "查1号机" });
     await page.send(); await Promise.resolve();
     expect(api.request.mock.calls.map(c => c[0])).toEqual(["/assistant", "/assistant/jobs/job1"]);
     expect(page.data.messages.at(-1).text).toBe("加工11件"); expect(page.data.busy).toBe(false);
