@@ -1,15 +1,15 @@
 const api = require('../../utils/api');
 const { buildQuery, queryTime } = require('../../utils/chat');
-const greeting = { id: 'welcome', role: 'assistant', text: '你好，我是工厂助手。\n可以查询机器和订单进度，也能查看交期风险、今日待办与待出货清单。', sources: [] };
+const greeting = { id: 'welcome', role: 'assistant', text: '你好，我是工厂助手。\n可以查询机器和订单进度，也能查看交期风险、今日待办与待出货清单。\n经理还可以说“让员工姓名跟进某个订单”，直接创建指派事项。', sources: [] };
 Page({
-  data: { messages: [greeting], draft: '', busy: false, configured: false, checking: true, error: '',
+  data: { messages: [greeting], draft: '', busy: false, configured: false, canAssign: false, checking: true, error: '',
     pendingJob: '', bottomId: 'message-welcome', suggestions: ['今天有哪些交期风险和待办？', '列出待出货清单', '帮我查一下 CNC-01 的进度'] },
   onShow() {
     this.active = true;
     if (!api.requireAuth()) return;
     const token = api.session().token;
     if (this.owner !== token) {
-      this.stopPoll(); this.owner = token;
+      this.stopPoll(); this.owner = token; this.submission = null;
       this.setData({ messages: [greeting], draft: '', busy: false, pendingJob: '', error: '' });
     }
     this.check();
@@ -24,7 +24,7 @@ Page({
     this.setData({ checking: true });
     try {
       const info = await api.request('/assistant');
-      if (this.owns(token)) this.setData({ configured: info.configured, checking: false, error: '' });
+      if (this.owns(token)) this.setData({ configured: info.configured, canAssign: !!info.canAssign, checking: false, error: '' });
     } catch (error) {
       if (this.owns(token)) this.setData({ configured: false, checking: false, error: error.status === 404 ? '助手服务尚未部署，机器和订单功能可正常使用。' : error.message });
     }
@@ -42,9 +42,11 @@ Page({
     if (this.data.checking || !this.data.configured) { this.setData({ error: '助手尚未接入模型，请先使用机器和订单页面。' }); return; }
     const token = this.owner;
     this.setData({ busy: true, error: '' });
-    const requestId = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 14);
-    const body = buildQuery(this.data.messages, text, requestId);
-    this.add({ id: requestId, role: 'user', text, sources: [] });
+    const retry = this.submission && this.submission.text === text && this.submission.token === token;
+    const requestId = retry ? this.submission.requestId : Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 14);
+    const body = retry ? this.submission.body : buildQuery(this.data.messages, text, requestId);
+    this.submission = { token, text, requestId, body };
+    if (!retry) this.add({ id: requestId, role: 'user', text, sources: [] });
     this.setData({ draft: '' });
     try {
       const result = await api.request('/assistant', { method: 'POST', data: body });
@@ -53,7 +55,7 @@ Page({
       this.setData({ pendingJob: result.job.id });
       if (this.active) this.watch(result.job.id, token);
     } catch (error) {
-      if (this.owns(token)) this.setData({ busy: false, error: error.uncertain ? '查询是否创建尚未确认，请稍候再问，避免重复消耗模型额度。' : error.message });
+      if (this.owns(token)) { this.setData({ busy: false, draft: text, error: error.uncertain ? '请求结果尚未确认。指派事项请先到工作台核对；再次发送相同内容会复用请求编号。' : error.message }); if (!error.uncertain) this.submission = null; }
     }
   },
   async watch(id, token) {
@@ -65,6 +67,7 @@ Page({
         const result = await api.request('/assistant/jobs/' + encodeURIComponent(id));
         if (!this.active || version !== this.pollVersion || !this.owns(token)) return;
         if (result.job.state === 'completed') {
+          this.submission = null;
           const answer = result.job.answer;
           this.add({ id: id + '-answer', role: 'assistant', text: answer.text, sources: answer.sources,
             time: answer.queriedAt ? queryTime(answer.queriedAt) : '' });
@@ -82,7 +85,7 @@ Page({
   openSource(e) {
     if (!api.requireAuth()) return;
     const { kind, id } = e.currentTarget.dataset;
-    if (['machine', 'order'].includes(kind) && /^[a-zA-Z0-9_-]{1,128}$/.test(id)) wx.navigateTo({ url: '/pages/' + kind + '/index?id=' + encodeURIComponent(id) });
+    if (['machine', 'order', 'task'].includes(kind) && /^[a-zA-Z0-9_-]{1,128}$/.test(id)) wx.navigateTo({ url: '/pages/' + kind + '/index?id=' + encodeURIComponent(id) });
   },
   clear() {
     if (this.data.busy) return;

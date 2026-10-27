@@ -29,7 +29,7 @@ export function createJobStore(now = Date.now) {
         if (started) return;
         started = true;
         try { const answer = await run(); if (job.state === "pending") { job.answer = answer; job.state = "completed"; } }
-        catch { job.error = "助手暂时无法完成查询，请稍后再试；可直接打开机器或订单页面查看。"; job.state = "failed"; }
+        catch { job.error = "助手暂时无法完成请求。指派事项请先到工作台核对是否已创建，避免重复交办；进度可直接打开机器或订单查看。"; job.state = "failed"; }
         // Only the input digest is retained; no prompt/key/provider error logging.
       } };
     },

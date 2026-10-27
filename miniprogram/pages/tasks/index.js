@@ -1,7 +1,7 @@
 const api = require('../../utils/api');
 const { decorate } = require('../../utils/tasks');
 Page({
-  data: { manager: false, items: [], summary: null, scope: '', statuses: ['未完成', '已完成', '全部事项'], statusIndex: 0,
+  data: { manager: false, items: [], summary: null, scope: '', statuses: ['未完成', '待处理', '处理中', '已完成', '全部事项'], statusIndex: 0,
     page: 1, total: 0, hasMore: false, loading: false, error: '', showCreate: false, optionsLoading: false, creating: false,
     title: '', description: '', dueDate: '', today: '', employees: [], employeeLabels: [], employeeIndex: 0,
     orders: [], orderLabels: ['不关联订单'], orderIndex: 0 },
@@ -23,7 +23,7 @@ Page({
     const token = this.owner, sequence = this.sequence = (this.sequence || 0) + 1;
     this.setData({ loading: true, error: '', ...(page === 1 ? { items: [] } : {}) });
     try {
-      const result = await api.request('/tasks?status=' + ['pending', 'completed', 'all'][this.data.statusIndex] + '&page=' + page);
+      const result = await api.request('/tasks?status=' + ['open', 'pending', 'in_progress', 'completed', 'all'][this.data.statusIndex] + '&page=' + page);
       if (!this.owns(token) || sequence !== this.sequence) return;
       this.setData({ items: page === 1 ? result.items.map(decorate) : this.data.items.concat(result.items.map(decorate)), summary: result.summary,
         scope: result.scope, page, total: result.total, hasMore: result.hasMore });

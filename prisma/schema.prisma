@@ -33,6 +33,7 @@ enum UserRole {
 
 enum WorkItemStatus {
   pending
+  in_progress
   completed
 }
 

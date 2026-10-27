@@ -1,1 +1,2 @@
 .description { white-space: pre-wrap; line-height: 1.9; color: #486581; }
+.status-actions { display: flex; gap: 12rpx; }.status-actions button { flex: 1; padding: 0 8rpx; font-size: 26rpx; }.status-actions button.primary[disabled] { background: #087f8c; color: #fff; }

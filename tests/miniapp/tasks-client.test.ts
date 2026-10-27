@@ -27,3 +27,18 @@ it("does not show assignment options returned for a previous account", async () 
   resolve({ employees: [{ id: 'private', displayName: 'private name' }], orders: [] }); await pending;
   expect(page.data.showCreate).toBe(false); expect(page.data.employees).toEqual([]);
 });
+it("updates only an allowlisted target state, prevents duplicate taps and ignores responses after logout", async () => {
+  let token = 'owner'; let resolve: (data: object) => void = () => {};
+  const request = vi.fn(() => new Promise(r => { resolve = r; }));
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let page: any;
+  const api = { requireAuth: () => true, session: () => ({ token }), request };
+  vm.runInNewContext(readFileSync('miniprogram/pages/task/index.js', 'utf8'), { Page: (value: unknown) => { page = value; }, require: (name: string) => name.endsWith('/tasks') ? { decorate: (v: unknown) => v } : api, wx: { showToast: vi.fn() } });
+  page.setData = (data: object) => Object.assign(page.data, data); page.data.id = 't1'; page.data.item = { status: 'pending' };
+  const event = (status: string) => ({ currentTarget: { dataset: { status } } });
+  await page.setStatus(event('fake')); expect(request).not.toHaveBeenCalled();
+  const first = page.setStatus(event('in_progress')); await page.setStatus(event('completed'));
+  expect(request).toHaveBeenCalledExactlyOnceWith('/tasks/t1/status', { method: 'POST', data: { status: 'in_progress' } });
+  token = 'other'; resolve({ item: { status: 'in_progress' } }); await first;
+  expect(page.data.item.status).toBe('pending');
+});

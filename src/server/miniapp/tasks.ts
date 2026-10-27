@@ -12,7 +12,8 @@ export const taskInput = z.object({ title: z.string().trim().min(1, "请输入�
   description: z.string().trim().max(2000).default(""), assigneeUserId: z.string().min(1, "请选择员工").max(128),
   orderId: z.string().min(1).max(128).nullable().default(null), dueDate: dueDateInput.nullable().default(null),
   requestId: z.string().regex(/^[A-Za-z0-9_-]{12,80}$/) }).strict();
-export const taskFilters = z.object({ status: z.enum(["pending", "completed", "all"]).default("pending"), page: z.coerce.number().int().min(1).max(10000).default(1) }).strict();
+export const taskStatus = z.enum(["pending", "in_progress", "completed"]);
+export const taskFilters = z.object({ status: z.enum(["open", "pending", "in_progress", "completed", "all"]).default("open"), page: z.coerce.number().int().min(1).max(10000).default(1) }).strict();
 const select = { id: true, title: true, description: true, status: true, dueDate: true, createdAt: true, completedAt: true,
   assigneeUserId: true, createdByUserId: true, requestHash: true,
   assignee: { select: { id: true, displayName: true } }, createdBy: { select: { displayName: true } },
@@ -25,23 +26,24 @@ export function requireTaskManager(actor: TaskActor) { if (actor.role !== "manag
 function dto(row: Row) {
   return { id: row.id, title: row.title, description: row.description, status: row.status,
     dueDate: row.dueDate ? formatDateTimeLocalValue(row.dueDate).slice(0, 10) : null,
-    overdue: row.status === "pending" && !!row.dueDate && row.dueDate < businessTodayBounds().start,
+    overdue: row.status !== "completed" && !!row.dueDate && row.dueDate < businessTodayBounds().start,
     createdAt: row.createdAt, completedAt: row.completedAt,
     assignee: row.assignee, createdByName: row.createdBy?.displayName ?? "已移除的账号",
     completedByName: row.completedBy?.displayName ?? null, order: row.order };
 }
 export async function listTasks(actor: TaskActor, filters: z.infer<typeof taskFilters>) {
   const scope = taskScope(actor);
-  const where = { ...scope, ...(filters.status === "all" ? {} : { status: filters.status }) };
+  const where: Prisma.WorkItemWhereInput = { ...scope, ...(filters.status === "all" ? {} : { status: filters.status === "open" ? { in: ["pending", "in_progress"] } : filters.status }) };
   return prisma.$transaction(async tx => {
-    const [items, total, pending, completed, overdue] = await Promise.all([
+    const [items, total, pending, inProgress, completed, overdue] = await Promise.all([
       tx.workItem.findMany({ where, select, orderBy: [{ status: "asc" }, { dueDate: { sort: "asc", nulls: "last" } }, { createdAt: "desc" }], skip: (filters.page - 1) * 20, take: 20 }),
       tx.workItem.count({ where }), tx.workItem.count({ where: { ...scope, status: "pending" } }),
+      tx.workItem.count({ where: { ...scope, status: "in_progress" } }),
       tx.workItem.count({ where: { ...scope, status: "completed" } }),
-      tx.workItem.count({ where: { ...scope, status: "pending", dueDate: { lt: businessTodayBounds().start } } }),
+      tx.workItem.count({ where: { ...scope, status: { in: ["pending", "in_progress"] }, dueDate: { lt: businessTodayBounds().start } } }),
     ]);
     return { items: items.map(dto), total, page: filters.page, hasMore: filters.page * 20 < total,
-      summary: { pending, completed, overdue }, manager: actor.role === "manager", scope: actor.role === "manager" ? "本工厂所有指派事项" : "指派给我的事项" };
+      summary: { pending, inProgress, completed, overdue }, manager: actor.role === "manager", scope: actor.role === "manager" ? "本工厂所有指派事项" : "指派给我的事项" };
   }, { isolationLevel: "RepeatableRead" });
 }
 export async function taskOptions(actor: TaskActor) {
@@ -84,7 +86,7 @@ export async function createTask(actor: TaskActor, input: z.infer<typeof taskInp
     throw error;
   }
 }
-export async function setTaskStatus(actor: TaskActor, id: string, status: "pending" | "completed") {
+export async function setTaskStatus(actor: TaskActor, id: string, status: z.infer<typeof taskStatus>) {
   // Every mutation includes the same workspace/assignee scope as reads.
   const row = await prisma.workItem.findFirst({ where: { ...taskScope(actor), id }, select });
   if (!row) throw new ApiError(404, "事项不存在或无权操作");

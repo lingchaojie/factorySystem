@@ -1,18 +1,18 @@
 <view class="chat">
-  <view class="chat-header"><view><view class="chat-title"><text class="online-dot"></text>你的车间，随问随知</view><view class="muted">实时查询 · 仅限当前工厂 · 只读助手</view></view><text class="clear" bindtap="clear">新对话</text></view>
+  <view class="chat-header"><view><view class="chat-title"><text class="online-dot"></text>你的车间，随问随知</view><view class="muted">{{canAssign ? '实时查询 · 经理可交办事项' : '实时查询 · 仅限当前工厂'}}</view></view><text class="clear" bindtap="clear">新对话</text></view>
   <scroll-view class="conversation" scroll-y="{{true}}" scroll-into-view="{{bottomId}}" scroll-with-animation="{{true}}">
     <view class="chat-body">
       <view wx:for="{{messages}}" wx:key="id" id="message-{{item.id}}" class="message {{item.role}}">
         <view wx:if="{{item.role === 'assistant'}}" class="speaker">精工 · 工厂助手</view>
         <view class="bubble"><text selectable="{{true}}">{{item.text}}</text></view>
-        <view wx:for="{{item.sources}}" wx:for-item="source" wx:key="id" class="source" data-kind="{{source.kind}}" data-id="{{source.id}}" bindtap="openSource"><view class="source-head"><text class="source-kind">{{source.kind === 'machine' ? '机器' : '订单'}}</text><text class="source-status">{{source.status}}</text></view><view class="source-title">{{source.title}}</view><view class="source-summary">{{source.summary}}</view><view class="source-link">查看原始详情 →</view></view>
+        <view wx:for="{{item.sources}}" wx:for-item="source" wx:key="id" class="source" data-kind="{{source.kind}}" data-id="{{source.id}}" bindtap="openSource"><view class="source-head"><text class="source-kind">{{source.kind === 'machine' ? '机器' : source.kind === 'task' ? '指派事项' : '订单'}}</text><text class="source-status">{{source.status}}</text></view><view class="source-title">{{source.title}}</view><view class="source-summary">{{source.summary}}</view><view class="source-link">{{source.kind === 'task' ? '查看事项并更新进度 →' : '查看原始详情 →'}}</view></view>
         <view wx:if="{{item.time}}" class="timestamp">本次查询 {{item.time}} · 以数据卡和详情为准</view>
       </view>
       <view wx:if="{{messages.length === 1}}" class="suggestions"><view class="muted">试着问问</view><view wx:for="{{suggestions}}" wx:key="*this" class="suggestion" data-text="{{item}}" bindtap="suggest">{{item}} <text>↗</text></view></view>
-      <view wx:if="{{busy}}" id="thinking" class="thinking">正在查询数据并整理回答…</view>
+      <view wx:if="{{busy}}" id="thinking" class="thinking">正在处理请求…</view>
       <view wx:if="{{error}}" class="error">{{error}}</view>
       <view wx:if="{{!checking && !configured}}" class="setup-notice">{{error ? '你仍可使用底部机器、订单入口。' : '模型尚未接入，机器和订单功能可正常使用。'}}<text class="link" bindtap="check"> 重新检查</text></view>
     </view>
   </scroll-view>
-  <view class="composer"><view class="compose-row"><textarea class="chat-input" value="{{draft}}" bindinput="field" maxlength="800" auto-height="{{true}}" placeholder="输入机器编号、订单号或进度问题…" disabled="{{busy}}" cursor-spacing="20" /><button class="send" bindtap="send" loading="{{busy}}" disabled="{{busy || checking || !configured || !draft}}">发送</button></view><view class="compose-note">AI 回答仅供参考 · 加工和出货请在机器页面录入</view></view>
+  <view class="composer"><view class="compose-row"><textarea class="chat-input" value="{{draft}}" bindinput="field" maxlength="800" auto-height="{{true}}" placeholder="{{canAssign ? '查询进度，或让某员工跟进某个订单…' : '输入机器编号、订单号或进度问题…'}}" disabled="{{busy}}" cursor-spacing="20" /><button class="send" bindtap="send" loading="{{busy}}" disabled="{{busy || checking || !configured || !draft}}">发送</button></view><view class="compose-note">AI 回答仅供参考 · 加工和出货请在机器页面录入</view></view>
 </view>

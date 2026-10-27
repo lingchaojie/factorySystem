@@ -87,6 +87,17 @@ describe("public CNC introduction and private assistant", () => {
     expect(wx.navigateTo).toHaveBeenCalledWith({ url: "/pages/machine/index?id=m1" });
     page.openSource({ currentTarget: { dataset: { kind: "admin", id: "m1" } } });
     expect(wx.navigateTo).toHaveBeenCalledOnce();
+    page.openSource({ currentTarget: { dataset: { kind: "task", id: "task1" } } });
+    expect(wx.navigateTo).toHaveBeenLastCalledWith({ url: "/pages/task/index?id=task1" });
     page.onHide();
+  });
+  it("reuses the entire request after an uncertain submission without duplicating the user's message", async () => {
+    const api = { requireAuth: () => true, session: () => ({ token: 'owner' }), request: vi.fn().mockRejectedValue(Object.assign(new Error('timeout'), { uncertain: true })) };
+    const page = pageAt('assistant', api, {}); page.owner = 'owner';
+    Object.assign(page.data, { configured: true, checking: false, draft: '让员工1跟进订单007' });
+    await page.send(); const original = api.request.mock.calls[0][1].data;
+    expect(page.data.draft).toBe('让员工1跟进订单007'); await page.send();
+    expect(api.request.mock.calls[1][1].data).toEqual(original);
+    expect(page.data.messages.filter((m: { role: string }) => m.role === 'user')).toHaveLength(1);
   });
 });
