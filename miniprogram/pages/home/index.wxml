@@ -1,35 +1,38 @@
-<view class="company">
-  <view class="cover">
-    <view class="brand"><view class="brand-icon">精</view><view><view class="brand-name">精工精密</view><view class="brand-sub">JINGGONG PRECISION</view></view><text class="staff-entry" bindtap="enter">员工入口 →</text></view>
-    <view class="overline">五轴联动 · 精密制造</view>
-    <view class="headline">复杂曲面，<view>精密成形。</view></view>
-    <view class="intro">专注五轴加工、精密车铣与定制零件制造，为自动化装备、机器人及精密仪器提供从样件到批量的加工支持。</view>
-    <view class="hero-tags"><text>复杂结构</text><text>多面加工</text><text>小批量定制</text></view>
-    <view class="drawing"><view class="axis-mark">5 AXIS</view><view class="cross horizontal"></view><view class="cross vertical"></view><view class="part-ring"><view class="part-core"></view></view><view class="drawing-caption">五轴加工 / 精密结构件</view><view class="drawing-id">JG PRECISION</view></view>
-    <view class="cover-foot"><text>图纸评审 / 工艺开发 / 精密交付</text><text>EST. FOR PRECISION</text></view>
-  </view>
-  <view class="content">
-    <view class="section-top"><view><view class="eyebrow">ABOUT JINGGONG</view><view class="section-title">以制造经验，回应设计要求</view></view><text class="section-no">01 /</text></view>
-    <view class="about-copy">精工精密是一家专注精密机械零件的制造企业。我们围绕零件的结构、材料与装配需求制定加工方案，将工艺评审、加工制造与质量检测衔接起来，为客户提供稳定、可追溯的零件交付。</view>
-    <view class="company-points"><view>单件打样<text>验证设计与装配</text></view><view>小批试制<text>优化工艺与一致性</text></view><view>批量配套<text>支持持续供货</text></view></view>
-    <view class="section-top"><view><view class="eyebrow">MACHINING CAPABILITIES</view><view class="section-title">从复杂曲面，到精密配合</view></view><text class="section-no">02 /</text></view>
-    <view class="capabilities">
-      <view class="capability wide featured"><text class="cap-index">5-AXIS MACHINING</text><view class="cap-title">五轴联动加工</view><view class="muted">支持复杂曲面、斜孔及多角度结构件加工。通过合理的装夹与刀路规划，减少重复定位，兼顾结构精度与表面质量。</view><view class="part-tags"><text>叶轮类零件</text><text>复杂壳体</text><text>异形结构件</text></view></view>
-      <view class="capability"><text class="cap-index">TURNING</text><view class="cap-title">CNC 精密车削</view><view class="muted">轴类、轴套与螺纹件<view>关注同轴度及配合尺寸</view></view></view>
-      <view class="capability"><text class="cap-index">TURN-MILL</text><view class="cap-title">车铣复合加工</view><view class="muted">回转与铣削特征集成<view>减少转序与装夹误差</view></view></view>
+<view class="company-shell">
+  <view class="company-header"><view class="brand-icon">精</view><view class="brand"><view class="brand-name">精工精密</view><view class="brand-sub">JINGGONG PRECISION</view></view><text class="company-mark">五轴 · 精密制造</text></view>
+  <view class="company-layout">
+    <view class="sidebar">
+      <view class="rail-label">探索精工</view>
+      <button wx:for="{{sections}}" wx:key="id" class="nav-item {{activeSection === item.id ? 'active' : ''}}" data-section="{{item.id}}" bindtap="selectSection"><text class="nav-number">{{item.number}}</text><text class="nav-label">{{item.label}}</text><text class="nav-english">{{item.english}}</text></button>
+      <view class="rail-bottom"><view class="rail-monogram">JG.</view><button class="staff-entry" bindtap="enter">{{loggedIn ? '工作台' : '员工入口'}}<text>→</text></button></view>
     </view>
-    <view class="material-card"><view class="cap-title">适配不同材料与使用场景</view><view class="muted">依据材料特性选择刀具、切削参数和工艺路线。</view><view class="materials"><text>铝合金 6061 / 7075</text><text>不锈钢 304 / 316</text><text>铜合金</text><text>工程塑料 POM / PEEK</text></view></view>
-    <view class="section-top"><view><view class="eyebrow">QUALITY ASSURANCE</view><view class="section-title">把质量，放进每一道工序</view></view><text class="section-no">03 /</text></view>
-    <view class="quality-intro">围绕图纸要求建立检验项目，结合三坐标测量、影像测量与专用量具，对关键尺寸、形位公差及外观进行核验。</view>
-    <view class="process">
-      <view class="process-row"><text class="step">01</text><view><view class="cap-title">首件确认</view><view class="muted">核对基准、配合尺寸与加工特征，确认工艺后再进入批量生产。</view></view></view>
-      <view class="process-row"><text class="step">02</text><view><view class="cap-title">过程巡检</view><view class="muted">关注刀具磨损与尺寸变化，保留检验记录，及时处理过程偏差。</view></view></view>
-      <view class="process-row"><text class="step">03</text><view><view class="cap-title">出货复核</view><view class="muted">按约定检验方案复核成品、数量与标识，做好防护包装及批次追溯。</view></view></view>
-    </view>
-    <view class="section-top"><view><view class="eyebrow">INDUSTRIES WE SERVE</view><view class="section-title">服务不同领域的精密需求</view></view><text class="section-no">04 /</text></view>
-    <view class="industries"><view><text>自动化与机器人</text><view>连接件、关节结构件、精密治具</view></view><view><text>精密仪器</text><view>壳体、支架、定位与传动零件</view></view><view><text>通用工业装备</text><view>定制轴套、阀体及装配配套零件</view></view></view>
-    <view class="portal"><view class="eyebrow">YOUR MANUFACTURING PARTNER</view><view class="section-title">从一张图纸，<view>到一批可靠的零件。</view></view><view class="portal-copy">以工艺理解设计，以检测确认品质，<view>以稳定交付建立长期合作。</view></view></view>
-    <view class="staff-portal"><button class="secondary" bindtap="enter">{{loggedIn ? '进入员工工作台' : '员工登录'}} →</button></view>
-    <view class="footer">精工精密 · 五轴加工与精密零件制造<view>虚构企业展示 · 加工能力与应用场景均为演示内容</view></view>
+    <scroll-view class="section-scroller" scroll-y="{{true}}" scroll-into-view="panel-{{activeSection}}">
+      <view wx:if="{{activeSection === 'about'}}" id="panel-about" class="panel about-panel">
+        <view class="eyebrow">ABOUT US</view><view class="section-title">以精密制造，<view>回应每一份设计。</view></view>
+        <view class="photo-wrap"><image wx:if="{{!failedImages.workshop}}" class="hero-photo" src="{{photos.workshop}}" mode="aspectFill" data-photo="workshop" bindtap="previewPhoto" binderror="photoError"/><view wx:else class="photo-fallback">车间照片暂不可用</view><view class="photo-caption">车间实拍素材 · 场景示意</view></view>
+        <view class="lead">从图纸评审到零件交付</view><view class="body-copy">精工精密专注五轴加工、精密车铣与定制零件制造，面向自动化装备、机器人和精密仪器，提供样件试制与批量配套。</view>
+        <view class="value-card"><view><text>单件打样</text><view>验证结构与装配</view></view><view><text>小批试制</text><view>优化工艺与一致性</view></view><view><text>批量配套</text><view>支持稳定供货</view></view></view>
+        <view class="statement">理解图纸，也理解制造。<view>让尺寸、品质与交付相互衔接。</view></view>
+        <button class="section-link" data-section="machining" bindtap="selectSection">了解设备与技术 →</button>
+      </view>
+      <view wx:if="{{activeSection === 'machining'}}" id="panel-machining" class="panel machining-panel">
+        <view class="eyebrow">PRECISION MACHINING</view><view class="section-title">设备与技术</view><view class="section-intro">五轴联动 / 精密车削 / 车铣复合</view>
+        <view class="photo-wrap"><image wx:if="{{!failedImages.machining}}" class="hero-photo" src="{{photos.machining}}" mode="aspectFill" data-photo="machining" bindtap="previewPhoto" binderror="photoError"/><view wx:else class="photo-fallback">设备照片暂不可用</view><view class="photo-caption">五轴加工设备 · 实拍素材</view></view>
+        <view class="technology-card"><view class="technology-number">01 / FIVE AXIS</view><view class="lead">五轴联动加工</view><view class="body-copy">面向复杂曲面、斜孔与多角度结构，通过装夹与刀路规划减少重复定位，兼顾结构精度和表面质量。</view></view>
+        <view class="technology-card"><view class="technology-number">02 / TURNING &amp; MILLING</view><view class="lead">精密车削与车铣复合</view><view class="body-copy">围绕轴套、连接件与回转结构，处理台阶、螺纹、孔位及铣削特征，关注同轴度和配合尺寸。</view></view>
+        <view class="technology-card"><view class="technology-number">03 / QUALITY</view><view class="lead">质量控制贯穿工序</view><view class="quality-steps"><text>首件确认</text><text>过程巡检</text><text>出货复核</text></view><view class="body-copy">结合三坐标、影像测量与专用量具核验关键尺寸及形位要求，保留检验与批次记录。</view></view>
+        <view class="material-box"><view class="lead">材料能力</view><view class="material-tags"><text>铝合金</text><text>不锈钢</text><text>铜合金</text><text>POM / PEEK</text></view></view>
+        <button class="section-link" data-section="products" bindtap="selectSection">查看生产件展示 →</button>
+      </view>
+      <view wx:if="{{activeSection === 'products'}}" id="panel-products" class="panel products-panel">
+        <view class="eyebrow">PARTS GALLERY</view><view class="section-title">生产件展示</view><view class="section-intro">齿轮、花键轴与精密车削件</view>
+        <view class="product-card"><image wx:if="{{!failedImages.gears}}" class="product-photo gear-photo" src="{{photos.gears}}" mode="widthFix" data-photo="gears" bindtap="previewPhoto" binderror="photoError"/><view wx:else class="photo-fallback">齿轮照片暂不可用</view><view class="product-copy"><view class="part-number">PART TYPE / 01</view><view class="lead">齿轮与花键轴</view><view class="body-copy">展示齿形、花键与多台阶轴等典型结构，工艺方案依据图纸和材料评估。</view><view class="part-tags"><text>传动结构</text><text>类型示意</text></view></view></view>
+        <view class="product-card"><image wx:if="{{!failedImages.parts}}" class="product-photo" src="{{photos.parts}}" mode="aspectFill" data-photo="parts" bindtap="previewPhoto" binderror="photoError"/><view wx:else class="photo-fallback">零件照片暂不可用</view><view class="product-copy"><view class="part-number">PART TYPE / 02</view><view class="lead">精密轴套与车削件</view><view class="body-copy">关注内外径配合、孔槽特征与表面状态，覆盖样件和批量配套的常见需求。</view><view class="part-tags"><text>回转零件</text><text>类型示意</text></view></view></view>
+        <view class="gallery-note">点击图片可查看大图。示意照片不对应演示工厂的实际订单或客户项目。</view>
+      </view>
+      <view class="company-footer"><view>精工精密 · 虚构企业展示</view><view class="footer-note">图片为授权实拍素材，场景与零件仅作示意。</view><button class="credits-toggle" bindtap="toggleCredits">图片来源与授权 {{creditsOpen ? '−' : '+'}}</button>
+        <view wx:if="{{creditsOpen}}" class="photo-credits"><view wx:for="{{imageCredits}}" wx:key="id" class="credit-row"><view>{{item.title}}</view><text>{{item.author}} · {{item.license}}</text><button class="copy-credit" data-id="{{item.id}}" bindtap="copyCredit">复制来源与许可链接</button></view></view>
+      </view>
+    </scroll-view>
   </view>
 </view>

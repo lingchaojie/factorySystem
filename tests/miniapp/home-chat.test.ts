@@ -1,14 +1,16 @@
 // @vitest-environment node
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
+import { createRequire } from "node:module";
 import { describe, expect, it, vi } from "vitest";
 
 // Native page harness; assert access boundaries and actual event handlers.
+const localRequire = createRequire(import.meta.url);
 function pageAt(path: string, api: object, wx: object) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let page: any;
   vm.runInNewContext(readFileSync("miniprogram/pages/" + path + "/index.js", "utf8"), {
-    require: (name: string) => name.endsWith('/chat') ? chat : api, wx, Page: (value: unknown) => { page = value; }, setTimeout, clearTimeout,
+    require: (name: string) => name.endsWith('/chat') ? chat : name.endsWith('/credits') ? localRequire('../../miniprogram/assets/company/credits.js') : api, wx, Page: (value: unknown) => { page = value; }, setTimeout, clearTimeout,
   });
   page.data = structuredClone(page.data);
   page.setData = (value: object) => Object.assign(page.data, value);
@@ -41,6 +43,25 @@ describe("public CNC introduction and private assistant", () => {
     const api = { requireAuth: vi.fn(() => false), request: vi.fn() };
     const page = pageAt("assistant", api, {}); page.onShow(); page.data.draft = "查订单"; await page.send();
     expect(api.request).not.toHaveBeenCalled();
+  });
+  it("switches the public sidebar only between known sections without requesting factory data", () => {
+    const api = { session: () => null, request: vi.fn() };
+    const page = pageAt("home", api, {});
+    page.selectSection({ currentTarget: { dataset: { section: "products" } } });
+    expect(page.data.activeSection).toBe("products");
+    page.selectSection({ currentTarget: { dataset: { section: "admin" } } });
+    expect(page.data.activeSection).toBe("products"); expect(api.request).not.toHaveBeenCalled();
+  });
+  it("previews only bundled known photos and credits each file", () => {
+    const wx = { previewImage: vi.fn(), setClipboardData: vi.fn() };
+    const page = pageAt("home", {}, wx);
+    page.previewPhoto({ currentTarget: { dataset: { photo: "gears" } } });
+    expect(wx.previewImage).toHaveBeenCalledWith(expect.objectContaining({ current: "/assets/company/gears.jpg" }));
+    page.previewPhoto({ currentTarget: { dataset: { photo: "https://unknown.example" } } });
+    expect(wx.previewImage).toHaveBeenCalledOnce();
+    page.copyCredit({ currentTarget: { dataset: { id: "gears" } } });
+    expect(wx.setClipboardData.mock.calls[0][0].data).toContain("creativecommons.org/licenses/by-sa/4.0");
+    for (const credit of page.data.imageCredits) expect(readFileSync('miniprogram/assets/company/' + credit.filename).byteLength).toBeGreaterThan(1000);
   });
   it("submits an authenticated query directly without a provider confirmation, and locks duplicate taps", async () => {
     const api = { requireAuth: vi.fn(() => true), session: vi.fn(() => ({ token: "owner" })),
