@@ -30,4 +30,6 @@
 
 此次无数据库结构变更、迁移和种子执行。更新后台镜像时必须覆盖默认 entrypoint 为 npm run start，防止默认启动脚本运行 seed。部署前后用 scripts/audit-factory-business.cjs 比较所有工厂业务表摘要；会话登录变化不计入业务摘要。仅新增小程序 API 和小程序页面，不改网站 React 页面。
 
+服务器访问 Google Fonts 曾超时。部署时可从已有镜像复制 `.next/static` 到构建阶段的 `/factory-fonts`，并在该次 `npm run build` 设置 `NEXT_FONT_GOOGLE_MOCKED_RESPONSES=/app/deploy/production/offline-fonts.cjs`。该适配器只读取已有的真实字体 CSS 和 woff2 字节，缺文件立即失败；没有占位字体，也不改网站页面源码。该变量仅用于构建，不传入运行容器。
+
 验证包括北京时间边界、分批数量、异常/无计划、任务去重、完整汇总和分页、会话隔离、代理白名单与小程序迟到响应隔离。线上联调仅用新演示工厂，不录入或修改锦强数据。
